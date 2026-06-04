@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
+import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
 import {
   analyseBasicPatterns,
   analysisToWizardParams,
@@ -33,20 +34,34 @@ interface Props {
 
 export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
   const [wizardActive, setWizardActive] = useState(false);
+  const [kidControlActive, setKidControlActive] = useState(false);
   const analysis = useMemo(() => analyseBasicPatterns(model), [model]);
 
-  // New/empty model → wizard immediately, no cancel button
+  // Inline KidControl wizard
+  if (kidControlActive) {
+    return (
+      <div className={css.root}>
+        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12, alignSelf: 'flex-start' }}
+          onClick={() => setKidControlActive(false)}>
+          ← Back to summary
+        </button>
+        <KidModeWizard model={model} onChange={onChange} />
+      </div>
+    );
+  }
+
+  // Setup wizard
   if (analysis.kind === 'empty' || wizardActive) {
     const initialParams = (wizardActive && analysis.kind === 'recognised')
       ? analysisToWizardParams(analysis)
       : undefined;
     return (
       <SetupWizard
-        model={model}
         onChange={onChange}
         initialParams={initialParams}
         onCancel={wizardActive ? () => setWizardActive(false) : undefined}
         onSwitchToAdvanced={onSwitchToAdvanced}
+        onLaunchKidControl={() => { setWizardActive(false); setKidControlActive(true); }}
       />
     );
   }
@@ -61,7 +76,7 @@ export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
       analysis={analysis}
       onChange={onChange}
       onRunWizard={() => setWizardActive(true)}
-      onSwitchToAdvanced={onSwitchToAdvanced}
+      onRunKidControl={() => setKidControlActive(true)}
     />
   );
 }
@@ -93,24 +108,19 @@ interface RecognisedViewProps {
   analysis: BasicAnalysis;
   onChange: (updater: (m: Model) => Model) => void;
   onRunWizard: () => void;
-  onSwitchToAdvanced?: () => void;
+  onRunKidControl: () => void;
 }
 
-function RecognisedView({ model, analysis, onChange, onRunWizard, onSwitchToAdvanced }: RecognisedViewProps) {
+function RecognisedView({ model, analysis, onChange, onRunWizard, onRunKidControl }: RecognisedViewProps) {
   const inputMap = useMemo(() => buildInputMap(model.expoData ?? []), [model.expoData]);
+  const kidActive = !!model.flightModeData?.['1'];
 
   return (
     <div className={css.root}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+      <div style={{ marginBottom: 4 }}>
         <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>
           ⚙ Re-run setup wizard
         </button>
-        {onSwitchToAdvanced && (
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }}
-            onClick={onSwitchToAdvanced}>
-            Advanced view
-          </button>
-        )}
       </div>
 
       {analysis.throttle && (
@@ -119,6 +129,31 @@ function RecognisedView({ model, analysis, onChange, onRunWizard, onSwitchToAdva
       {analysis.steering && (
         <SteeringCard analysis={analysis} onChange={onChange} />
       )}
+
+      {/* KidControl */}
+      <section className={css.card}>
+        <div className={css.cardHeader}>
+          <span className={css.cardIcon}>🔒</span>
+          <span className={css.cardTitle}>KidControl</span>
+          {kidActive && <span className={css.cardMeta}>Active</span>}
+        </div>
+        {kidActive ? (
+          <>
+            <p className={css.fieldHint}>KidControl is active — reduced throttle and steering limits are in effect when the trigger switch is engaged.</p>
+            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
+              ⚙ Re-run KidControl wizard
+            </button>
+          </>
+        ) : (
+          <>
+            <p className={css.fieldHint}>KidControl adds a safe driving mode with reduced speed and steering limits, activated by a switch.</p>
+            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
+              + Set up KidControl
+            </button>
+          </>
+        )}
+      </section>
+
       {!analysis.throttle && !analysis.steering && (
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
           No throttle or steering configured.{' '}
@@ -140,7 +175,6 @@ interface CardProps {
 function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
   const { throttle, cruise, drate } = analysis;
   if (!throttle) return null;
-
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
@@ -148,29 +182,18 @@ function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
         <span className={css.cardTitle}>Throttle</span>
         <span className={css.cardMeta}>CH{throttle.destCh + 1}</span>
       </div>
-
       <p className={css.fieldHint}>Your trigger controls forward/backward speed.</p>
-
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Trigger rate</span>
-        <WeightSlider
-          value={throttle.weight}
-          onChange={(v) => onChange((m) => setThrottleWeight(m, analysis, v))}
-          min={0} max={100}
-        />
+        <WeightSlider value={throttle.weight} onChange={(v) => onChange((m) => setThrottleWeight(m, analysis, v))} min={0} max={100} />
       </div>
-
       {cruise ? (
         <CruiseSubCard analysis={analysis} onChange={onChange} />
       ) : (
-        <button
-          className={`btn btn-ghost btn-sm ${css.addBtn}`}
-          onClick={() => onChange((m) => addCruise(m, analysis, 'SC2', 70))}
-        >
+        <button className={`btn btn-ghost btn-sm ${css.addBtn}`} onClick={() => onChange((m) => addCruise(m, analysis, 'SC2', 70))}>
           + Add cruise control
         </button>
       )}
-
       {drate && <DRateSubCard drate={drate} inputMap={inputMap} />}
     </section>
   );
@@ -195,9 +218,7 @@ function CruiseSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChan
         <span className={css.fieldLabel}>Cruise speed</span>
         <WeightSlider value={cruise.cruiseSpeed} onChange={(v) => onChange((m) => setCruiseSpeed(m, analysis, v))} min={0} max={100} />
       </div>
-      {analysis.drate && (
-        <p className={css.fieldHint}>Base speed before the speed limiter knob is applied — actual cruise speed depends on the knob position.</p>
-      )}
+      {analysis.drate && <p className={css.fieldHint}>Base speed before the speed limiter knob is applied.</p>}
     </div>
   );
 }
@@ -209,8 +230,7 @@ function DRateSubCard({ drate, inputMap }: { drate: NonNullable<BasicAnalysis['d
     <div className={css.subCard}>
       <div className={css.subHeader}><span className={css.subTitle}>Speed limiter</span></div>
       <p className={css.fieldHint}>
-        The <strong>{knobLabel}</strong> knob scales all throttle output —
-        fully down stops the vehicle regardless of trigger ({min}–{max}%).
+        The <strong>{knobLabel}</strong> knob scales all throttle — fully down stops the vehicle ({min}–{max}%).
       </p>
     </div>
   );
@@ -265,21 +285,22 @@ function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
 
 // ── Setup wizard ───────────────────────────────────────────────────────────────
 
-type WizardStep = 'throttle' | 'cruise' | 'drate' | 'steering' | 'confirm';
-const STEPS: WizardStep[] = ['throttle', 'cruise', 'drate', 'steering', 'confirm'];
+type WizardStep = 'throttle' | 'cruise' | 'drate' | 'steering' | 'kidcontrol' | 'confirm';
+const STEPS: WizardStep[] = ['throttle', 'cruise', 'drate', 'steering', 'kidcontrol', 'confirm'];
 const STEP_LABELS: Record<WizardStep, string> = {
-  throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter', steering: 'Steering', confirm: 'Done',
+  throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter',
+  steering: 'Steering', kidcontrol: 'KidControl', confirm: 'Done',
 };
 
 interface WizardProps {
-  model: Model;
   onChange: (updater: (m: Model) => Model) => void;
   initialParams?: WizardParams;
   onCancel?: () => void;
   onSwitchToAdvanced?: () => void;
+  onLaunchKidControl: () => void;
 }
 
-function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: WizardProps) {
+function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
   const [step, setStep] = useState<WizardStep>('throttle');
   const [params, setParams] = useState<WizardParams>(initialParams ?? defaultWizardParams());
 
@@ -296,7 +317,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
       logicalSw: { ...(m.logicalSw ?? {}), ...generated.logicalSw },
       inputNames: { ...(m.inputNames ?? {}), ...generated.inputNames },
     }));
-    onCancel?.();
+    if (params.wantKidControl) {
+      onLaunchKidControl();
+    } else {
+      onCancel?.();
+    }
   }
 
   const chOptions = Array.from({ length: 16 }, (_, i) => (
@@ -356,13 +381,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
           <p className={css.stepTitle}>Cruise control</p>
           <p className={css.stepSub}>Drive at a fixed speed without holding the trigger, toggled by a switch.</p>
           <div className={css.choiceGrid}>
-            <button className={params.wantCruise ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantCruise: true })}>
+            <button className={params.wantCruise ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantCruise: true })}>
               <span className={css.choiceLabel}>Yes, add cruise control</span>
               <span className={css.choiceDesc}>Pick a switch to toggle cruise on/off</span>
             </button>
-            <button className={!params.wantCruise ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantCruise: false })}>
+            <button className={!params.wantCruise ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantCruise: false })}>
               <span className={css.choiceLabel}>No cruise control</span>
               <span className={css.choiceDesc}>Trigger always controls throttle directly</span>
             </button>
@@ -391,13 +414,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
           <p className={css.stepTitle}>Speed limiter knob</p>
           <p className={css.stepSub}>Use the P2 knob to scale your maximum throttle — useful for letting younger drivers use the same transmitter.</p>
           <div className={css.choiceGrid}>
-            <button className={params.wantDRate ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantDRate: true })}>
+            <button className={params.wantDRate ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantDRate: true })}>
               <span className={css.choiceLabel}>Yes, add speed limiter</span>
               <span className={css.choiceDesc}>P2 knob limits maximum speed</span>
             </button>
-            <button className={!params.wantDRate ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantDRate: false })}>
+            <button className={!params.wantDRate ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantDRate: false })}>
               <span className={css.choiceLabel}>No speed limiter</span>
               <span className={css.choiceDesc}>Full throttle always available</span>
             </button>
@@ -414,13 +435,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
           <p className={css.stepTitle}>Steering</p>
           <p className={css.stepSub}>Your steering wheel controls direction.</p>
           <div className={css.choiceGrid}>
-            <button className={params.wantSteering ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantSteering: true })}>
+            <button className={params.wantSteering ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantSteering: true })}>
               <span className={css.choiceLabel}>Set up steering</span>
               <span className={css.choiceDesc}>Steering wheel controls direction</span>
             </button>
-            <button className={!params.wantSteering ? css.choiceBtnActive : css.choiceBtn}
-              onClick={() => patch({ wantSteering: false })}>
+            <button className={!params.wantSteering ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantSteering: false })}>
               <span className={css.choiceLabel}>Skip steering</span>
               <span className={css.choiceDesc}>Configure manually in Advanced view</span>
             </button>
@@ -452,14 +471,30 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
         </>
       )}
 
+      {step === 'kidcontrol' && (
+        <>
+          <p className={css.stepTitle}>KidControl</p>
+          <p className={css.stepSub}>KidControl adds a safe driving mode with reduced speed and steering limits, activated by a switch. Great for younger or less experienced drivers.</p>
+          <div className={css.choiceGrid}>
+            <button className={params.wantKidControl ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantKidControl: true })}>
+              <span className={css.choiceLabel}>Yes, set up KidControl</span>
+              <span className={css.choiceDesc}>Launch the KidControl wizard after this step</span>
+            </button>
+            <button className={!params.wantKidControl ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantKidControl: false })}>
+              <span className={css.choiceLabel}>Not now</span>
+              <span className={css.choiceDesc}>Can be set up later from the model summary</span>
+            </button>
+          </div>
+          <div className={css.wizardActions}>
+            <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
+            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+          </div>
+        </>
+      )}
+
       {step === 'confirm' && (
         <>
           <p className={css.stepTitle}>Ready to {initialParams ? 'apply' : 'create'}</p>
-          <p className={css.stepSub}>
-            {initialParams
-              ? 'This will replace your current mixes with the configuration below.'
-              : 'This will set up your model with the following configuration:'}
-          </p>
           <div className={css.wizardConfig} style={{ gap:6 }}>
             <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
               <strong>Throttle</strong> on CH{params.throttleDestCh + 1}
@@ -472,12 +507,17 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced }: 
                 {params.wantSTrim && ' · with trim'}
               </p>
             )}
+            {params.wantKidControl && (
+              <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+                <strong>KidControl</strong> — wizard will launch next
+              </p>
+            )}
           </div>
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
             <button className="btn btn-primary btn-sm" onClick={finish}>
-              {initialParams ? 'Apply configuration' : 'Create configuration'}
+              {params.wantKidControl ? 'Create & launch KidControl →' : (initialParams ? 'Apply configuration' : 'Create configuration')}
             </button>
           </div>
         </>

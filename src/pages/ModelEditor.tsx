@@ -30,7 +30,7 @@ const ADVANCED_TABS: Tab[] = [
   { id: 'limits',      label: 'Limits' },
   { id: 'logicalsw',   label: 'Logical Sw' },
   { id: 'specialfn',   label: 'Special Fn' },
-  { id: 'kidmode',     label: 'Kid Mode' },
+  { id: 'kidmode',     label: 'KidControl' },
 ];
 
 const TAB_DESCRIPTIONS: Record<string, string> = {
@@ -60,7 +60,7 @@ const TAB_DESCRIPTIONS: Record<string, string> = {
   specialfn:
     'Special functions run actions when a switch is activated — playing an audio file, adjusting the backlight, resetting a timer, or setting a global variable.',
   kidmode:
-    'Kid Mode creates a safe driving profile with reduced maximum throttle and steering, a softer throttle ramp-up, ' +
+    'KidControl creates a safe driving profile with reduced maximum throttle and steering, a softer throttle ramp-up, ' +
     'activated by a switch you choose. Flip the switch back to return to full control.',
 };
 
@@ -122,12 +122,19 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           </div>
         </div>
 
-        <div className={css.basicBody}>
-          <BasicMixView
-            model={model}
-            onChange={handleChange}
-            onSwitchToAdvanced={switchToAdvanced}
-          />
+        <div className={css.body}>
+          <div className={css.content}>
+            <BasicMixView model={model} onChange={handleChange} />
+          </div>
+          <div className={css.diagramPanel}>
+            <div className={css.diagramTitle}>MT12 controls</div>
+            <Mt12Diagram sdRoot={sdRoot} selected={diagramSelected} onSelect={setDiagramSelected} />
+            {diagramSelected && (
+              <p className={css.diagramHint}>
+                <strong>{diagramSelected}</strong> — physical location on transmitter
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );

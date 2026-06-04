@@ -40,8 +40,8 @@ export function ModelSummary({ model, onHoverControl }: Props) {
       <p className={css.lead}>
         This profile controls {s.channels.length} channel{s.channels.length !== 1 ? 's' : ''}.
         {s.kidMode.active
-          ? ` Kid Mode is active — FM1 "${model.flightModeData?.['1']?.name ?? 'Kid'}" triggered by ${s.kidMode.triggerSwitch ?? 'unknown switch'}.`
-          : ' Kid Mode is not configured.'}
+          ? ` KidControl is active — FM1 "${model.flightModeData?.['1']?.name ?? 'Kid'}" triggered by ${s.kidMode.triggerSwitch ?? 'unknown switch'}.`
+          : ' KidControl is not configured.'}
       </p>
 
       {/* Channels */}
@@ -86,17 +86,17 @@ export function ModelSummary({ model, onHoverControl }: Props) {
         </div>
       )}
 
-      {/* Kid Mode status */}
+      {/* KidControl status */}
       <div className={`${css.kidSection} ${s.kidMode.active ? css.kidActive : ''}`}>
         <span className={css.kidIcon}>{s.kidMode.active ? '🔒' : '🔓'}</span>
         <div>
           <div className={css.kidTitle}>
-            {s.kidMode.active ? 'Kid Mode active' : 'Kid Mode not configured'}
+            {s.kidMode.active ? 'KidControl active' : 'KidControl not configured'}
           </div>
           <div className={css.kidHint}>
             {s.kidMode.active
-              ? `FM1 reduces throttle and steering limits. Triggered by ${s.kidMode.triggerSwitch ?? 'a switch'}. Remove via the Kid Mode tab.`
-              : 'Open the Kid Mode tab to set up reduced throttle and steering limits for younger drivers.'}
+              ? `FM1 reduces throttle and steering limits. Triggered by ${s.kidMode.triggerSwitch ?? 'a switch'}. Remove via the KidControl tab.`
+              : 'Open the KidControl tab to set up reduced throttle and steering limits for younger drivers.'}
           </div>
         </div>
       </div>

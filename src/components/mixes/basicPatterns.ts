@@ -251,16 +251,17 @@ export function addSTrim(model: Model, a: BasicAnalysis): Model {
 // ── Wizard generation ─────────────────────────────────────────────────────────
 
 export interface WizardParams {
-  throttleDestCh: number;   // 0-based; default 2 = CH3
-  throttleWeight: number;   // default 100
+  throttleDestCh: number;
+  throttleWeight: number;
   wantCruise: boolean;
-  cruiseSw: string;         // e.g. "SC2"
-  cruiseSpeed: number;      // 0–100
+  cruiseSw: string;
+  cruiseSpeed: number;
   wantDRate: boolean;
   wantSteering: boolean;
-  steeringDestCh: number;   // 0-based; default 3 = CH4
-  steeringWeight: number;   // default 100
+  steeringDestCh: number;
+  steeringWeight: number;
   wantSTrim: boolean;
+  wantKidControl: boolean;
 }
 
 // Convert an existing analysis back into wizard params so the wizard can be pre-populated.
@@ -277,6 +278,7 @@ export function analysisToWizardParams(analysis: BasicAnalysis): WizardParams {
     steeringDestCh:  analysis.steering?.destCh   ?? d.steeringDestCh,
     steeringWeight:  analysis.steering?.weight    ?? d.steeringWeight,
     wantSTrim:       !!analysis.strim,
+    wantKidControl:  false,
   };
 }
 
@@ -292,6 +294,7 @@ export function defaultWizardParams(): WizardParams {
     steeringDestCh: 3,
     steeringWeight: 100,
     wantSTrim: false,
+    wantKidControl: false,
   };
 }
 

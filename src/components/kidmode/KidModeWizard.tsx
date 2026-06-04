@@ -118,17 +118,17 @@ export function KidModeWizard({ model, onChange }: Props) {
       <div className={css.root}>
         <div className={css.activeCard}>
           <div className={css.activeHeader}>
-            <span className={css.activeBadge}>Kid Mode active</span>
+            <span className={css.activeBadge}>KidControl active</span>
             {fm1?.swtch && fm1.swtch !== 'NONE' && (
               <span className={css.activeSwitch}>trigger: {fm1.swtch}</span>
             )}
           </div>
           <p className={css.activeHint}>
             FM1 &ldquo;{fm1?.name ?? 'Kid'}&rdquo; is configured with rate-limited throttle and steering expo lines.
-            Remove Kid Mode to delete FM1 and all KID-* expo/mix lines.
+            Remove KidControl to delete FM1 and all KID-* expo/mix lines.
           </p>
           <button className="btn btn-danger btn-sm" onClick={handleRemove}>
-            Remove Kid Mode
+            Remove KidControl
           </button>
         </div>
       </div>
@@ -244,7 +244,7 @@ export function KidModeWizard({ model, onChange }: Props) {
 
           <div className={css.section}>
             <h4 className={css.sectionTitle}>Trigger switch</h4>
-            <p className={css.switchHint}>Kid Mode activates when this switch is in the selected position (FM1).</p>
+            <p className={css.switchHint}>KidControl activates when this switch is in the selected position (FM1).</p>
             <div className={css.switchRow}>
               <label className={css.switchLabel}>Switch</label>
               <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} />
@@ -252,7 +252,7 @@ export function KidModeWizard({ model, onChange }: Props) {
           </div>
 
           <div className={css.previewBox}>
-            <span className={css.previewTitle}>Effective in Kid Mode (FM1)</span>
+            <span className={css.previewTitle}>Effective in KidControl (FM1)</span>
             <div className={css.previewGrid}>
               <span>Throttle</span><span>{params.thrRate}% max, expo {params.thrExpo}, accel {params.speedUp * 0.1}s / decel {params.speedDown * 0.1}s</span>
               <span>Steering</span><span>{params.strRate}% max, expo {params.strExpo}</span>
@@ -265,7 +265,7 @@ export function KidModeWizard({ model, onChange }: Props) {
               ← Back
             </button>
             <button className="btn btn-primary" onClick={handleApply}>
-              Apply Kid Mode
+              Apply KidControl
             </button>
           </div>
         </div>

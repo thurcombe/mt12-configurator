@@ -70,15 +70,7 @@
   color: #fff;
 }
 
-/* Basic view body — full width, scrollable */
-.basicBody {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 20px;
-  max-width: 720px;
-}
-
-/* Below topBar + tabBar: two-column layout */
+/* Below topBar (and optional tabBar): two-column layout */
 .body {
   flex: 1;
   display: flex;
