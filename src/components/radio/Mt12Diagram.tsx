@@ -252,6 +252,7 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
   const [activeControl, setActiveControl] = useState<string>(CONTROLS[0].name);
   const [positions, setPositions] = useState<Positions>({});
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   // Load positions from SD card when it connects; migrate from localStorage if needed.
   useEffect(() => {
@@ -339,13 +340,21 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
           <button className={css.placeBtn} onClick={() => { setPlacing(true); setEnlarged(true); }}>
             {allPlaced ? '⚙ Reposition labels' : '⚙ Place control labels'}
           </button>
-          {Object.keys(positions).length > 0 && (
-            <button className={css.placeBtn} onClick={() => {
-              if (!window.confirm('Remove all label positions? You will need to place them again from scratch.')) return;
-              savePositions({});
-            }}>
+          {Object.keys(positions).length > 0 && !confirmingClear && (
+            <button className={css.placeBtn} onClick={() => setConfirmingClear(true)}>
               Clear all
             </button>
+          )}
+          {confirmingClear && (
+            <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
+              <span style={{ color:'var(--text)' }}>Remove all label positions?</span>
+              <button className="btn btn-danger btn-sm" onClick={() => { savePositions({}); setConfirmingClear(false); }}>
+                Remove
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmingClear(false)}>
+                Cancel
+              </button>
+            </span>
           )}
           {!allPlaced && Object.keys(positions).length > 0 && (
             <span className={css.placeHint}>{placed.length}/{CONTROLS.length} placed</span>

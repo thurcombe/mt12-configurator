@@ -38,6 +38,46 @@
   background: var(--bg);
 }
 
+/* Basic/Advanced toggle in topBar */
+.toggleGroup {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toggle {
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.toggle:hover { background: var(--surface-hi); color: var(--text); }
+
+.toggleActive {
+  background: var(--accent);
+  border: none;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 14px;
+  cursor: default;
+  color: #fff;
+}
+
+/* Basic view body — full width, scrollable */
+.basicBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  max-width: 720px;
+}
+
 /* Below topBar + tabBar: two-column layout */
 .body {
   flex: 1;

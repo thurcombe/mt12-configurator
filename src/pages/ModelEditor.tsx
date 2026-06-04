@@ -12,7 +12,7 @@ import { LimitsEditor } from '../components/limits/LimitsEditor.tsx';
 import { LogicalSwEditor } from '../components/logicalsw/LogicalSwEditor.tsx';
 import { SpecialFnEditor } from '../components/specialfn/SpecialFnEditor.tsx';
 import { KidModeWizard } from '../components/kidmode/KidModeWizard.tsx';
-import { ModelSummary } from '../components/models/ModelSummary.tsx';
+import { BasicMixView } from '../components/mixes/BasicMixView.tsx';
 import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
 import css from './ModelEditor.module.css';
 
@@ -21,11 +21,10 @@ interface Props {
   navigate: (r: Route) => void;
 }
 
-const TABS: Tab[] = [
-  { id: 'summary',     label: 'Summary' },
+const ADVANCED_TABS: Tab[] = [
   { id: 'module',      label: 'Module' },
   { id: 'timers',      label: 'Timers' },
-  { id: 'flightmodes', label: 'Flight Modes' },
+  { id: 'flightmodes', label: 'Drive Modes' },
   { id: 'mixes',       label: 'Mixes' },
   { id: 'expos',       label: 'Expos' },
   { id: 'limits',      label: 'Limits' },
@@ -47,32 +46,27 @@ const TAB_DESCRIPTIONS: Record<string, string> = {
     'FM0 is always the default. FM1 onwards activate when their assigned switch is flipped — for example Kid Mode runs in FM1 with reduced throttle and steering limits.',
   mixes:
     'Mixes define how physical inputs (trigger, wheel, switches, pots) are processed into the output channels sent to the receiver. ' +
-    'CH3 typically controls throttle, CH4 steering. Each channel can have multiple mix lines stacked — for example a base throttle input, ' +
-    'multiplied by a dial for speed limiting, with a cruise-hold override on a switch.',
+    'CH3 typically controls throttle, CH4 steering. Each channel can have multiple mix lines stacked.',
   expos:
     'Expo (exponential) and dual rate settings shape how your controls feel to drive. ' +
-    'Dual rate sets the maximum stick travel as a percentage — 70% means the trigger can only reach 70% of full throttle. ' +
-    'Expo curves the response near the centre position, making fine control gentler without reducing the maximum. ' +
-    'You can have different rates switch in via a physical switch.',
+    'Dual rate sets the maximum stick travel as a percentage. ' +
+    'Expo curves the response near the centre position, making fine control gentler without reducing the maximum.',
   limits:
-    'Output limits cap the minimum and maximum servo signal sent on each channel, protecting against over-travel that could damage servos or linkages. ' +
-    'Subtrim adjusts the neutral/centre point without touching the physical trim levers. ' +
-    'Invert flips the direction of a channel if your servo is wired in reverse.',
+    'Output limits cap the minimum and maximum servo signal sent on each channel, protecting against over-travel. ' +
+    'Subtrim adjusts the neutral/centre point. Invert flips the direction of a channel.',
   logicalsw:
-    'Logical switches are virtual switches you create from conditions — for example "SC is up AND throttle is above 30%", ' +
-    'or a sticky switch that latches on when triggered and stays on until reset. ' +
-    'They can be used as sources in mixes (cruise control) or triggers in special functions (play a sound).',
+    'Logical switches are virtual switches you create from conditions — for example a sticky switch that latches on when triggered and stays on until reset. ' +
+    'They can be used in mixes (cruise control) or triggers in special functions.',
   specialfn:
-    'Special functions run actions when a switch is activated — playing an audio file, adjusting the backlight, resetting a timer, ' +
-    'setting a global variable, or disabling switches. The MT12 can play WAV files from the SD card for spoken alerts.',
+    'Special functions run actions when a switch is activated — playing an audio file, adjusting the backlight, resetting a timer, or setting a global variable.',
   kidmode:
-    'Kid Mode creates a safe driving profile for younger or less experienced drivers. ' +
-    'It adds a second drive mode (FM1) with reduced maximum throttle and steering, a softer throttle ramp-up, ' +
-    'and is activated by a switch you choose. The normal driving mode is unaffected — flip the switch back to return to full control.',
+    'Kid Mode creates a safe driving profile with reduced maximum throttle and steering, a softer throttle ramp-up, ' +
+    'activated by a switch you choose. Flip the switch back to return to full control.',
 };
 
 export function ModelEditor({ modelKey, navigate }: Props) {
-  const [tab, setTab] = useState('summary');
+  const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('basic');
+  const [tab, setTab] = useState('mixes');
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>(undefined);
   const model = useEditorStore((s) => s.models[modelKey]);
   const isDirty = useEditorStore((s) => s.isDirty(modelKey));
@@ -95,6 +89,52 @@ export function ModelEditor({ modelKey, navigate }: Props) {
     updateModel(modelKey, updater);
   }
 
+  function switchToAdvanced() {
+    setViewMode('advanced');
+    setTab('mixes');
+  }
+
+  // ── Basic view ─────────────────────────────────────────────────────────────
+
+  if (viewMode === 'basic') {
+    return (
+      <div className={css.root}>
+        <div className={css.topBar}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
+            ← Back
+          </button>
+          <input
+            type="text"
+            className={css.nameInput}
+            value={model.header?.name ?? ''}
+            placeholder={modelKey}
+            maxLength={15}
+            onChange={(e) => handleChange((m) => ({ ...m, header: { ...m.header, name: e.target.value } }))}
+          />
+          {isDirty && <span className="badge badge-warning">Unsaved</span>}
+          <div style={{ flex: 1 }} />
+          {isDirty && (
+            <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
+          )}
+          <div className={css.toggleGroup}>
+            <button className={css.toggleActive}>Basic</button>
+            <button className={css.toggle} onClick={switchToAdvanced}>Advanced</button>
+          </div>
+        </div>
+
+        <div className={css.basicBody}>
+          <BasicMixView
+            model={model}
+            onChange={handleChange}
+            onSwitchToAdvanced={switchToAdvanced}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Advanced view ───────────────────────────────────────────────────────────
+
   const tabDesc = TAB_DESCRIPTIONS[tab];
 
   return (
@@ -114,22 +154,19 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
         {isDirty && (
-          <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>
-            Save
-          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
         )}
+        <div className={css.toggleGroup}>
+          <button className={css.toggle} onClick={() => setViewMode('basic')}>Basic</button>
+          <button className={css.toggleActive}>Advanced</button>
+        </div>
       </div>
 
-      <TabBar tabs={TABS} active={tab} onChange={setTab} />
+      <TabBar tabs={ADVANCED_TABS} active={tab} onChange={setTab} />
 
       <div className={css.body}>
         <div className={css.content}>
-          {/* Tab description */}
-          {tabDesc && (
-            <p className={css.tabDesc}>{tabDesc}</p>
-          )}
-
-          {tab === 'summary'     && <ModelSummary model={model} onHoverControl={(c) => setDiagramSelected(c ?? undefined)} />}
+          {tabDesc && <p className={css.tabDesc}>{tabDesc}</p>}
           {tab === 'module'      && <ModuleEditor model={model} onChange={handleChange} />}
           {tab === 'timers'      && <TimerEditor model={model} onChange={handleChange} />}
           {tab === 'flightmodes' && <FlightModeEditor model={model} onChange={handleChange} />}
@@ -141,7 +178,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {tab === 'kidmode'     && <KidModeWizard model={model} onChange={handleChange} />}
         </div>
 
-        {/* MT12 diagram — always visible on right */}
         <div className={css.diagramPanel}>
           <div className={css.diagramTitle}>MT12 controls</div>
           <Mt12Diagram sdRoot={sdRoot} selected={diagramSelected} onSelect={setDiagramSelected} />

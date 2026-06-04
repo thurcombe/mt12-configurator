@@ -263,6 +263,23 @@ export interface WizardParams {
   wantSTrim: boolean;
 }
 
+// Convert an existing analysis back into wizard params so the wizard can be pre-populated.
+export function analysisToWizardParams(analysis: BasicAnalysis): WizardParams {
+  const d = defaultWizardParams();
+  return {
+    throttleDestCh:  analysis.throttle?.destCh   ?? d.throttleDestCh,
+    throttleWeight:  analysis.throttle?.weight    ?? d.throttleWeight,
+    wantCruise:      !!analysis.cruise,
+    cruiseSw:        analysis.cruise?.setSw       ?? d.cruiseSw,
+    cruiseSpeed:     analysis.cruise?.cruiseSpeed ?? d.cruiseSpeed,
+    wantDRate:       !!analysis.drate,
+    wantSteering:    !!analysis.steering,
+    steeringDestCh:  analysis.steering?.destCh   ?? d.steeringDestCh,
+    steeringWeight:  analysis.steering?.weight    ?? d.steeringWeight,
+    wantSTrim:       !!analysis.strim,
+  };
+}
+
 export function defaultWizardParams(): WizardParams {
   return {
     throttleDestCh: 2,
