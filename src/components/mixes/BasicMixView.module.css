@@ -1,0 +1,256 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 680px;
+  padding: 4px 0;
+}
+
+/* ── Feature cards ─────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.cardIcon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.cardMeta {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  background: var(--surface-hi);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.cardBadge {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Field rows ────────────────────────────────────────────── */
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 2px 0 0;
+  padding-left: 2px;
+}
+
+.fieldInfo {
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.addBtn {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* ── Sub-card (cruise/trim nested section) ─────────────────── */
+
+.subCard {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.subHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.subTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Unrecognised notice ───────────────────────────────────── */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.noticeIcon { font-size: 22px; flex-shrink: 0; color: var(--text-muted); }
+.noticeTitle { font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--text); }
+.noticeBody { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+
+/* ── Wizard ────────────────────────────────────────────────── */
+
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.wizardHeader {
+  margin-bottom: 24px;
+}
+
+.wizardTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.wizardSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.crumb {
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.crumbActive {
+  composes: crumb;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.crumbSep { color: var(--border); font-size: 11px; }
+
+.stepTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.stepSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.choiceGrid {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.choiceBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.choiceBtn:hover { border-color: var(--accent); background: var(--surface-hi); }
+
+.choiceBtnActive {
+  composes: choiceBtn;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.choiceLabel { font-size: 14px; font-weight: 600; }
+.choiceDesc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+.wizardConfig {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.wizardActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.channelSelect {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: var(--font);
+}

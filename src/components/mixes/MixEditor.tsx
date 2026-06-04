@@ -16,6 +16,7 @@ import {
 import type { Model, MixLine } from '../../types/model.ts';
 import { ChannelGroup } from './ChannelGroup.tsx';
 import { MixLineModal } from './MixLineModal.tsx';
+import { BasicMixView } from './BasicMixView.tsx';
 import css from './MixEditor.module.css';
 
 interface Props {
@@ -71,6 +72,7 @@ function reorderWithinChannel(
 
 export function MixEditor({ model, onChange }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('basic');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -145,12 +147,33 @@ export function MixEditor({ model, onChange }: Props) {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className={css.root}>
         <div className={css.toolbar}>
-          <span className={css.hint}>{mixData.length} mix line{mixData.length !== 1 ? 's' : ''} total</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleAddLine(0)}>
-            + Add to CH1
-          </button>
+          <div className={css.toggleGroup}>
+            <button
+              className={viewMode === 'basic' ? css.toggleActive : css.toggle}
+              onClick={() => setViewMode('basic')}
+            >
+              Basic
+            </button>
+            <button
+              className={viewMode === 'advanced' ? css.toggleActive : css.toggle}
+              onClick={() => setViewMode('advanced')}
+            >
+              Advanced
+            </button>
+          </div>
+          {viewMode === 'advanced' && (
+            <>
+              <span className={css.hint}>{mixData.length} mix line{mixData.length !== 1 ? 's' : ''}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleAddLine(0)}>
+                + Add to CH1
+              </button>
+            </>
+          )}
         </div>
 
+        {viewMode === 'basic' ? (
+          <BasicMixView model={model} onChange={onChange} />
+        ) : (
         <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
           <div className={css.groups}>
             {/* Show channels with lines */}
@@ -182,6 +205,7 @@ export function MixEditor({ model, onChange }: Props) {
               ))}
           </div>
         </SortableContext>
+        )}
       </div>
 
       {editingIdx !== null && mixData[editingIdx] && (
