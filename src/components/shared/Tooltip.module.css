@@ -29,11 +29,7 @@
 }
 
 .box {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   width: 220px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -43,13 +39,9 @@
   line-height: 1.45;
   color: var(--text);
   font-weight: 400;
-  z-index: 150;
+  z-index: 9000;
   pointer-events: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   white-space: normal;
   text-align: left;
-}
-
-.wrap:hover .box {
-  display: block;
 }

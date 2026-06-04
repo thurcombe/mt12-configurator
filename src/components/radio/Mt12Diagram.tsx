@@ -1,7 +1,10 @@
-// MT12 diagram with built-in calibration mode.
-// In calibration: mousedown places the dot, drag to where you want the label, release places label + line.
+// MT12 diagram with label-placement mode.
+// Label positions are stored in .webconfig/diagram-labels.json on the SD card.
+// The image always shows; labels and placement require an SD card connection.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { SdRoot } from '../../fs/sdcard.ts';
+import { readWebConfig, writeWebConfig } from '../../fs/webconfig.ts';
 import css from './Mt12Diagram.module.css';
 
 interface CtrlDef {
@@ -24,12 +27,13 @@ const CONTROLS: CtrlDef[] = [
   { name:'T5',  desc:'Trim lever',          inert:true },
 ];
 
-
-const STORAGE_KEY = 'mt12-dot-positions';
+const WEBCONFIG_FILE = 'diagram-labels.json';
+// Legacy localStorage key — migrated to SD card on first connection.
+const LEGACY_KEY = 'mt12-dot-positions';
 
 interface DotPos {
-  dx: number; dy: number;   // dot position (%)
-  lx?: number; ly?: number; // label position (%) — undefined = use autoLabel fallback
+  dx: number; dy: number;
+  lx?: number; ly?: number;
 }
 
 interface DragState {
@@ -39,16 +43,8 @@ interface DragState {
 
 type Positions = Record<string, DotPos>;
 
-function loadPositions(): Positions {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-  catch { return {}; }
-}
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-function savePositions(p: Positions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
-}
-
-// Fallback auto-placement for dots that only have dx/dy (old calibrations or no drag).
 function autoLabel(dx: number, dy: number): { lx: number; ly: number; anchor: 'start'|'middle'|'end' } {
   const regions = [
     { lx: dx < 78 ? 85 : dx + 8, ly: dy, anchor: 'start' as const,
@@ -68,7 +64,6 @@ function autoLabel(dx: number, dy: number): { lx: number; ly: number; anchor: 's
   };
 }
 
-// Pulls line endpoint back toward the dot by `gap` units so there's breathing room before the label.
 function retract(dx: number, dy: number, lx: number, ly: number, gap: number): { x: number; y: number } {
   const vx = lx - dx, vy = ly - dy;
   const len = Math.sqrt(vx * vx + vy * vy);
@@ -78,8 +73,6 @@ function retract(dx: number, dy: number, lx: number, ly: number, gap: number): {
 
 function getLabelPos(pos: DotPos): { lx: number; ly: number; anchor: 'start'|'middle'|'end' } {
   if (pos.lx !== undefined && pos.ly !== undefined) {
-    // Use absolute position to determine anchor so labels near edges extend inward.
-    // Left quarter → text goes right; right quarter → text goes left; otherwise by relative direction.
     let anchor: 'start'|'middle'|'end';
     if (pos.lx < 22) anchor = 'start';
     else if (pos.lx > 78) anchor = 'end';
@@ -97,14 +90,14 @@ interface PhotoProps {
   hovered?: string | null;
   onSelect?: (name: string) => void;
   onHover?: (name: string | null) => void;
-  calibrating?: boolean;
-  calibTarget?: string;
+  placing?: boolean;
+  activeControl?: string;
   dragPreview?: DragState | null;
   large?: boolean;
 }
 
 function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
-  calibrating, calibTarget, dragPreview, large }: PhotoProps) {
+  placing, activeControl, dragPreview, large }: PhotoProps) {
 
   function active(name: string) { return selected === name || hovered === name; }
   const fontSize = large ? 15 : 11;
@@ -122,7 +115,7 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents: calibrating ? 'none' : 'auto' }}
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents: placing ? 'none' : 'auto' }}
       >
         {CONTROLS.map((c) => {
           const pos = positions[c.name];
@@ -130,13 +123,13 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
           const on = active(c.name);
           const { lx, ly } = getLabelPos(pos);
           const col = on ? '#3b82f6' : (c.inert ? '#6b7280' : '#1e40af');
-          const lineEnd = retract(pos.dx, pos.dy, lx, ly, 2.5);
+          const lineEnd = retract(pos.dx, pos.dy, lx, ly, 4);
           return (
             <g key={c.name}
-              onClick={(e) => { if (!calibrating) { e.stopPropagation(); if (!c.inert) onSelect?.(c.name); } }}
-              onMouseEnter={() => { if (!calibrating) onHover?.(c.name); }}
-              onMouseLeave={() => { if (!calibrating) onHover?.(null); }}
-              style={{ cursor: calibrating ? 'crosshair' : (c.inert ? 'default' : 'pointer') }}
+              onClick={(e) => { if (!placing) { e.stopPropagation(); if (!c.inert) onSelect?.(c.name); } }}
+              onMouseEnter={() => { if (!placing) onHover?.(c.name); }}
+              onMouseLeave={() => { if (!placing) onHover?.(null); }}
+              style={{ cursor: placing ? 'crosshair' : (c.inert ? 'default' : 'pointer') }}
             >
               <line x1={pos.dx} y1={pos.dy} x2={lineEnd.x} y2={lineEnd.y}
                 stroke={col} strokeWidth={on ? 0.7 : 0.4} strokeLinecap="round" />
@@ -146,9 +139,8 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
           );
         })}
 
-        {/* Drag preview: dot + live leader line to cursor */}
-        {calibrating && dragPreview && (() => {
-          const previewEnd = retract(dragPreview.dotX, dragPreview.dotY, dragPreview.curX, dragPreview.curY, 2.5);
+        {placing && dragPreview && (() => {
+          const previewEnd = retract(dragPreview.dotX, dragPreview.dotY, dragPreview.curX, dragPreview.curY, 4);
           return (
             <g>
               <circle cx={dragPreview.dotX} cy={dragPreview.dotY} r={dotR * 1.4}
@@ -162,9 +154,8 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
           );
         })()}
 
-        {/* Calibration target crosshair (for already-placed dot of current target) */}
-        {calibrating && calibTarget && !dragPreview && (() => {
-          const pos = positions[calibTarget];
+        {placing && activeControl && !dragPreview && (() => {
+          const pos = positions[activeControl];
           if (!pos) return null;
           return (
             <g>
@@ -179,7 +170,6 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
         })()}
       </svg>
 
-      {/* HTML labels */}
       {CONTROLS.map((c) => {
         const pos = positions[c.name];
         if (!pos) return null;
@@ -191,15 +181,15 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
         const textAlign = anchor === 'end' ? 'right' : anchor === 'middle' ? 'center' : 'left';
         return (
           <div key={c.name}
-            onClick={(e) => { if (!calibrating) { e.stopPropagation(); if (!c.inert) onSelect?.(c.name); } }}
-            onMouseEnter={() => { if (!calibrating) onHover?.(c.name); }}
-            onMouseLeave={() => { if (!calibrating) onHover?.(null); }}
+            onClick={(e) => { if (!placing) { e.stopPropagation(); if (!c.inert) onSelect?.(c.name); } }}
+            onMouseEnter={() => { if (!placing) onHover?.(c.name); }}
+            onMouseLeave={() => { if (!placing) onHover?.(null); }}
             style={{
               position:'absolute', left:`${lx}%`, top:`${ly}%`,
               transform, textAlign,
-              cursor: calibrating ? 'crosshair' : (c.inert ? 'default' : 'pointer'),
+              cursor: placing ? 'crosshair' : (c.inert ? 'default' : 'pointer'),
               lineHeight: 1.15,
-              pointerEvents: calibrating ? 'none' : 'auto',
+              pointerEvents: placing ? 'none' : 'auto',
             }}
           >
             <span style={{
@@ -225,8 +215,7 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
         );
       })}
 
-      {/* Preview label name at cursor tip */}
-      {calibrating && dragPreview && calibTarget && (
+      {placing && dragPreview && activeControl && (
         <div style={{
           position:'absolute',
           left:`${dragPreview.curX}%`,
@@ -240,7 +229,7 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
             color:'#f59e0b',
             textShadow:'0 0 4px #000,0 0 8px #000',
             whiteSpace:'nowrap',
-          }}>{calibTarget}</span>
+          }}>{activeControl}</span>
         </div>
       )}
     </div>
@@ -250,22 +239,58 @@ function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface Props {
+  sdRoot: SdRoot | null;
   selected?: string;
   onSelect?: (name: string) => void;
-  compact?: boolean;
   className?: string;
 }
 
-export function Mt12Diagram({ selected, onSelect, className }: Props) {
+export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [enlarged, setEnlarged] = useState(false);
-  const [calibrating, setCalibrating] = useState(false);
-  const [calibTarget, setCalibTarget] = useState<string>(CONTROLS[0].name);
-  const [positions, setPositions] = useState<Positions>(loadPositions);
+  const [placing, setPlacing] = useState(false);
+  const [activeControl, setActiveControl] = useState<string>(CONTROLS[0].name);
+  const [positions, setPositions] = useState<Positions>({});
   const [dragState, setDragState] = useState<DragState | null>(null);
 
-  const calibrated = CONTROLS.filter(c => positions[c.name]);
-  const allCalibrated = calibrated.length === CONTROLS.length;
+  // Load positions from SD card when it connects; migrate from localStorage if needed.
+  useEffect(() => {
+    if (!sdRoot) return;
+    (async () => {
+      let saved = await readWebConfig<Positions>(sdRoot, WEBCONFIG_FILE);
+      if (!saved) {
+        // One-time migration from localStorage.
+        try {
+          const legacy = localStorage.getItem(LEGACY_KEY);
+          if (legacy) {
+            saved = JSON.parse(legacy);
+            await writeWebConfig(sdRoot, WEBCONFIG_FILE, saved);
+            localStorage.removeItem(LEGACY_KEY);
+          }
+        } catch { /* ignore */ }
+      }
+      if (saved) setPositions(saved);
+    })();
+  }, [sdRoot]);
+
+  // Escape closes the modal.
+  useEffect(() => {
+    if (!enlarged) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      setPlacing(false); setDragState(null); setEnlarged(false);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [enlarged]);
+
+  const placed = CONTROLS.filter(c => positions[c.name]);
+  const allPlaced = placed.length === CONTROLS.length;
+
+  async function savePositions(next: Positions) {
+    setPositions(next);
+    if (sdRoot) await writeWebConfig(sdRoot, WEBCONFIG_FILE, next);
+  }
 
   function pctFromPointer(e: React.PointerEvent<HTMLDivElement>): { x: number; y: number } {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -275,7 +300,7 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!calibrating) return;
+    if (!placing) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const { x, y } = pctFromPointer(e);
@@ -288,48 +313,54 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
     setDragState(prev => prev ? { ...prev, curX: x, curY: y } : null);
   }
 
-  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  async function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragState) return;
     const { x, y } = pctFromPointer(e);
+    const wasAllPlaced = CONTROLS.every(c => positions[c.name]);
     const next: Positions = {
       ...positions,
-      [calibTarget]: { dx: dragState.dotX, dy: dragState.dotY, lx: x, ly: y },
+      [activeControl]: { dx: dragState.dotX, dy: dragState.dotY, lx: x, ly: y },
     };
-    setPositions(next);
-    savePositions(next);
+    await savePositions(next);
     setDragState(null);
-    // Advance to next uncalibrated control
-    const idx = CONTROLS.findIndex(c => c.name === calibTarget);
+    const idx = CONTROLS.findIndex(c => c.name === activeControl);
     const nextCtrl = CONTROLS.slice(idx + 1).find(c => !next[c.name])
                   ?? CONTROLS.find(c => !next[c.name]);
-    if (nextCtrl) setCalibTarget(nextCtrl.name);
-    else setCalibrating(false);
+    if (nextCtrl) setActiveControl(nextCtrl.name);
+    else if (!wasAllPlaced) setPlacing(false);
   }
 
   return (
     <div className={`${css.root} ${className ?? ''}`}>
 
-      <div className={css.calibBar}>
-        <button className={css.calibBtn} onClick={() => { setCalibrating(true); setEnlarged(true); }}>
-          {allCalibrated ? '⚙ Re-calibrate' : '⚙ Calibrate dot positions'}
-        </button>
-        {Object.keys(positions).length > 0 && (
-          <button className={css.calibBtn} onClick={() => {
-            if (!window.confirm('Clear all calibration dots? You will need to re-calibrate from scratch.')) return;
-            setPositions({});
-            localStorage.removeItem(STORAGE_KEY);
-          }}>
-            Clear all
+      {/* Toolbar — only shown when SD card connected */}
+      {sdRoot ? (
+        <div className={css.placeBar}>
+          <button className={css.placeBtn} onClick={() => { setPlacing(true); setEnlarged(true); }}>
+            {allPlaced ? '⚙ Reposition labels' : '⚙ Place control labels'}
           </button>
-        )}
-        {!allCalibrated && Object.keys(positions).length > 0 && (
-          <span className={css.calibHint}>{calibrated.length}/{CONTROLS.length} placed</span>
-        )}
-      </div>
+          {Object.keys(positions).length > 0 && (
+            <button className={css.placeBtn} onClick={() => {
+              if (!window.confirm('Remove all label positions? You will need to place them again from scratch.')) return;
+              savePositions({});
+            }}>
+              Clear all
+            </button>
+          )}
+          {!allPlaced && Object.keys(positions).length > 0 && (
+            <span className={css.placeHint}>{placed.length}/{CONTROLS.length} placed</span>
+          )}
+        </div>
+      ) : (
+        <p className={css.hint} style={{ marginBottom: 4 }}>
+          Connect your SD card to place control labels and enable input settings.
+        </p>
+      )}
 
+      {/* Photo */}
       <div
         className={css.photoWrap}
-        style={{ cursor: 'zoom-in' }}
+        style={{ cursor: 'zoom-in', position: 'relative' }}
         onClick={() => setEnlarged(true)}
       >
         <AnnotatedPhoto
@@ -339,14 +370,36 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
           onSelect={onSelect}
           onHover={setHovered}
         />
-        <span className={css.enlargeHint}>🔍 click to enlarge</span>
+
+        {/* Overlay when no SD card */}
+        {!sdRoot && (
+          <div style={{
+            position:'absolute', inset:0,
+            background:'rgba(0,0,0,0.45)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            borderRadius:7,
+          }}>
+            <span style={{
+              background:'rgba(0,0,0,0.75)',
+              color:'#fff',
+              fontSize:12,
+              fontFamily:'system-ui,sans-serif',
+              padding:'6px 14px',
+              borderRadius:6,
+              textAlign:'center',
+              lineHeight:1.5,
+            }}>
+              Connect SD card<br/>to enable labels
+            </span>
+          </div>
+        )}
       </div>
 
-{!calibrating && (
-        <p className={css.hint}>Grey = trim levers · Click a label to go to its settings</p>
+      {!placing && sdRoot && (
+        <p className={css.hint}>Blue = switches &amp; knobs · Grey = trim levers (reference only)</p>
       )}
 
-      {/* Enlarged modal — also used for calibration */}
+      {/* Enlarged modal */}
       {enlarged && (
         <div
           style={{
@@ -355,23 +408,23 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
             display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
             gap:12, zIndex:500,
           }}
-          onClick={() => { if (!calibrating) { setEnlarged(false); } }}
+          onClick={() => { if (!placing) setEnlarged(false); }}
         >
-          {calibrating && (
+          {placing && (
             <div
               style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}
               onClick={(e) => e.stopPropagation()}
             >
               <span style={{ color:'#f59e0b', fontFamily:'system-ui', fontSize:14 }}>
                 {dragState
-                  ? <>Drag to place label for <strong style={{ color:'#fbbf24' }}>{calibTarget}</strong>, then release</>
-                  : <>Click <strong style={{ color:'#fbbf24' }}>{calibTarget}</strong> on the photo, then drag to place label</>
+                  ? <>Drag to place label for <strong style={{ color:'#fbbf24' }}>{activeControl}</strong>, then release</>
+                  : <>Click <strong style={{ color:'#fbbf24' }}>{activeControl}</strong> on the photo, drag to where you want its label</>
                 }
               </span>
               <select
                 style={{ background:'#1e293b', color:'#fff', border:'1px solid #475569', borderRadius:4, padding:'3px 8px', fontSize:13 }}
-                value={calibTarget}
-                onChange={(e) => setCalibTarget(e.target.value)}
+                value={activeControl}
+                onChange={(e) => setActiveControl(e.target.value)}
               >
                 {CONTROLS.map((c) => (
                   <option key={c.name} value={c.name}>
@@ -381,7 +434,7 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
               </select>
               <button
                 style={{ background:'#3b82f6', border:'none', color:'#fff', borderRadius:4, padding:'4px 12px', cursor:'pointer', fontSize:13 }}
-                onClick={(e) => { e.stopPropagation(); setCalibrating(false); setDragState(null); setEnlarged(false); }}
+                onClick={(e) => { e.stopPropagation(); setPlacing(false); setDragState(null); setEnlarged(false); }}
               >
                 Done
               </button>
@@ -391,15 +444,15 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
           <div
             style={{
               position:'relative', width:'90vmin', maxWidth:860,
-              cursor: calibrating ? 'crosshair' : 'default',
+              cursor: placing ? 'crosshair' : 'default',
               userSelect: 'none',
             }}
             onClick={(e) => e.stopPropagation()}
-            onPointerDown={calibrating ? handlePointerDown : undefined}
-            onPointerMove={calibrating ? handlePointerMove : undefined}
-            onPointerUp={calibrating ? handlePointerUp : undefined}
+            onPointerDown={placing ? handlePointerDown : undefined}
+            onPointerMove={placing ? handlePointerMove : undefined}
+            onPointerUp={placing ? handlePointerUp : undefined}
           >
-            {!calibrating && (
+            {!placing && (
               <button onClick={() => setEnlarged(false)} style={{
                 position:'absolute', top:-36, right:0,
                 background:'none', border:'none', color:'#fff',
@@ -410,10 +463,10 @@ export function Mt12Diagram({ selected, onSelect, className }: Props) {
               positions={positions}
               selected={selected}
               hovered={hovered}
-              onSelect={(name) => { onSelect?.(name); if (!calibrating) setEnlarged(false); }}
+              onSelect={(name) => { onSelect?.(name); if (!placing) setEnlarged(false); }}
               onHover={setHovered}
-              calibrating={calibrating}
-              calibTarget={calibTarget}
+              placing={placing}
+              activeControl={activeControl}
               dragPreview={dragState}
               large
             />

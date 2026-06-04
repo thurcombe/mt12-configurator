@@ -137,7 +137,13 @@ export function describeMix(line: MixLine, ctx?: MixProseContext): string {
       } else {
         const pct = Math.abs(w) !== 100 ? ` at ${Math.abs(w)}%` : '';
         const inv = w < 0 ? 'inverted ' : '';
-        prose = `Adds ${inv}${srcLabel}${pct} to ${roleName}`;
+        const sameAsRole = srcLabel.toLowerCase() === roleName.toLowerCase();
+        if (sameAsRole) {
+          // e.g. "adds Steering to steering" → use the physical input description instead
+          prose = `${inv}${Math.abs(w) !== 100 ? `${Math.abs(w)}% ` : ''}${roleName} input drives this channel`;
+        } else {
+          prose = `Adds ${inv}${srcLabel}${pct} to ${roleName}`;
+        }
         if (line.offset !== 0) prose += `, offset ${line.offset > 0 ? '+' : ''}${line.offset}%`;
       }
       break;

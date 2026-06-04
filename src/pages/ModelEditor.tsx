@@ -78,6 +78,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
   const isDirty = useEditorStore((s) => s.isDirty(modelKey));
   const updateModel = useEditorStore((s) => s.updateModel);
   const saveModel = useEditorStore((s) => s.saveModel);
+  const sdRoot = useEditorStore((s) => s.sdRoot);
 
   if (!model) {
     return (
@@ -143,7 +144,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         {/* MT12 diagram — always visible on right */}
         <div className={css.diagramPanel}>
           <div className={css.diagramTitle}>MT12 controls</div>
-          <Mt12Diagram compact selected={diagramSelected} onSelect={setDiagramSelected} />
+          <Mt12Diagram sdRoot={sdRoot} selected={diagramSelected} onSelect={setDiagramSelected} />
           {diagramSelected && (
             <p className={css.diagramHint}>
               <strong>{diagramSelected}</strong> — physical location on transmitter

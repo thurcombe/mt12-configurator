@@ -53,7 +53,7 @@
 
 /* Diagram sidebar — always visible on right */
 .diagramPanel {
-  width: 340px;
+  width: 420px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   display: flex;

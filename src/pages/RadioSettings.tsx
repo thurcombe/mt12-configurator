@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
+import type { SdRoot } from '../fs/sdcard.ts';
+import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
 import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
 import type { Tab } from '../components/layout/TabBar.tsx';
 import { TabBar } from '../components/layout/TabBar.tsx';
@@ -21,7 +23,17 @@ const BACKLIGHT_MODES = ['off', 'keys', 'sticks', 'both', 'on'];
 const BEEP_MODES = ['quiet', 'alarms', 'nokey', 'all'];
 const HAPTIC_MODES = ['off', 'alarms', 'nokey', 'all'];
 const SWITCH_TYPES = ['NONE', '2POS', '3POS', 'TOGGLE', 'MULTIPOS'];
-const POT_TYPES = ['NONE', 'POT', 'SLIDER', 'MULTIPOS_SWITCH'];
+const POT_TYPES = ['NONE', 'POT', 'SLIDER', 'MULTIPOS_SWITCH', 'axis_x', 'axis_y'];
+const POT_TYPE_LABEL: Record<string, string> = {
+  NONE: 'Not installed',
+  POT: 'Pot (no detent)',
+  SLIDER: 'Slider',
+  MULTIPOS_SWITCH: 'Multi-position',
+  axis_x: 'Joystick X axis',
+  axis_y: 'Joystick Y axis',
+  with_detent: 'Pot (with detent)',
+  without_detent: 'Pot (no detent)',
+};
 
 // ── Audio tab ──────────────────────────────────────────────────────────────
 function AudioTab() {
@@ -225,12 +237,31 @@ function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
 // ── Pots tab ───────────────────────────────────────────────────────────────
 const MT12_POTS = ['P1', 'P2', 'P3', 'P4'];
 
-function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
+function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; sdRoot: SdRoot | null }) {
   const radio = useEditorStore((s) => s.radio);
   const updateRadio = useEditorStore((s) => s.updateRadio);
+  const [hiddenPots, setHiddenPots] = useState<Set<string>>(new Set());
+
+  // Load hidden-pots preference from SD card webconfig.
+  useEffect(() => {
+    if (!sdRoot) return;
+    readWebConfig<string[]>(sdRoot, 'hidden-inputs.json').then(data => {
+      if (data) setHiddenPots(new Set(data));
+    });
+  }, [sdRoot]);
+
   if (!radio) return null;
 
   const cfg = radio.potsConfig ?? {};
+
+  async function hide(pot: string) {
+    const next = new Set(hiddenPots); next.add(pot); setHiddenPots(next);
+    if (sdRoot) await writeWebConfig(sdRoot, 'hidden-inputs.json', [...next]);
+  }
+  async function show(pot: string) {
+    const next = new Set(hiddenPots); next.delete(pot); setHiddenPots(next);
+    if (sdRoot) await writeWebConfig(sdRoot, 'hidden-inputs.json', [...next]);
+  }
 
   function updatePot(key: string, field: 'type' | 'name', value: string) {
     updateRadio((r) => ({
@@ -252,6 +283,11 @@ function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
     }));
   }
 
+  function potTypeLabel(type: string) { return POT_TYPE_LABEL[type] ?? type; }
+
+  const visible = MT12_POTS.filter(p => !hiddenPots.has(p));
+  const hidden  = MT12_POTS.filter(p =>  hiddenPots.has(p));
+
   return (
     <div className={css.section}>
       <p className={css.hint}>Hover a row to highlight the pot on the diagram.</p>
@@ -262,10 +298,11 @@ function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
             <th>Type</th>
             <th>Inverted</th>
             <th>Custom name</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {MT12_POTS.map((pot) => {
+          {visible.map((pot) => {
             const potCfg = cfg[pot] ?? { type: 'NONE', inv: 0, name: '' };
             return (
               <tr key={pot} className={css.tableRow}
@@ -275,8 +312,9 @@ function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
                 <td>
                   <select className={css.selectSm} value={potCfg.type}
                     onChange={(e) => updatePot(pot, 'type', e.target.value)}>
-                    {POT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    {!POT_TYPES.includes(potCfg.type) && <option value={potCfg.type}>{potCfg.type}</option>}
+                    {[...POT_TYPES, ...(!POT_TYPES.includes(potCfg.type) ? [potCfg.type] : [])].map((t) =>
+                      <option key={t} value={t}>{potTypeLabel(t)}</option>
+                    )}
                   </select>
                 </td>
                 <td className={css.centerCell}>
@@ -289,13 +327,36 @@ function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
                     value={potCfg.name ?? ''} maxLength={10} placeholder="—"
                     onChange={(e) => updatePot(pot, 'name', e.target.value)} />
                 </td>
+                <td>
+                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }}
+                    title="Hide this pot — it won't affect the transmitter"
+                    onClick={() => hide(pot)}>
+                    Hide
+                  </button>
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+
+      {hidden.length > 0 && (
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            Hidden (not installed): {hidden.join(', ')}
+          </span>
+          {hidden.map(pot => (
+            <button key={pot} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
+              onClick={() => show(pot)}>
+              Show {pot}
+            </button>
+          ))}
+        </div>
+      )}
+
       <p className={css.hint} style={{ marginTop: 12 }}>
-        P1 & P2 are built-in scroll-wheel pots. P3 & P4 are the optional joystick expansion module axes.
+        P1 &amp; P2 are the knobs on the transmitter body. P3 &amp; P4 are the optional 4-way joystick expansion module (bottom slot).
+        Hiding a pot here only affects this app — it does not change anything on your transmitter.
       </p>
     </div>
   );
@@ -360,7 +421,7 @@ export function RadioSettings({ navigate }: Props) {
                 {tab === 'audio' && <AudioTab />}
                 {tab === 'display' && <DisplayTab />}
                 {tab === 'switches' && <SwitchesTab onHover={handleHover} />}
-                {tab === 'pots' && <PotsTab onHover={handleHover} />}
+                {tab === 'pots' && <PotsTab onHover={handleHover} sdRoot={sdRoot} />}
               </div>
             </>
           )}
@@ -370,6 +431,7 @@ export function RadioSettings({ navigate }: Props) {
         <div className={css.diagramPane}>
           <p className={css.diagramLabel}>MT12 controls</p>
           <Mt12Diagram
+            sdRoot={sdRoot}
             selected={diagramSelected}
             onSelect={handleDiagramSelect}
           />

@@ -64,11 +64,11 @@ export function AppShell({ children, route, navigate }: Props) {
         </a>
 
         <a
-          href="https://www.radiomasterrc.com/products/mt12-surface-radio-controller"
+          href="https://cdn.shopify.com/s/files/1/0701/8066/7584/files/MT12_A1.4.pdf?v=1770617495"
           target="_blank"
           rel="noreferrer"
           className="btn btn-ghost btn-sm"
-          title="Radiomaster MT12 product page and manual"
+          title="Radiomaster MT12 user manual (PDF)"
           style={{ fontSize: 12 }}
         >
           MT12 manual

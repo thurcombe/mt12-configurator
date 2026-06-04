@@ -111,15 +111,15 @@
   text-align: center;
 }
 
-/* Calibration toolbar */
-.calibBar {
+/* Label placement toolbar */
+.placeBar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.calibBtn {
+.placeBtn {
   padding: 4px 10px;
   font-size: 12px;
   font-family: var(--font);
@@ -130,51 +130,9 @@
   cursor: pointer;
 }
 
-.calibBtn:hover { background: var(--surface-hi); color: var(--text); }
+.placeBtn:hover { background: var(--surface-hi); color: var(--text); }
 
-.calibHint {
+.placeHint {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.calibActive {
-  font-size: 12px;
-  color: var(--warning, #f59e0b);
-  font-family: var(--font);
-}
-
-.calibSelect {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 6px;
-  font-size: 12px;
-  font-family: var(--font);
-}
-
-.calibDone {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-family: var(--font);
-  background: var(--accent);
-  border: none;
-  border-radius: 5px;
-  color: #fff;
-  cursor: pointer;
-}
-
-.calibOverlay {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(245, 158, 11, 0.92);
-  color: #fff;
-  font-size: 11px;
-  font-family: var(--font);
-  padding: 3px 10px;
-  border-radius: 4px;
-  white-space: nowrap;
-  pointer-events: none;
 }

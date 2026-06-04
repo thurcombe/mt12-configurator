@@ -3,6 +3,7 @@ import type { SdRoot } from '../fs/sdcard.ts';
 import { pickSdCard, readTextFile, writeTextFile, listModelFiles } from '../fs/sdcard.ts';
 import { writeBackup, listBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
+import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
 import { parseModel, serialiseModel } from '../codec/model-codec.ts';
 import { parseRadio, serialiseRadio } from '../codec/radio-codec.ts';
 import { createBlankModel } from '../codec/modelTemplate.ts';
@@ -18,20 +19,7 @@ export interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = { backupCount: 5 };
-const SETTINGS_KEY = 'edgetx-editor-settings';
-
-function loadPersistedSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-function persistSettings(s: AppSettings) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
-}
+const SETTINGS_WEBCONFIG = 'app-settings.json';
 
 function friendlyError(e: unknown, context?: string): string {
   if (e instanceof DOMException) {
@@ -121,12 +109,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   freshModelKeys: new Set(),
   lastError: null,
   warnings: [],
-  settings: loadPersistedSettings(),
+  settings: DEFAULT_SETTINGS,
 
   connectSdCard: async () => {
     try {
       const root = await pickSdCard();
       set({ sdRoot: root, lastError: null });
+      // Load settings from SD card webconfig.
+      const saved = await readWebConfig<AppSettings>(root, SETTINGS_WEBCONFIG);
+      if (saved) set({ settings: { ...DEFAULT_SETTINGS, ...saved } });
     } catch (e) {
       const msg = friendlyError(e);
       if (msg) set({ lastError: msg });
@@ -354,7 +345,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   updateSettings: (patch: Partial<AppSettings>) => {
     set((s) => {
       const next = { ...s.settings, ...patch };
-      persistSettings(next);
+      const { sdRoot } = get();
+      if (sdRoot) writeWebConfig(sdRoot, SETTINGS_WEBCONFIG, next).catch(() => {});
       return { settings: next };
     });
   },
