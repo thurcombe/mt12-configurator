@@ -2,6 +2,9 @@
 // Groups: sticks/pots, switches, constants, inputs, channels, logical sw.
 
 import { srcRawLabel } from '../../codec/srcRaw.ts';
+import { useEditorStore } from '../../store/useEditorStore.ts';
+
+const DIAGRAM_CONTROLS = new Set(['SA','SB','SC','SD','FL1','FL2','P1','P2','P3','P4','TH']);
 
 const STICK_POTS = ['TH', 'ST', 'P1', 'P2', 'P3', 'P4'];
 const SWITCHES_SRC = ['SA', 'SB', 'SC', 'SD', 'FL1', 'FL2'];
@@ -45,11 +48,15 @@ interface Props {
 
 export function SrcRawPicker({ value, onChange, id, style }: Props) {
   const known = ALL_OPTIONS.find((o) => o.value === value);
+  const setHighlight = useEditorStore(s => s.setDiagramHighlight);
+  const control = DIAGRAM_CONTROLS.has(value) ? value : null;
   return (
     <select
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onMouseEnter={() => control && setHighlight(control)}
+      onMouseLeave={() => setHighlight(null)}
       style={{
         background: 'var(--surface)',
         color: 'var(--text)',

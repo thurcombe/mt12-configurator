@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
-import { pickSdCard, readTextFile, writeTextFile, listModelFiles } from '../fs/sdcard.ts';
+import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile } from '../fs/sdcard.ts';
 import { writeBackup, listBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
 import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
@@ -51,6 +51,10 @@ interface EditorState {
   // Keys created fresh this session (never saved to disk) — cleaned up on confirm-leave
   freshModelKeys: Set<string>;
 
+  // Diagram highlight — any component can set this to highlight a control on the MT12 diagram
+  diagramHighlight: string | null;
+  setDiagramHighlight: (control: string | null) => void;
+
   // Error / warning state
   lastError: string | null;
   warnings: string[];
@@ -69,7 +73,7 @@ interface EditorState {
   updateModel: (key: ModelKey, updater: (m: Model) => Model) => void;
   createModel: (key: ModelKey, name?: string) => void;
   duplicateModel: (sourceKey: ModelKey, destKey: ModelKey) => void;
-  deleteModel: (key: ModelKey) => void;
+  deleteModel: (key: ModelKey) => Promise<void>;
   importModelFromYaml: (key: ModelKey, yaml: string) => void;
 
   // Actions — radio
@@ -110,6 +114,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastError: null,
   warnings: [],
   settings: DEFAULT_SETTINGS,
+  diagramHighlight: null,
+  setDiagramHighlight: (control) => set({ diagramHighlight: control }),
 
   connectSdCard: async () => {
     try {
@@ -241,14 +247,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  deleteModel: (key: ModelKey) => {
+  deleteModel: async (key: ModelKey) => {
+    // Remove from in-memory store immediately.
     set((s) => {
       const models = { ...s.models };
       delete models[key];
       const dirty = new Set(s.dirty);
       dirty.delete(key);
-      return { models, dirty };
+      const freshModelKeys = new Set(s.freshModelKeys);
+      freshModelKeys.delete(key);
+      return { models, dirty, freshModelKeys };
     });
+    // Delete from SD card if connected (ignore errors — file may not exist yet).
+    const { sdRoot } = get();
+    if (sdRoot) {
+      try { await deleteFile(sdRoot, `MODELS/${key}.yml`); } catch { /* ignore */ }
+    }
   },
 
   importModelFromYaml: (key: ModelKey, yaml: string) => {

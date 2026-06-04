@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import type { SdRoot } from '../../fs/sdcard.ts';
 import { readWebConfig, writeWebConfig } from '../../fs/webconfig.ts';
+import { useEditorStore } from '../../store/useEditorStore.ts';
 import css from './Mt12Diagram.module.css';
 
 interface CtrlDef {
@@ -88,6 +89,7 @@ interface PhotoProps {
   positions: Positions;
   selected?: string;
   hovered?: string | null;
+  externalHighlight?: string | null;
   onSelect?: (name: string) => void;
   onHover?: (name: string | null) => void;
   placing?: boolean;
@@ -96,10 +98,12 @@ interface PhotoProps {
   large?: boolean;
 }
 
-function AnnotatedPhoto({ positions, selected, hovered, onSelect, onHover,
+function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSelect, onHover,
   placing, activeControl, dragPreview, large }: PhotoProps) {
 
-  function active(name: string) { return selected === name || hovered === name; }
+  function active(name: string) {
+    return selected === name || hovered === name || externalHighlight === name;
+  }
   const fontSize = large ? 15 : 11;
   const dotR = large ? 1.5 : 1.1;
 
@@ -246,6 +250,7 @@ interface Props {
 }
 
 export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
+  const externalHighlight = useEditorStore(s => s.diagramHighlight);
   const [hovered, setHovered] = useState<string | null>(null);
   const [enlarged, setEnlarged] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -376,6 +381,7 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
           positions={positions}
           selected={selected}
           hovered={hovered}
+          externalHighlight={externalHighlight}
           onSelect={onSelect}
           onHover={setHovered}
         />
@@ -472,6 +478,7 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
               positions={positions}
               selected={selected}
               hovered={hovered}
+              externalHighlight={externalHighlight}
               onSelect={(name) => { onSelect?.(name); if (!placing) setEnlarged(false); }}
               onHover={setHovered}
               placing={placing}

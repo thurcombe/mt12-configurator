@@ -1,4 +1,5 @@
 // Simple switch selector for MT12 switches.
+// Hovering highlights the selected switch on the MT12 diagram.
 // Produces raw EdgeTX switch strings like "SA0", "SA2", "!SB0", "NONE", "ON".
 
 const MT12_SWITCHES = [
@@ -27,6 +28,8 @@ function buildOptions(): { value: string; label: string }[] {
 
 const OPTIONS = buildOptions();
 
+import { useEditorStore } from '../../store/useEditorStore.ts';
+
 interface Props {
   value: string;
   onChange: (v: string) => void;
@@ -34,18 +37,28 @@ interface Props {
   style?: React.CSSProperties;
 }
 
+// Strip position digit to get the physical control name: "SC2" → "SC", "SA0" → "SA"
+function switchToControl(sw: string): string | null {
+  if (!sw || sw === 'NONE' || sw === 'ON') return null;
+  const s = sw.startsWith('!') ? sw.slice(1) : sw;
+  return s.replace(/\d+$/, '') || null;
+}
+
 export function SwitchPicker({ value, onChange, id, style }: Props) {
+  const setHighlight = useEditorStore(s => s.setDiagramHighlight);
+
   return (
     <select
       id={id}
       value={value || 'NONE'}
       onChange={(e) => onChange(e.target.value)}
+      onMouseEnter={() => setHighlight(switchToControl(value))}
+      onMouseLeave={() => setHighlight(null)}
       style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 6px', fontSize: 13, fontFamily: 'var(--font)', ...style }}
     >
       {OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
-      {/* If current value not in list, show it anyway */}
       {value && value !== 'NONE' && value !== 'ON' && !OPTIONS.find((o) => o.value === value) && (
         <option value={value}>{value}</option>
       )}
