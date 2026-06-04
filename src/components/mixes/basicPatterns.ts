@@ -1,7 +1,7 @@
 // Pattern detection and mutation helpers for the Basic mix view.
 // All functions are pure — they return new model objects, never mutate in place.
 
-import type { Model, MixLine, ExpoLine, LogicalSw, InputName } from '../../types/model.ts';
+import type { Model, MixLine, ExpoLine, LogicalSw, InputName, ModuleData } from '../../types/model.ts';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -262,11 +262,16 @@ export interface WizardParams {
   steeringWeight: number;
   wantSTrim: boolean;
   wantKidControl: boolean;
+  moduleProtocol: number;  // MULTI protocol ID, e.g. 43 = Traxxas TQi
+  moduleFailsafe: string;  // e.g. 'no pulses'
 }
 
 // Convert an existing analysis back into wizard params so the wizard can be pre-populated.
-export function analysisToWizardParams(analysis: BasicAnalysis): WizardParams {
+export function analysisToWizardParams(analysis: BasicAnalysis, model?: Model): WizardParams {
   const d = defaultWizardParams();
+  const mod = model?.moduleData?.['0'];
+  const subTypeParts = typeof mod?.subType === 'string' ? mod.subType.split(',') : [];
+  const currentProtocol = subTypeParts.length ? parseInt(subTypeParts[0], 10) : d.moduleProtocol;
   return {
     throttleDestCh:  analysis.throttle?.destCh   ?? d.throttleDestCh,
     throttleWeight:  analysis.throttle?.weight    ?? d.throttleWeight,
@@ -279,6 +284,8 @@ export function analysisToWizardParams(analysis: BasicAnalysis): WizardParams {
     steeringWeight:  analysis.steering?.weight    ?? d.steeringWeight,
     wantSTrim:       !!analysis.strim,
     wantKidControl:  false,
+    moduleProtocol:  isNaN(currentProtocol) ? d.moduleProtocol : currentProtocol,
+    moduleFailsafe:  mod?.failsafeMode ?? d.moduleFailsafe,
   };
 }
 
@@ -295,6 +302,8 @@ export function defaultWizardParams(): WizardParams {
     steeringWeight: 100,
     wantSTrim: false,
     wantKidControl: false,
+    moduleProtocol: 43,
+    moduleFailsafe: 'no pulses',
   };
 }
 
@@ -338,6 +347,7 @@ export interface GeneratedConfig {
   expoData: ExpoLine[];
   logicalSw: Record<string, LogicalSw>;
   inputNames: Record<string, InputName>;
+  moduleData: Record<string, ModuleData>;
 }
 
 export function generateBasicModel(p: WizardParams): GeneratedConfig {
@@ -345,6 +355,26 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
   const expoData: ExpoLine[] = [];
   const logicalSw: Record<string, LogicalSw> = {};
   const inputNames: Record<string, InputName> = {};
+  const moduleData: Record<string, ModuleData> = {
+    '0': {
+      type: 'TYPE_MULTIMODULE',
+      subType: `${p.moduleProtocol},0`,
+      channelsStart: 0,
+      channelsCount: 16,
+      failsafeMode: p.moduleFailsafe,
+      mod: {
+        multi: {
+          disableTelemetry: 0,
+          disableMapping: 0,
+          autoBindMode: 0,
+          lowPowerMode: 0,
+          receiverTelemetryOff: 0,
+          receiverHigherChannels: 0,
+          optionValue: 0,
+        },
+      },
+    },
+  };
 
   // Expo for TH (chn 0) and ST (chn 1) — always created.
   expoData.push(blankExpoLine('TH', 0, 100, 0));
@@ -391,5 +421,5 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
     }
   }
 
-  return { mixData, expoData, logicalSw, inputNames };
+  return { mixData, expoData, logicalSw, inputNames, moduleData };
 }

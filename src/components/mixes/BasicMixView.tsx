@@ -22,7 +22,19 @@ import {
 } from './basicPatterns.ts';
 import { buildInputMap } from '../../codec/modelSummary.ts';
 import { srcRawLabel } from '../../codec/srcRaw.ts';
+import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
 import css from './BasicMixView.module.css';
+
+// Surface-relevant protocols shown in the wizard (most common first).
+const SURFACE_PROTOCOLS = MULTI_PROTOCOLS.filter(p =>
+  [43, 73, 28, 6].includes(p.id)
+);
+
+const FAILSAFE_OPTIONS = [
+  { value: 'no pulses', label: 'Stop — cut all output (safest for surface vehicles)' },
+  { value: 'hold',      label: 'Hold — keep last position' },
+  { value: 'NOT_SET',   label: 'Not set — receiver decides' },
+];
 
 interface Props {
   model: Model;
@@ -53,7 +65,7 @@ export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
   // Setup wizard
   if (analysis.kind === 'empty' || wizardActive) {
     const initialParams = (wizardActive && analysis.kind === 'recognised')
-      ? analysisToWizardParams(analysis)
+      ? analysisToWizardParams(analysis, model)
       : undefined;
     return (
       <SetupWizard
@@ -117,18 +129,15 @@ function RecognisedView({ model, analysis, onChange, onRunWizard, onRunKidContro
 
   return (
     <div className={css.root}>
-      <div style={{ marginBottom: 4 }}>
-        <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>
-          ⚙ Re-run setup wizard
-        </button>
-      </div>
-
       {analysis.throttle && (
         <ThrottleCard analysis={analysis} inputMap={inputMap} onChange={onChange} />
       )}
       {analysis.steering && (
         <SteeringCard analysis={analysis} onChange={onChange} />
       )}
+
+      {/* Radio link */}
+      <RadioLinkCard model={model} onChange={onChange} />
 
       {/* KidControl */}
       <section className={css.card}>
@@ -154,13 +163,95 @@ function RecognisedView({ model, analysis, onChange, onRunWizard, onRunKidContro
         )}
       </section>
 
-      {!analysis.throttle && !analysis.steering && (
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-          No throttle or steering configured.{' '}
-          <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>Run setup wizard</button>
-        </p>
-      )}
+      {/* Setup wizard card */}
+      <section className={css.card}>
+        <div className={css.cardHeader}>
+          <span className={css.cardIcon}>⚙</span>
+          <span className={css.cardTitle}>Vehicle setup</span>
+        </div>
+        {analysis.throttle || analysis.steering ? (
+          <>
+            <p className={css.fieldHint}>Change throttle/steering channels, cruise control, or speed limiter settings.</p>
+            <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>
+              ⚙ Re-run setup wizard
+            </button>
+          </>
+        ) : (
+          <>
+            <p className={css.fieldHint}>No throttle or steering configured yet.</p>
+            <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>
+              Run setup wizard
+            </button>
+          </>
+        )}
+      </section>
     </div>
+  );
+}
+
+// ── Radio link card ───────────────────────────────────────────────────────────
+
+function RadioLinkCard({ model, onChange }: { model: Model; onChange: (updater: (m: Model) => Model) => void }) {
+  const mod = model.moduleData?.['0'];
+  const subTypeParts = typeof mod?.subType === 'string' ? mod.subType.split(',') : [];
+  const protocolId = subTypeParts.length ? parseInt(subTypeParts[0], 10) : 43;
+  const protocol = MULTI_PROTOCOLS.find(p => p.id === protocolId);
+  const failsafe = mod?.failsafeMode ?? 'NOT_SET';
+  const failsafeLabel = FAILSAFE_OPTIONS.find(f => f.value === failsafe)?.label ?? failsafe;
+
+  function setProtocol(id: number) {
+    onChange((m) => ({
+      ...m,
+      moduleData: {
+        ...m.moduleData,
+        '0': { ...(m.moduleData?.['0'] ?? {}), subType: `${id},0` } as typeof m.moduleData[string],
+      },
+    }));
+  }
+
+  function setFailsafe(value: string) {
+    onChange((m) => ({
+      ...m,
+      moduleData: {
+        ...m.moduleData,
+        '0': { ...(m.moduleData?.['0'] ?? {}), failsafeMode: value } as typeof m.moduleData[string],
+      },
+    }));
+  }
+
+  return (
+    <section className={css.card}>
+      <div className={css.cardHeader}>
+        <span className={css.cardIcon}>📡</span>
+        <span className={css.cardTitle}>Radio link</span>
+        {protocol && <span className={css.cardMeta}>{protocol.name}</span>}
+      </div>
+      <p className={css.fieldHint}>Which receiver is in your vehicle, and what should happen if the signal is lost.</p>
+      <div className={css.fieldRow}>
+        <span className={css.fieldLabel}>Receiver protocol</span>
+        <select
+          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+          value={protocolId}
+          onChange={(e) => setProtocol(parseInt(e.target.value))}
+        >
+          {SURFACE_PROTOCOLS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {!SURFACE_PROTOCOLS.find(p => p.id === protocolId) && (
+            <option value={protocolId}>{protocol?.name ?? `Protocol ${protocolId}`}</option>
+          )}
+        </select>
+      </div>
+      <div className={css.fieldRow}>
+        <span className={css.fieldLabel}>Signal lost</span>
+        <select
+          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+          value={failsafe}
+          onChange={(e) => setFailsafe(e.target.value)}
+        >
+          {FAILSAFE_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+          {!FAILSAFE_OPTIONS.find(f => f.value === failsafe) && <option value={failsafe}>{failsafeLabel}</option>}
+        </select>
+      </div>
+    </section>
   );
 }
 
@@ -285,10 +376,10 @@ function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
 
 // ── Setup wizard ───────────────────────────────────────────────────────────────
 
-type WizardStep = 'throttle' | 'cruise' | 'drate' | 'steering' | 'kidcontrol' | 'confirm';
-const STEPS: WizardStep[] = ['throttle', 'cruise', 'drate', 'steering', 'kidcontrol', 'confirm'];
+type WizardStep = 'module' | 'throttle' | 'cruise' | 'drate' | 'steering' | 'kidcontrol' | 'confirm';
+const STEPS: WizardStep[] = ['module', 'throttle', 'cruise', 'drate', 'steering', 'kidcontrol', 'confirm'];
 const STEP_LABELS: Record<WizardStep, string> = {
-  throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter',
+  module: 'Radio link', throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter',
   steering: 'Steering', kidcontrol: 'KidControl', confirm: 'Done',
 };
 
@@ -316,6 +407,7 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
       expoData: [...(m.expoData ?? []).filter(() => false), ...generated.expoData],
       logicalSw: { ...(m.logicalSw ?? {}), ...generated.logicalSw },
       inputNames: { ...(m.inputNames ?? {}), ...generated.inputNames },
+      moduleData: generated.moduleData,
     }));
     if (params.wantKidControl) {
       onLaunchKidControl();
@@ -355,6 +447,42 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
           </span>
         ))}
       </div>
+
+      {step === 'module' && (
+        <>
+          <p className={css.stepTitle}>Radio link</p>
+          <p className={css.stepSub}>What receiver is fitted in your vehicle, and what should the vehicle do if the radio signal is lost?</p>
+          <div className={css.wizardConfig}>
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Receiver protocol</span>
+              <select
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+                value={params.moduleProtocol}
+                onChange={(e) => patch({ moduleProtocol: parseInt(e.target.value) })}
+              >
+                {SURFACE_PROTOCOLS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            {SURFACE_PROTOCOLS.find(p => p.id === params.moduleProtocol)?.note && (
+              <p className={css.fieldHint}>{SURFACE_PROTOCOLS.find(p => p.id === params.moduleProtocol)!.note}</p>
+            )}
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>If signal is lost</span>
+              <select
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+                value={params.moduleFailsafe}
+                onChange={(e) => patch({ moduleFailsafe: e.target.value })}
+              >
+                {FAILSAFE_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className={css.wizardActions}>
+            {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
+            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+          </div>
+        </>
+      )}
 
       {step === 'throttle' && (
         <>
@@ -496,6 +624,9 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
         <>
           <p className={css.stepTitle}>Ready to {initialParams ? 'apply' : 'create'}</p>
           <div className={css.wizardConfig} style={{ gap:6 }}>
+            <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+              <strong>Radio link</strong>: {SURFACE_PROTOCOLS.find(p => p.id === params.moduleProtocol)?.name ?? `Protocol ${params.moduleProtocol}`} · Failsafe: {FAILSAFE_OPTIONS.find(f => f.value === params.moduleFailsafe)?.label?.split(' — ')[0] ?? params.moduleFailsafe}
+            </p>
             <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
               <strong>Throttle</strong> on CH{params.throttleDestCh + 1}
               {params.wantCruise && ` · Cruise via ${params.cruiseSw} (${params.cruiseSpeed}%)`}
