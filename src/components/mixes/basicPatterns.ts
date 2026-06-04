@@ -256,14 +256,18 @@ export interface WizardParams {
   wantCruise: boolean;
   cruiseSw: string;
   cruiseSpeed: number;
-  wantDRate: boolean;
+  // Speed limiter
+  dRateMode: 'none' | 'pot' | 'switch';
+  dRatePot: string;        // 'P1' or 'P2' — for pot mode
+  dRateSwitch: string;     // switch position e.g. 'SC0' — for switch mode
+  dRatePercent: number;    // 0–100 — max throttle when switch is active (switch mode)
   wantSteering: boolean;
   steeringDestCh: number;
   steeringWeight: number;
   wantSTrim: boolean;
   wantKidControl: boolean;
-  moduleProtocol: number;  // MULTI protocol ID, e.g. 43 = Traxxas TQi
-  moduleFailsafe: string;  // e.g. 'no pulses'
+  moduleProtocol: number;
+  moduleFailsafe: string;
 }
 
 // Convert an existing analysis back into wizard params so the wizard can be pre-populated.
@@ -278,7 +282,14 @@ export function analysisToWizardParams(analysis: BasicAnalysis, model?: Model): 
     wantCruise:      !!analysis.cruise,
     cruiseSw:        analysis.cruise?.setSw       ?? d.cruiseSw,
     cruiseSpeed:     analysis.cruise?.cruiseSpeed ?? d.cruiseSpeed,
-    wantDRate:       !!analysis.drate,
+    dRateMode:       analysis.drate ? 'pot' : 'none',
+    dRatePot:        (() => {
+      if (!analysis.drate || !model) return d.dRatePot;
+      const expo = (model.expoData ?? []).find(e => e.chn === analysis.drate!.chn);
+      return expo?.srcRaw === 'P1' ? 'P1' : 'P2';
+    })(),
+    dRateSwitch:     d.dRateSwitch,
+    dRatePercent:    d.dRatePercent,
     wantSteering:    !!analysis.steering,
     steeringDestCh:  analysis.steering?.destCh   ?? d.steeringDestCh,
     steeringWeight:  analysis.steering?.weight    ?? d.steeringWeight,
@@ -296,7 +307,10 @@ export function defaultWizardParams(): WizardParams {
     wantCruise: false,
     cruiseSw: 'SC2',
     cruiseSpeed: 70,
-    wantDRate: false,
+    dRateMode: 'none',
+    dRatePot: 'P2',
+    dRateSwitch: 'SC0',
+    dRatePercent: 50,
     wantSteering: true,
     steeringDestCh: 3,
     steeringWeight: 100,
@@ -323,7 +337,7 @@ function blankExpoLine(srcRaw: string, chn: number, weight: number, offset: numb
   };
 }
 
-function blankMix(name: string, destCh: number, srcRaw: string, mltpx: string, weight: number, offset: number): MixLine {
+function blankMix(name: string, destCh: number, srcRaw: string, mltpx: string, weight: number, offset: number, swtch = 'NONE'): MixLine {
   return {
     weight,
     destCh,
@@ -332,7 +346,7 @@ function blankMix(name: string, destCh: number, srcRaw: string, mltpx: string, w
     mixWarn: 0,
     mltpx,
     offset,
-    swtch: 'NONE',
+    swtch,
     flightModes: '000000000',
     delayUp: 0,
     delayDown: 0,
@@ -398,13 +412,22 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
 
   mixData.push(blankMix('THROT', p.throttleDestCh, 'TH', 'ADD', p.throttleWeight, 0));
 
-  if (p.wantDRate) {
-    // P2 pot → Input 3 (chn 2 is STT/trim, chn 3 is TDR/rate — match TRX4m convention).
-    // Expo: P2 mapped 0–100% range via weight=50, offset=50.
-    expoData.push(blankExpoLine('P2', 3, 50, 50));
-    inputNames['2'] = { val: 'STT' };
-    inputNames['3'] = { val: 'TDR' };
-    mixData.push(blankMix('D-RATE', p.throttleDestCh, 'I3', 'MUL', 100, 0));
+  if (p.dRateMode === 'pot') {
+    // Knob maps 0–100%: weight=50, offset=50 maps -100..+100 → 0..100%.
+    if (p.dRatePot === 'P1') {
+      expoData.push(blankExpoLine('P1', 2, 50, 50));
+      inputNames['2'] = { val: 'STT' };
+      mixData.push(blankMix('D-RATE', p.throttleDestCh, 'I2', 'MUL', 100, 0));
+    } else {
+      expoData.push(blankExpoLine('P2', 3, 50, 50));
+      inputNames['2'] = { val: 'STT' };
+      inputNames['3'] = { val: 'TDR' };
+      mixData.push(blankMix('D-RATE', p.throttleDestCh, 'I3', 'MUL', 100, 0));
+    }
+  } else if (p.dRateMode === 'switch') {
+    // Fixed limit: MUL by MAX at dRatePercent weight, gated by the chosen switch.
+    // When switch is active: channel × (100 × dRatePercent/100) = channel × dRatePercent%.
+    mixData.push(blankMix('D-RATE', p.throttleDestCh, 'MAX', 'MUL', p.dRatePercent, 0, p.dRateSwitch));
   }
 
   // Steering channel.

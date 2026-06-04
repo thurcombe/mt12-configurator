@@ -3,6 +3,7 @@ import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
+import { useEditorStore } from '../../store/useEditorStore.ts';
 import {
   analyseBasicPatterns,
   analysisToWizardParams,
@@ -392,8 +393,9 @@ interface WizardProps {
 }
 
 function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
-  const [step, setStep] = useState<WizardStep>('throttle');
+  const [step, setStep] = useState<WizardStep>(STEPS[0]);
   const [params, setParams] = useState<WizardParams>(initialParams ?? defaultWizardParams());
+  const setHighlight = useEditorStore(s => s.setDiagramHighlight);
 
   function patch(p: Partial<WizardParams>) { setParams(prev => ({ ...prev, ...p })); }
   function next() { setStep(STEPS[STEPS.indexOf(step) + 1]); }
@@ -539,18 +541,61 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
 
       {step === 'drate' && (
         <>
-          <p className={css.stepTitle}>Speed limiter knob</p>
-          <p className={css.stepSub}>Use the P2 knob to scale your maximum throttle — useful for letting younger drivers use the same transmitter.</p>
+          <p className={css.stepTitle}>Speed limiter</p>
+          <p className={css.stepSub}>Limit the maximum throttle — useful for younger or less experienced drivers.</p>
           <div className={css.choiceGrid}>
-            <button className={params.wantDRate ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantDRate: true })}>
-              <span className={css.choiceLabel}>Yes, add speed limiter</span>
-              <span className={css.choiceDesc}>P2 knob limits maximum speed</span>
+            <button className={params.dRateMode === 'pot' ? css.choiceBtnActive : css.choiceBtn}
+              onClick={() => patch({ dRateMode: 'pot' })}>
+              <span className={css.choiceLabel}>Knob (variable)</span>
+              <span className={css.choiceDesc}>A knob continuously controls max speed from 0 to 100%</span>
             </button>
-            <button className={!params.wantDRate ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantDRate: false })}>
-              <span className={css.choiceLabel}>No speed limiter</span>
+            <button className={params.dRateMode === 'switch' ? css.choiceBtnActive : css.choiceBtn}
+              onClick={() => patch({ dRateMode: 'switch' })}>
+              <span className={css.choiceLabel}>Switch (fixed limit)</span>
+              <span className={css.choiceDesc}>A switch toggles a fixed speed limit on/off</span>
+            </button>
+            <button className={params.dRateMode === 'none' ? css.choiceBtnActive : css.choiceBtn}
+              onClick={() => patch({ dRateMode: 'none' })}>
+              <span className={css.choiceLabel}>None</span>
               <span className={css.choiceDesc}>Full throttle always available</span>
             </button>
           </div>
+
+          {params.dRateMode === 'pot' && (
+            <div className={css.wizardConfig}>
+              <p className={css.fieldHint} style={{ marginBottom: 8 }}>Which knob should control the speed limit? Hover to highlight it on the diagram.</p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {['P1', 'P2'].map(pot => (
+                  <button
+                    key={pot}
+                    className={params.dRatePot === pot ? css.choiceBtnActive : css.choiceBtn}
+                    style={{ flex: 1 }}
+                    onClick={() => patch({ dRatePot: pot })}
+                    onMouseEnter={() => setHighlight(pot)}
+                    onMouseLeave={() => setHighlight(null)}
+                  >
+                    <span className={css.choiceLabel}>{pot} knob</span>
+                    <span className={css.choiceDesc}>{pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {params.dRateMode === 'switch' && (
+            <div className={css.wizardConfig}>
+              <div className={css.fieldRow}>
+                <span className={css.fieldLabel}>Limit switch</span>
+                <SwitchPicker value={params.dRateSwitch} onChange={(v) => patch({ dRateSwitch: v })} />
+              </div>
+              <div className={css.fieldRow}>
+                <span className={css.fieldLabel}>Max throttle when on</span>
+                <WeightSlider value={params.dRatePercent} onChange={(v) => patch({ dRatePercent: v })} min={0} max={100} />
+              </div>
+              <p className={css.fieldHint}>When the switch is active, throttle is capped at {params.dRatePercent}%.</p>
+            </div>
+          )}
+
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
@@ -630,7 +675,8 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
             <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
               <strong>Throttle</strong> on CH{params.throttleDestCh + 1}
               {params.wantCruise && ` · Cruise via ${params.cruiseSw} (${params.cruiseSpeed}%)`}
-              {params.wantDRate && ' · Speed limiter (P2 knob)'}
+              {params.dRateMode === 'pot' && ` · Speed limiter (${params.dRatePot} knob)`}
+              {params.dRateMode === 'switch' && ` · Speed limit ${params.dRatePercent}% via ${params.dRateSwitch}`}
             </p>
             {params.wantSteering && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
