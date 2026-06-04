@@ -132,6 +132,17 @@
 
 .placeBtn:hover { background: var(--surface-hi); color: var(--text); }
 
+.placeBtnActive {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: #fff;
+  cursor: default;
+}
+
 .placeHint {
   font-size: 11px;
   color: var(--text-muted);

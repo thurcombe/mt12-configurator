@@ -128,7 +128,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           </div>
           <div className={css.diagramPanel}>
             <div className={css.diagramTitle}>MT12 controls</div>
-            <Mt12Diagram sdRoot={sdRoot} selected={diagramSelected} onSelect={setDiagramSelected} />
+            <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} />
             {diagramSelected && (
               <p className={css.diagramHint}>
                 <strong>{diagramSelected}</strong> — physical location on transmitter

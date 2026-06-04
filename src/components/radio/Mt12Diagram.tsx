@@ -2,11 +2,88 @@
 // Label positions are stored in .webconfig/diagram-labels.json on the SD card.
 // The image always shows; labels and placement require an SD card connection.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { SdRoot } from '../../fs/sdcard.ts';
+import type { Model } from '../../types/model.ts';
 import { readWebConfig, writeWebConfig } from '../../fs/webconfig.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
+import { buildInputMap } from '../../codec/modelSummary.ts';
 import css from './Mt12Diagram.module.css';
+
+// ── Function map ───────────────────────────────────────────────────────────────
+// Derives what each physical control is used for in the current model.
+
+type FunctionMap = Record<string, string[]>;
+
+function buildFunctionMap(model: Model): FunctionMap {
+  const result: FunctionMap = {};
+
+  function add(ctrl: string, fn: string) {
+    if (!ctrl || ctrl === 'NONE') return;
+    if (!result[ctrl]) result[ctrl] = [];
+    if (!result[ctrl].includes(fn)) result[ctrl].push(fn);
+  }
+
+  // Strip position digit to get physical control: "SC2" → "SC"
+  function ctrl(sw: string) { return sw.replace(/^!/, '').replace(/\d+$/, ''); }
+
+  // TH is always throttle trigger
+  add('TH', 'Throttle trigger');
+
+  // Pots: find which input channel each pot maps to, then look at mix names using that channel
+  const inputMap = buildInputMap(model.expoData ?? []);
+  const chnToPot: Record<number, string> = {};
+  for (const line of model.expoData ?? []) {
+    if (/^P\d/.test(line.srcRaw)) chnToPot[line.chn] = line.srcRaw;
+  }
+
+  for (const line of model.mixData ?? []) {
+    const name = (line.name ?? '').toUpperCase();
+    const inputM = /^I(\d+)$/.exec(line.srcRaw);
+    const pot = inputM ? chnToPot[parseInt(inputM[1])] : null;
+    if (pot) {
+      if (name === 'D-RATE' || name === 'DRATE') add(pot, 'Speed limiter');
+      else if (name === 'S-TRIM' || name === 'STRIM') add(pot, 'Steering trim');
+      else add(pot, (inputMap[parseInt(inputM![1])] ?? name) || 'Input');
+    }
+    // Condition switches on mix lines
+    if (line.swtch && line.swtch !== 'NONE' && line.swtch !== 'ON') {
+      const sw = ctrl(line.swtch);
+      if (name === 'CRUISE') add(sw, 'Cruise control');
+    }
+  }
+
+  // Logical switches → underlying physical switches
+  for (const ls of Object.values(model.logicalSw ?? {})) {
+    const args = ls.def?.split(',') ?? [];
+    const physSwitches = [...new Set(args.map(a => ctrl(a)).filter(s => s && s !== 'NONE' && /^[A-Z]/.test(s)))];
+    // Find what uses this LS (crude: check mix and customFn)
+    let lsFn = 'Logical switch';
+    if (ls.func === 'FUNC_STICKY') lsFn = 'Cruise toggle';
+    else if (ls.func === 'FUNC_AND') lsFn = 'Combined switch';
+    else if (ls.func === 'FUNC_OR') lsFn = 'Either switch';
+    for (const sw of physSwitches) add(sw, lsFn);
+  }
+
+  // Flight mode switches
+  for (const [key, fm] of Object.entries(model.flightModeData ?? {})) {
+    if (key === '0' || !fm.swtch || fm.swtch === 'NONE') continue;
+    const sw = ctrl(fm.swtch);
+    const label = fm.name?.trim() || (key === '1' ? 'KidControl' : `Drive mode ${key}`);
+    add(sw, label);
+  }
+
+  // Special functions
+  for (const fn of Object.values(model.customFn ?? {})) {
+    if (!fn.swtch || fn.swtch === 'NONE') continue;
+    const sw = ctrl(fn.swtch);
+    let desc = fn.func ?? 'Special function';
+    if (fn.func === 'PLAY_TRACK') desc = `Audio: ${fn.def?.split(',')[0] ?? ''}`;
+    add(sw, desc);
+  }
+
+  return result;
+}
 
 interface CtrlDef {
   name: string;
@@ -96,10 +173,12 @@ interface PhotoProps {
   activeControl?: string;
   dragPreview?: DragState | null;
   large?: boolean;
+  functionMap?: FunctionMap;
+  showFunctions?: boolean;
 }
 
 function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSelect, onHover,
-  placing, activeControl, dragPreview, large }: PhotoProps) {
+  placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
 
   function active(name: string) {
     return selected === name || hovered === name || externalHighlight === name;
@@ -196,25 +275,48 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
               pointerEvents: placing ? 'none' : 'auto',
             }}
           >
-            <span style={{
-              display:'inline-block', fontSize, fontWeight:700,
-              fontFamily:'system-ui,sans-serif',
-              color: on ? '#fff' : (c.inert ? '#e5e7eb' : '#dbeafe'),
-              background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : 'rgba(29,78,216,0.85)')
-                             : 'rgba(0,0,0,0.55)',
-              padding:'1px 5px', borderRadius:3,
-              whiteSpace:'nowrap',
-            }}>{c.name}</span>
-            {on && (
-              <span style={{
-                display:'block', marginTop:2, fontSize: fontSize * 0.82,
-                fontFamily:'system-ui,sans-serif',
-                color:'#fff',
-                background:'rgba(0,0,0,0.75)',
-                padding:'1px 5px', borderRadius:3,
-                whiteSpace:'nowrap',
-              }}>{c.desc}</span>
-            )}
+            {(() => {
+              const fns = showFunctions ? (functionMap?.[c.name] ?? []) : [];
+              const hasFunction = fns.length > 0;
+              const labelText = showFunctions
+                ? (hasFunction ? fns[0] : (c.inert ? c.desc : c.name))
+                : c.name;
+              const isMapped = showFunctions && hasFunction && !c.inert;
+              return (
+                <>
+                  <span style={{
+                    display:'inline-block', fontSize, fontWeight: isMapped ? 700 : 500,
+                    fontFamily:'system-ui,sans-serif',
+                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (isMapped ? '#dbeafe' : 'rgba(255,255,255,0.5)')),
+                    background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : 'rgba(29,78,216,0.85)')
+                                   : (isMapped ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)'),
+                    padding:'1px 5px', borderRadius:3,
+                    whiteSpace:'nowrap',
+                  }}>{labelText}</span>
+                  {/* Show additional functions as extra pills */}
+                  {showFunctions && fns.slice(1).map((fn, i) => (
+                    <span key={i} style={{
+                      display:'block', marginTop:2, fontSize: fontSize * 0.82,
+                      fontFamily:'system-ui,sans-serif',
+                      color:'#fff',
+                      background:'rgba(0,0,0,0.65)',
+                      padding:'1px 5px', borderRadius:3,
+                      whiteSpace:'nowrap',
+                    }}>{fn}</span>
+                  ))}
+                  {on && (
+                    <span style={{
+                      display:'block', marginTop:2, fontSize: fontSize * 0.82,
+                      fontFamily:'system-ui,sans-serif',
+                      color:'#fff',
+                      background:'rgba(0,0,0,0.75)',
+                      padding:'1px 5px', borderRadius:3,
+                      whiteSpace:'nowrap',
+                    }}>{showFunctions && hasFunction ? c.name : c.desc}</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
         );
       })}
@@ -244,14 +346,17 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
 
 interface Props {
   sdRoot: SdRoot | null;
+  model?: Model;
   selected?: string;
   onSelect?: (name: string) => void;
   className?: string;
 }
 
-export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
+export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Props) {
   const externalHighlight = useEditorStore(s => s.diagramHighlight);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [showFunctions, setShowFunctions] = useState(false);
+  const functionMap = useMemo(() => model ? buildFunctionMap(model) : undefined, [model]);
   const [enlarged, setEnlarged] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [activeControl, setActiveControl] = useState<string>(CONTROLS[0].name);
@@ -339,6 +444,24 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
   return (
     <div className={`${css.root} ${className ?? ''}`}>
 
+      {/* Labels / Functions toggle — shown when model data is available */}
+      {model && (
+        <div className={css.placeBar}>
+          <button
+            className={!showFunctions ? css.placeBtn : css.placeBtnActive}
+            onClick={() => setShowFunctions(false)}
+          >
+            Labels
+          </button>
+          <button
+            className={showFunctions ? css.placeBtn : css.placeBtnActive}
+            onClick={() => setShowFunctions(true)}
+          >
+            Functions
+          </button>
+        </div>
+      )}
+
       {/* Toolbar — only shown when SD card connected */}
       {sdRoot ? (
         <div className={css.placeBar}>
@@ -384,6 +507,8 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
           externalHighlight={externalHighlight}
           onSelect={onSelect}
           onHover={setHovered}
+          functionMap={functionMap}
+          showFunctions={showFunctions}
         />
 
         {/* Overlay when no SD card */}
@@ -484,6 +609,8 @@ export function Mt12Diagram({ sdRoot, selected, onSelect, className }: Props) {
               placing={placing}
               activeControl={activeControl}
               dragPreview={dragState}
+              functionMap={functionMap}
+              showFunctions={showFunctions}
               large
             />
           </div>
