@@ -1,0 +1,296 @@
+.root {
+  max-width: 640px;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.crumb,
+.crumbActive {
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.crumb:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-hi);
+}
+
+.crumb:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.crumbActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.crumbSep {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Step heading */
+.stepTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.stepSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+
+/* Vehicle type cards */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.typeCard:hover {
+  border-color: var(--accent);
+  background: var(--surface-hi);
+}
+
+.typeIcon {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.typeLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.typeDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Speed class cards */
+.speedGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.speedCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.speedCard:hover {
+  border-color: var(--accent);
+  background: var(--surface-hi);
+}
+
+.speedLabel {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 64px;
+}
+
+.speedDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.speedPreview {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Sliders */
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px;
+}
+
+.sliderRow {
+  display: grid;
+  grid-template-columns: 140px 60px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sliderLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.sliderNum {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: var(--font);
+  text-align: right;
+}
+
+.sliderRange {
+  accent-color: var(--accent);
+}
+
+.sliderVal {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  text-align: right;
+}
+
+/* Switch row */
+.switchHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.switchLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 56px;
+}
+
+/* Preview box */
+.previewBox {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 20px 0;
+}
+
+.previewTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.previewGrid span:nth-child(odd) {
+  color: var(--text-muted);
+}
+
+.previewGrid span:nth-child(even) {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Active state */
+.activeCard {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.activeHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.activeBadge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.activeSwitch {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+}
+
+.activeHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}

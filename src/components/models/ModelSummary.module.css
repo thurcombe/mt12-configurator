@@ -1,0 +1,216 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.modelName {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.protocol {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.lead {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Channel cards */
+.channelCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.channelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--surface-hi) 60%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.chIcon {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.chLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lineList {
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lineItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.lineItem.kidLine {
+  opacity: 0.7;
+}
+
+.lineName {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.lineDetail {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.controlChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 600;
+  cursor: default;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.controlChip:hover {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: var(--accent);
+}
+
+.lineTag {
+  font-size: 11px;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.kidTag {
+  font-size: 11px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* Expo section */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.expoGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.expoSrc {
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.expoRate {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.expoExpo {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Kid mode status */
+.kidSection {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.kidSection.kidActive {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.kidIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.kidTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.kidHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}

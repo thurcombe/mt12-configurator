@@ -1,0 +1,81 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.panelTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.select,
+.input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: var(--font);
+  width: 100%;
+  max-width: 320px;
+}
+
+.select:focus,
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.inputSm {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: var(--font);
+  width: 80px;
+}
+
+.subTypeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subTypeHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.protoNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.4;
+}

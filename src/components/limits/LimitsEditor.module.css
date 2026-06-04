@@ -1,0 +1,104 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hint strong {
+  color: var(--text);
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+
+.row {
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--surface-hi);
+}
+
+.row td {
+  padding: 5px 10px;
+}
+
+.chCell {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  width: 48px;
+}
+
+.nameInput {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: var(--mono);
+  width: 72px;
+}
+
+.nameInput:hover,
+.nameInput:focus {
+  background: var(--bg);
+  border-color: var(--border);
+  outline: none;
+}
+
+.nameInput:focus {
+  border-color: var(--accent);
+}
+
+.numInput {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: var(--mono);
+  width: 70px;
+  text-align: right;
+}
+
+.numInput:hover,
+.numInput:focus {
+  background: var(--bg);
+  border-color: var(--border);
+  outline: none;
+}
+
+.numInput:focus {
+  border-color: var(--accent);
+}
+
+.invertCell {
+  text-align: center;
+}

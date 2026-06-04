@@ -1,0 +1,180 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Photo container */
+.photoWrap {
+  position: relative;
+  cursor: zoom-in;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  line-height: 0;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Enlarge hint — bottom-right of photo */
+.enlargeHint {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-family: var(--font);
+  color: rgba(255,255,255,0.55);
+  background: rgba(0,0,0,0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* SB legend */
+.legend {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.legendHeading {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.legendGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.legendBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s;
+}
+
+.legendBtn:hover {
+  background: var(--surface-hi);
+}
+
+.legendBtnActive {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  flex-shrink: 0;
+}
+
+.legendDotActive {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.legendName {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--mono);
+  min-width: 28px;
+}
+
+.legendDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  text-align: center;
+}
+
+/* Calibration toolbar */
+.calibBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.calibBtn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.calibBtn:hover { background: var(--surface-hi); color: var(--text); }
+
+.calibHint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.calibActive {
+  font-size: 12px;
+  color: var(--warning, #f59e0b);
+  font-family: var(--font);
+}
+
+.calibSelect {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: var(--font);
+}
+
+.calibDone {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font);
+  background: var(--accent);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.calibOverlay {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(245, 158, 11, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-family: var(--font);
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}

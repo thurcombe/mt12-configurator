@@ -1,0 +1,96 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.nameInput {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: var(--font);
+  min-width: 80px;
+  max-width: 240px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.nameInput:hover {
+  border-color: var(--border);
+}
+
+.nameInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+/* Below topBar + tabBar: two-column layout */
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+}
+
+/* Diagram sidebar — always visible on right */
+.diagramPanel {
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px 12px;
+  background: var(--surface);
+}
+
+/* Tab description strip */
+.tabDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin-bottom: 18px;
+}
+
+.diagramTitle {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.diagramHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.diagramHint strong {
+  color: var(--accent);
+}

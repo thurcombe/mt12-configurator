@@ -1,0 +1,204 @@
+import { useState } from 'react';
+import type { Model, FlightModeData } from '../../types/model.ts';
+import { SwitchPicker } from '../shared/SwitchPicker.tsx';
+import { Tooltip } from '../shared/Tooltip.tsx';
+import css from './FlightModeEditor.module.css';
+
+interface Props {
+  model: Model;
+  onChange: (updater: (m: Model) => Model) => void;
+}
+
+const TRIM_MODES = [
+  { value: 0, label: 'Own' },
+  { value: 1, label: 'Use FM0' },
+  { value: 2, label: 'Use FM1' },
+  { value: 3, label: 'Use FM2' },
+  { value: 4, label: 'Use FM3' },
+  { value: 5, label: 'Use FM4' },
+  { value: 6, label: 'Use FM5' },
+  { value: 7, label: 'Use FM6' },
+  { value: 8, label: 'Use FM7' },
+];
+
+const FADE_STEP = 0.1; // each unit = 0.1s
+
+function fmLabel(idx: string, fm: FlightModeData) {
+  const n = parseInt(idx, 10);
+  const name = fm.name?.trim();
+  if (n === 0) return name ? `FM0 — ${name} (Default)` : 'FM0 — Default';
+  return name ? `FM${n} — ${name}` : `FM${n}`;
+}
+
+interface FmPanelProps {
+  idx: string;
+  fm: FlightModeData;
+  isDefault: boolean;
+  onChange: (fm: FlightModeData) => void;
+}
+
+function FmPanel({ idx, fm, isDefault, onChange }: FmPanelProps) {
+  const [open, setOpen] = useState(idx === '0');
+  const trimEntries = Object.entries(fm.trim ?? {});
+  const gvarEntries = Object.entries(fm.gvars ?? {});
+
+  return (
+    <div className={css.panel}>
+      <button className={css.panelHeader} onClick={() => setOpen((o) => !o)}>
+        <span className={css.caret}>{open ? '▾' : '▸'}</span>
+        <span className={css.panelTitle}>{fmLabel(idx, fm)}</span>
+        {isDefault && <span className="badge">default</span>}
+        {!isDefault && fm.swtch && fm.swtch !== 'NONE' && (
+          <span className="badge badge-accent">{fm.swtch}</span>
+        )}
+        {(fm.fadeIn || fm.fadeOut) ? (
+          <span className={css.fadeHint}>fade {fm.fadeIn * FADE_STEP}s / {fm.fadeOut * FADE_STEP}s</span>
+        ) : null}
+      </button>
+
+      {open && (
+        <div className={css.body}>
+          <div className={css.grid}>
+            <label className={css.label}>Name <Tooltip text="Label for this flight mode. Shown on screen when the mode is active." /></label>
+            <input
+              type="text"
+              className={css.input}
+              value={fm.name ?? ''}
+              maxLength={10}
+              onChange={(e) => onChange({ ...fm, name: e.target.value })}
+            />
+
+            {!isDefault && (
+              <>
+                <label className={css.label}>Switch <Tooltip text="The physical switch that activates this flight mode. When flipped, the radio instantly switches to these settings." /></label>
+                <SwitchPicker value={fm.swtch ?? 'NONE'} onChange={(v) => onChange({ ...fm, swtch: v })} />
+              </>
+            )}
+
+            <label className={css.label}>Fade in (× 0.1s) <Tooltip text="How long to blend in when entering this mode. 0 = instant snap; 5 = half-second smooth transition." /></label>
+            <input
+              type="number"
+              className={css.input}
+              value={fm.fadeIn ?? 0}
+              min={0}
+              max={25}
+              onChange={(e) => onChange({ ...fm, fadeIn: parseInt(e.target.value, 10) || 0 })}
+            />
+
+            <label className={css.label}>Fade out (× 0.1s) <Tooltip text="How long to blend out when leaving this mode." /></label>
+            <input
+              type="number"
+              className={css.input}
+              value={fm.fadeOut ?? 0}
+              min={0}
+              max={25}
+              onChange={(e) => onChange({ ...fm, fadeOut: parseInt(e.target.value, 10) || 0 })}
+            />
+          </div>
+
+          {trimEntries.length > 0 && (
+            <>
+              <h4 className={css.sectionTitle}>Trims</h4>
+              <div className={css.grid}>
+                {trimEntries.map(([trimKey, trim]) => (
+                  <div key={trimKey} className={css.trimRow}>
+                    <span className={css.trimLabel}>{trimKey.toUpperCase()}</span>
+                    <select
+                      className={css.selectSm}
+                      value={trim.mode ?? 0}
+                      onChange={(e) => {
+                        const mode = parseInt(e.target.value, 10);
+                        onChange({
+                          ...fm,
+                          trim: { ...fm.trim, [trimKey]: { ...trim, mode } },
+                        });
+                      }}
+                    >
+                      {TRIM_MODES.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                    <Tooltip text="'Use FM0' borrows FM0's trim value instead of having a separate one for this mode." />
+                    {(trim.mode ?? 0) === 0 && (
+                      <input
+                        type="number"
+                        className={css.inputSm}
+                        value={trim.value ?? 0}
+                        min={-125}
+                        max={125}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value, 10) || 0;
+                          onChange({
+                            ...fm,
+                            trim: { ...fm.trim, [trimKey]: { ...trim, value } },
+                          });
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {gvarEntries.length > 0 && (
+            <>
+              <h4 className={css.sectionTitle}>GVars</h4>
+              <div className={css.gvarGrid}>
+                {gvarEntries.map(([gvKey, gv]) => (
+                  <div key={gvKey} className={css.gvarRow}>
+                    <span className={css.gvarLabel}>GV{parseInt(gvKey) + 1}</span>
+                    <input
+                      type="number"
+                      className={css.inputSm}
+                      value={gv.val ?? 0}
+                      min={-1024}
+                      max={1024}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 0;
+                        onChange({
+                          ...fm,
+                          gvars: { ...fm.gvars, [gvKey]: { ...gv, val } },
+                        });
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FlightModeEditor({ model, onChange }: Props) {
+  const fms = model.flightModeData ?? {};
+  const entries = Object.entries(fms).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+  function updateFm(idx: string, fm: FlightModeData) {
+    onChange((m) => ({
+      ...m,
+      flightModeData: { ...m.flightModeData, [idx]: fm },
+    }));
+  }
+
+  if (entries.length === 0) {
+    return <p style={{ color: 'var(--text-muted)', padding: 20 }}>No flight mode data in this model.</p>;
+  }
+
+  return (
+    <div className={css.root}>
+      {entries.map(([idx, fm]) => (
+        <FmPanel
+          key={idx}
+          idx={idx}
+          fm={fm}
+          isDefault={idx === '0'}
+          onChange={(f) => updateFm(idx, f)}
+        />
+      ))}
+    </div>
+  );
+}
