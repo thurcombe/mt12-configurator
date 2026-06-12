@@ -1,9 +1,18 @@
 .root {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 680px;
+  columns: 2;
+  column-gap: 14px;
   padding: 4px 0;
+}
+
+.root > * {
+  break-inside: avoid;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .root {
+    columns: 1;
+  }
 }
 
 /* ── Feature cards ─────────────────────────────────────────── */
@@ -43,6 +52,15 @@
   font-family: var(--mono);
   color: var(--text-muted);
   background: var(--surface-hi);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.cardMetaGreen {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: #fff;
+  background: #16a34a;
   border-radius: 4px;
   padding: 2px 7px;
 }

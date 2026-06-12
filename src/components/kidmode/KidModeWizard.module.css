@@ -291,6 +291,25 @@
 .activeHint {
   font-size: 13px;
   color: var(--text-muted);
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   line-height: 1.5;
+}
+
+.activeRow {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.activeLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.activeValue {
+  font-size: 13px;
+  font-family: var(--mono);
+  color: var(--text);
 }

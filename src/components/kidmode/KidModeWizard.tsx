@@ -15,6 +15,8 @@ import css from './KidModeWizard.module.css';
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  onApplied?: () => void;
+  initialVehicleType?: VehicleType;
 }
 
 type Step = 'vehicle' | 'speed' | 'sliders';
@@ -79,11 +81,27 @@ function SliderRow({ label, value, min, max, unit = '%', onChange }: SliderRowPr
   );
 }
 
-export function KidModeWizard({ model, onChange }: Props) {
-  const [step, setStep] = useState<Step>('vehicle');
-  const [vehicle, setVehicle] = useState<VehicleType>('crawler');
+function expoFeel(expo: number): string {
+  if (expo <= 5)  return 'direct';
+  if (expo <= 25) return 'slightly softer';
+  if (expo <= 50) return 'noticeably softer';
+  if (expo <= 75) return 'very soft';
+  return 'extremely soft';
+}
+
+function rampDesc(up: number, down: number): string {
+  const u = (up * 0.1).toFixed(1);
+  const d = (down * 0.1).toFixed(1);
+  if (up > 0 && down > 0) return `${u}s to speed up, ${d}s to slow down`;
+  if (up > 0) return `${u}s to speed up`;
+  return `${d}s to slow down`;
+}
+
+export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }: Props) {
+  const [step, setStep] = useState<Step>(initialVehicleType ? 'speed' : 'vehicle');
+  const [vehicle, setVehicle] = useState<VehicleType>(initialVehicleType ?? 'crawler');
   const [speed, setSpeed] = useState<SpeedClass>('slow');
-  const [params, setParams] = useState<KidModeParams>(DEFAULTS.crawler.slow);
+  const [params, setParams] = useState<KidModeParams>(DEFAULTS[initialVehicleType ?? 'crawler'].slow);
   const [triggerSwitch, setTriggerSwitch] = useState('FL10');
 
   const active = isKidModeActive(model);
@@ -106,6 +124,7 @@ export function KidModeWizard({ model, onChange }: Props) {
 
   function handleApply() {
     onChange((m) => applyKidMode(m, params, triggerSwitch));
+    onApplied?.();
   }
 
   function handleRemove() {
@@ -114,20 +133,49 @@ export function KidModeWizard({ model, onChange }: Props) {
 
   if (active) {
     const fm1 = model.flightModeData?.['1'];
+    const trigSw = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
+    const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
+    const thExpo = kidExpos.find(l => l.name === 'KID-TH');
+    const stExpo = kidExpos.find(l => l.name === 'KID-ST');
+    const spMix = (model.mixData ?? []).find(l => l.name === 'KID-SP');
     return (
       <div className={css.root}>
         <div className={css.activeCard}>
           <div className={css.activeHeader}>
             <span className={css.activeBadge}>KidControl active</span>
-            {fm1?.swtch && fm1.swtch !== 'NONE' && (
-              <span className={css.activeSwitch}>trigger: {fm1.swtch}</span>
-            )}
           </div>
           <p className={css.activeHint}>
-            FM1 &ldquo;{fm1?.name ?? 'Kid'}&rdquo; is configured with rate-limited throttle and steering expo lines.
-            Remove KidControl to delete FM1 and all KID-* expo/mix lines.
+            KidControl is enabled — reduced throttle and steering limits apply when the trigger switch is engaged.
           </p>
-          <button className="btn btn-danger btn-sm" onClick={handleRemove}>
+          {trigSw && (
+            <div className={css.activeRow}>
+              <span className={css.activeLabel}>Trigger switch</span>
+              <span className={css.activeValue}>{trigSw}</span>
+            </div>
+          )}
+          {thExpo && (
+            <div className={css.activeRow}>
+              <span className={css.activeLabel}>Throttle limit</span>
+              <span className={css.activeValue}>
+                {thExpo.weight}% max{thExpo.curve?.value ? ` — ${expoFeel(thExpo.curve.value)} response (${thExpo.curve.value}% expo)` : ''}
+              </span>
+            </div>
+          )}
+          {spMix && (spMix.speedUp > 0 || spMix.speedDown > 0) && (
+            <div className={css.activeRow}>
+              <span className={css.activeLabel}>Speed ramp</span>
+              <span className={css.activeValue}>{rampDesc(spMix.speedUp, spMix.speedDown)}</span>
+            </div>
+          )}
+          {stExpo && (
+            <div className={css.activeRow}>
+              <span className={css.activeLabel}>Steering limit</span>
+              <span className={css.activeValue}>
+                {stExpo.weight}% max{stExpo.curve?.value ? ` — ${expoFeel(stExpo.curve.value)} response (${stExpo.curve.value}% expo)` : ''}
+              </span>
+            </div>
+          )}
+          <button className="btn btn-danger btn-sm" style={{ marginTop: 8 }} onClick={handleRemove}>
             Remove KidControl
           </button>
         </div>

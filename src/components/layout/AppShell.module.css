@@ -141,6 +141,11 @@ body {
   font-size: 12px;
 }
 
+:global(.btn:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 :global(.badge) {
   display: inline-flex;
   align-items: center;
@@ -160,4 +165,9 @@ body {
 :global(.badge-warning) {
   background: color-mix(in srgb, var(--warning) 20%, transparent);
   color: var(--warning);
+}
+
+:global(.badge-green) {
+  background: color-mix(in srgb, #16a34a 20%, transparent);
+  color: #16a34a;
 }

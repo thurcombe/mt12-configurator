@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
-import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile } from '../fs/sdcard.ts';
+import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages } from '../fs/sdcard.ts';
+import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
 import { writeBackup, listBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
 import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
@@ -51,6 +52,24 @@ interface EditorState {
   // Keys created fresh this session (never saved to disk) — cleaned up on confirm-leave
   freshModelKeys: Set<string>;
 
+  // Model images — object URLs keyed by model slot key
+  modelImages: Record<ModelKey, string>;
+  loadModelImages: () => Promise<void>;
+  uploadModelImage: (key: ModelKey, file: File) => Promise<void>;
+
+  // Per-model app metadata — stored in .webconfig/model-meta.json
+  modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string }>;
+  setModelScale: (key: ModelKey, scale: string) => Promise<void>;
+  setModelVehicleType: (key: ModelKey, vehicleType: string) => Promise<void>;
+
+  // Vehicle categories (built-in + custom) — custom stored in .webconfig/vehicle-categories.json
+  vehicleCategories: VehicleCategory[];
+  vehicleTypeImages: Record<string, string>;  // category id → object URL
+  loadVehicleCategories: () => Promise<void>;
+  saveCustomVehicleCategory: (cat: VehicleCategory) => Promise<void>;
+  deleteCustomVehicleCategory: (id: string) => Promise<void>;
+  uploadVehicleTypeImage: (typeId: string, file: File) => Promise<void>;
+
   // Diagram highlight — any component can set this to highlight a control on the MT12 diagram
   diagramHighlight: string | null;
   setDiagramHighlight: (control: string | null) => void;
@@ -64,6 +83,7 @@ interface EditorState {
 
   // Actions — SD card
   connectSdCard: () => Promise<void>;
+  disconnectSdCard: () => void;
 
   // Actions — models
   loadAllModels: () => Promise<void>;
@@ -91,6 +111,9 @@ interface EditorState {
   // Actions — settings
   updateSettings: (patch: Partial<AppSettings>) => void;
 
+  // Remove a never-saved model from memory without touching the SD card
+  discardFreshModel: (key: ModelKey) => void;
+
   // Revert (discard unsaved edits and restore from disk)
   revertModel: (key: ModelKey) => Promise<void>;
   revertRadio: () => Promise<void>;
@@ -114,8 +137,97 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastError: null,
   warnings: [],
   settings: DEFAULT_SETTINGS,
+  modelImages: {},
+  modelMeta: {},
+  vehicleCategories: BUILT_IN_CATEGORIES,
+  vehicleTypeImages: {},
   diagramHighlight: null,
   setDiagramHighlight: (control) => set({ diagramHighlight: control }),
+
+  loadModelImages: async () => {
+    const { sdRoot, models } = get();
+    if (!sdRoot) return;
+    const keys = Object.keys(models);
+    if (keys.length === 0) return;
+    try {
+      const images = await findModelImages(sdRoot, keys);
+      set({ modelImages: images });
+    } catch { /* ignore */ }
+  },
+
+  uploadModelImage: async (key, file) => {
+    const { sdRoot, modelImages } = get();
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase() || '.png';
+    const sdPath = `IMAGES/${key}${ext}`;
+    if (sdRoot) {
+      const buf = await file.arrayBuffer();
+      await writeBinaryFile(sdRoot, sdPath, buf);
+    }
+    if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
+    const url = URL.createObjectURL(file);
+    set({ modelImages: { ...modelImages, [key]: url } });
+  },
+
+  setModelScale: async (key, scale) => {
+    const { sdRoot, modelMeta } = get();
+    const next = { ...modelMeta, [key]: { ...(modelMeta[key] ?? {}), scale } };
+    set({ modelMeta: next });
+    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  },
+
+  setModelVehicleType: async (key, vehicleType) => {
+    const { sdRoot, modelMeta } = get();
+    const next = { ...modelMeta, [key]: { ...(modelMeta[key] ?? {}), vehicleType } };
+    set({ modelMeta: next });
+    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  },
+
+  loadVehicleCategories: async () => {
+    const { sdRoot } = get();
+    const custom = sdRoot
+      ? await readWebConfig<VehicleCategory[]>(sdRoot, 'vehicle-categories.json').catch(() => null)
+      : null;
+    const categories = [...BUILT_IN_CATEGORIES, ...(custom ?? []).map((c) => ({ ...c, custom: true }))];
+    set({ vehicleCategories: categories });
+    // Load type images
+    if (sdRoot) {
+      const ids = categories.map((c) => c.id);
+      const images = await findImages(sdRoot, '.webconfig/vehicle-type-images', ids).catch(() => ({}));
+      set({ vehicleTypeImages: images });
+    }
+  },
+
+  saveCustomVehicleCategory: async (cat) => {
+    const { sdRoot, vehicleCategories } = get();
+    const existing = vehicleCategories.filter((c) => c.custom);
+    const idx = existing.findIndex((c) => c.id === cat.id);
+    const next = idx >= 0
+      ? existing.map((c) => c.id === cat.id ? cat : c)
+      : [...existing, cat];
+    const updated = [...BUILT_IN_CATEGORIES, ...next.map((c) => ({ ...c, custom: true }))];
+    set({ vehicleCategories: updated });
+    if (sdRoot) writeWebConfig(sdRoot, 'vehicle-categories.json', next).catch(() => {});
+  },
+
+  deleteCustomVehicleCategory: async (id) => {
+    const { sdRoot, vehicleCategories } = get();
+    const updated = vehicleCategories.filter((c) => c.id !== id || !c.custom);
+    set({ vehicleCategories: updated });
+    const custom = updated.filter((c) => c.custom);
+    if (sdRoot) writeWebConfig(sdRoot, 'vehicle-categories.json', custom).catch(() => {});
+  },
+
+  uploadVehicleTypeImage: async (typeId, file) => {
+    const { sdRoot, vehicleTypeImages } = get();
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase() || '.png';
+    const sdPath = `.webconfig/vehicle-type-images/${typeId}${ext}`;
+    if (sdRoot) {
+      const buf = await file.arrayBuffer();
+      await writeBinaryFile(sdRoot, sdPath, buf);
+    }
+    if (vehicleTypeImages[typeId]) URL.revokeObjectURL(vehicleTypeImages[typeId]);
+    set({ vehicleTypeImages: { ...vehicleTypeImages, [typeId]: URL.createObjectURL(file) } });
+  },
 
   connectSdCard: async () => {
     try {
@@ -124,10 +236,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Load settings from SD card webconfig.
       const saved = await readWebConfig<AppSettings>(root, SETTINGS_WEBCONFIG);
       if (saved) set({ settings: { ...DEFAULT_SETTINGS, ...saved } });
+      // Load per-model metadata (scale, vehicleType etc.)
+      const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string }>>(root, 'model-meta.json');
+      if (meta) set({ modelMeta: meta });
+      // Load vehicle categories + type images
+      get().loadVehicleCategories();
     } catch (e) {
       const msg = friendlyError(e);
       if (msg) set({ lastError: msg });
+
     }
+  },
+
+  disconnectSdCard: () => {
+    const { modelImages, vehicleTypeImages } = get();
+    Object.values(modelImages).forEach((url) => URL.revokeObjectURL(url));
+    Object.values(vehicleTypeImages).forEach((url) => URL.revokeObjectURL(url));
+    set({
+      sdRoot: null,
+      models: {},
+      radio: null,
+      dirty: new Set(),
+      freshModelKeys: new Set(),
+      modelImages: {},
+      modelMeta: {},
+      vehicleCategories: BUILT_IN_CATEGORIES,
+      vehicleTypeImages: {},
+      lastError: null,
+      warnings: [],
+    });
   },
 
   loadAllModels: async () => {
@@ -147,7 +284,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           if (msg) newWarnings.push(`Skipped ${filename}: ${msg}`);
         }
       }
-      set((s) => ({ models: { ...s.models, ...updates }, warnings: newWarnings, lastError: null }));
+      set((s) => {
+        // Any slot loaded from disk is no longer a fresh unsaved model.
+        const freshModelKeys = new Set(s.freshModelKeys);
+        for (const key of Object.keys(updates)) freshModelKeys.delete(key);
+        return { models: { ...s.models, ...updates }, warnings: newWarnings, lastError: null, freshModelKeys };
+      });
+      get().loadModelImages();
     } catch (e) {
       set({ lastError: friendlyError(e) });
     }
@@ -248,7 +391,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   deleteModel: async (key: ModelKey) => {
-    // Remove from in-memory store immediately.
+    // Remove from in-memory store immediately, revoking any image blob URL.
     set((s) => {
       const models = { ...s.models };
       delete models[key];
@@ -256,12 +399,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       dirty.delete(key);
       const freshModelKeys = new Set(s.freshModelKeys);
       freshModelKeys.delete(key);
-      return { models, dirty, freshModelKeys };
+      const modelImages = { ...s.modelImages };
+      if (modelImages[key]) {
+        URL.revokeObjectURL(modelImages[key]);
+        delete modelImages[key];
+      }
+      return { models, dirty, freshModelKeys, modelImages };
     });
     // Delete from SD card if connected (ignore errors — file may not exist yet).
     const { sdRoot } = get();
     if (sdRoot) {
       try { await deleteFile(sdRoot, `MODELS/${key}.yml`); } catch { /* ignore */ }
+      try { await deleteModelImage(sdRoot, key); } catch { /* ignore */ }
     }
   },
 
@@ -362,6 +511,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const { sdRoot } = get();
       if (sdRoot) writeWebConfig(sdRoot, SETTINGS_WEBCONFIG, next).catch(() => {});
       return { settings: next };
+    });
+  },
+
+  discardFreshModel: (key: ModelKey) => {
+    set((s) => {
+      const models = { ...s.models };
+      delete models[key];
+      const dirty = new Set(s.dirty);
+      dirty.delete(key);
+      const freshModelKeys = new Set(s.freshModelKeys);
+      freshModelKeys.delete(key);
+      return { models, dirty, freshModelKeys };
     });
   },
 

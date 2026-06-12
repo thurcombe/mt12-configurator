@@ -6,6 +6,10 @@ interface Props {
   modelKey: string;
   model: Model;
   isDirty: boolean;
+  imageUrl?: string;
+  scale?: string;
+  vehicleTypeName?: string;
+  vehicleTypeImageUrl?: string;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -23,11 +27,17 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, onEdit, onDuplicate, onDelete, onHistory }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, onEdit, onDuplicate, onDelete, onHistory }: Props) {
   const name = model.header?.name;
+  const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
+  const isRealPhoto = !!imageUrl;
+  const isPlaceholder = !displayImageUrl;
 
   return (
     <div className={`${css.card} ${isDirty ? css.dirty : ''}`}>
+      <div className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}>
+        <img src={displayImageUrl ?? '/model-default.png'} alt={name || modelKey} className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`} />
+      </div>
       <div className={css.header}>
         <span className={`${css.name} ${!name ? css.empty : ''}`}>
           {name || '(unnamed)'}
@@ -37,6 +47,9 @@ export function ModelCard({ modelKey, model, isDirty, onEdit, onDuplicate, onDel
 
       <div className={css.meta}>
         <span className="badge badge-accent">{protocolBadge(model)}</span>
+        {scale && <span className="badge">{scale}</span>}
+        {vehicleTypeName && <span className="badge">{vehicleTypeName}</span>}
+        {model.flightModeData?.['1'] && <span className="badge badge-green">KidControl</span>}
         {isDirty && <span className="badge badge-warning">unsaved</span>}
         {model.mixData?.length > 0 && (
           <span className="badge">{model.mixData.length} mix{model.mixData.length !== 1 ? 'es' : ''}</span>

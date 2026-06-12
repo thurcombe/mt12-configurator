@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { Route } from '../../App.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { SettingsModal } from './SettingsModal.tsx';
+import { AboutModal } from './AboutModal.tsx';
 import css from './AppShell.module.css';
 
 interface Props {
@@ -18,9 +19,11 @@ export function AppShell({ children, route, navigate }: Props) {
   const clearError = useEditorStore((s) => s.clearError);
   const clearWarnings = useEditorStore((s) => s.clearWarnings);
   const connectSdCard = useEditorStore((s) => s.connectSdCard);
+  const disconnectSdCard = useEditorStore((s) => s.disconnectSdCard);
   const saveAll = useEditorStore((s) => s.saveAll);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   const dirtyCount = dirty.size;
 
@@ -52,6 +55,14 @@ export function AppShell({ children, route, navigate }: Props) {
           Radio Settings
         </button>
 
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => navigate({ page: 'vehicle-types' })}
+          style={route.page === 'vehicle-types' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        >
+          Vehicle Types
+        </button>
+
         <a
           href="https://manual.edgetx.org/"
           target="_blank"
@@ -76,6 +87,14 @@ export function AppShell({ children, route, navigate }: Props) {
 
         <button
           className="btn btn-ghost btn-sm"
+          onClick={() => setShowAbout(true)}
+          style={{ fontSize: 12 }}
+        >
+          Help
+        </button>
+
+        <button
+          className="btn btn-ghost btn-sm"
           title="App settings"
           onClick={() => setShowSettings(true)}
           style={{ padding: '4px 8px', fontSize: 16 }}
@@ -86,7 +105,12 @@ export function AppShell({ children, route, navigate }: Props) {
         <div className={css.sdStatus}>
           <span className={`${css.dot} ${sdRoot ? css.connected : css.disconnected}`} />
           {sdRoot ? (
-            <span>SD card connected</span>
+            <>
+              <span>SD card connected</span>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={disconnectSdCard}>
+                Disconnect
+              </button>
+            </>
           ) : (
             <button className="btn btn-ghost btn-sm" onClick={connectSdCard}>
               Connect SD card
@@ -138,6 +162,7 @@ export function AppShell({ children, route, navigate }: Props) {
       <main className={css.main}>{children}</main>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </div>
   );
 }

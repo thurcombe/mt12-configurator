@@ -2,6 +2,7 @@ import { AppShell } from './components/layout/AppShell.tsx';
 import { ModelList } from './pages/ModelList.tsx';
 import { ModelEditor } from './pages/ModelEditor.tsx';
 import { RadioSettings } from './pages/RadioSettings.tsx';
+import { VehicleTypesPage } from './pages/VehicleTypesPage.tsx';
 import { useState } from 'react';
 import { useEditorStore } from './store/useEditorStore.ts';
 import css from './App.module.css';
@@ -9,7 +10,8 @@ import css from './App.module.css';
 export type Route =
   | { page: 'list' }
   | { page: 'editor'; modelKey: string }
-  | { page: 'radio' };
+  | { page: 'radio' }
+  | { page: 'vehicle-types' };
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ page: 'list' });
@@ -20,7 +22,7 @@ export default function App() {
   const dirty = useEditorStore((s) => s.dirty);
   const models = useEditorStore((s) => s.models);
   const freshModelKeys = useEditorStore((s) => s.freshModelKeys);
-  const deleteModel = useEditorStore((s) => s.deleteModel);
+  const discardFreshModel = useEditorStore((s) => s.discardFreshModel);
   const revertModel = useEditorStore((s) => s.revertModel);
   const revertRadio = useEditorStore((s) => s.revertRadio);
 
@@ -44,7 +46,7 @@ export default function App() {
     if (!pendingNav) return;
     if (route.page === 'editor') {
       if (freshModelKeys.has(route.modelKey)) {
-        deleteModel(route.modelKey);
+        discardFreshModel(route.modelKey);
       } else {
         revertModel(route.modelKey);
       }
@@ -78,6 +80,7 @@ export default function App() {
       )}
       {route.page === 'editor' && <ModelEditor modelKey={route.modelKey} navigate={navigate} />}
       {route.page === 'radio' && <RadioSettings navigate={navigate} />}
+      {route.page === 'vehicle-types' && <VehicleTypesPage navigate={navigate} />}
 
       {pendingNav && (
         <div className={css.leaveOverlay}>

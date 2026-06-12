@@ -21,9 +21,12 @@ export interface CruisePattern {
 
 export interface DRatePattern {
   globalIdx: number;
-  srcRaw: string;  // e.g. "I3"
-  chn: number;     // expo input channel index
-  range: [number, number]; // computed [min, max] from expo weight+offset
+  srcRaw: string;
+  // pot mode (srcRaw matches I\d+):
+  chn: number;
+  range: [number, number];
+  // switch mode (srcRaw === 'MAX'):
+  switchMode?: { swtch: string; percent: number };
 }
 
 export interface SteeringPattern {
@@ -38,6 +41,13 @@ export interface STrimPattern {
   weight: number;
 }
 
+export interface GyroGainPattern {
+  globalIdx: number;
+  destCh: number;
+  srcRaw: string;
+  chn: number;  // expo input channel (2 = P1, 3 = P2)
+}
+
 export interface BasicAnalysis {
   kind: 'recognised' | 'empty' | 'unrecognised';
   throttle: ThrottlePattern | null;
@@ -45,6 +55,7 @@ export interface BasicAnalysis {
   drate: DRatePattern | null;
   steering: SteeringPattern | null;
   strim: STrimPattern | null;
+  gyro: GyroGainPattern | null;
 }
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
@@ -58,6 +69,7 @@ const CRUISE_NAMES   = new Set(['CRUISE']);
 const DRATE_NAMES    = new Set(['D-RATE', 'DRATE']);
 const STEER_NAMES    = new Set(['STEER', 'STEERING']);
 const TRIM_NAMES     = new Set(['S-TRIM', 'STRIM']);
+const GYRO_NAMES     = new Set(['GYRO-GAIN', 'GYROGAIN', 'GYRO']);
 
 function expoRange(chn: number, model: Model): [number, number] {
   const expo = (model.expoData ?? []).find(e => e.chn === chn);
@@ -69,7 +81,7 @@ function expoRange(chn: number, model: Model): [number, number] {
 
 export function analyseBasicPatterns(model: Model): BasicAnalysis {
   const empty: BasicAnalysis = {
-    kind: 'empty', throttle: null, cruise: null, drate: null, steering: null, strim: null,
+    kind: 'empty', throttle: null, cruise: null, drate: null, steering: null, strim: null, gyro: null,
   };
 
   const mixData = model.mixData ?? [];
@@ -80,6 +92,7 @@ export function analyseBasicPatterns(model: Model): BasicAnalysis {
   let drate: DRatePattern | null = null;
   let steering: SteeringPattern | null = null;
   let strim: STrimPattern | null = null;
+  let gyro: GyroGainPattern | null = null;
   let hasUnknown = false;
 
   for (let i = 0; i < mixData.length; i++) {
@@ -104,29 +117,46 @@ export function analyseBasicPatterns(model: Model): BasicAnalysis {
         hasUnknown = true;
       }
     } else if (DRATE_NAMES.has(name) && !drate) {
-      const inputM = INPUT_RE.exec(line.srcRaw);
-      if (inputM) {
-        const chn = parseInt(inputM[1]);
-        drate = { globalIdx: i, srcRaw: line.srcRaw, chn, range: expoRange(chn, model) };
+      if (line.srcRaw === 'MAX') {
+        drate = { globalIdx: i, srcRaw: 'MAX', chn: -1, range: [0, 100], switchMode: { swtch: line.swtch, percent: line.weight } };
       } else {
-        hasUnknown = true;
+        const inputM = INPUT_RE.exec(line.srcRaw);
+        if (inputM) {
+          const chn = parseInt(inputM[1]);
+          drate = { globalIdx: i, srcRaw: line.srcRaw, chn, range: expoRange(chn, model) };
+        } else {
+          hasUnknown = true;
+        }
       }
     } else if (STEER_NAMES.has(name) && !steering) {
       steering = { globalIdx: i, destCh: line.destCh, weight: line.weight };
     } else if (TRIM_NAMES.has(name) && !strim) {
       strim = { globalIdx: i, destCh: line.destCh, weight: line.weight };
+    } else if (GYRO_NAMES.has(name) && !gyro) {
+      const inputM = INPUT_RE.exec(line.srcRaw);
+      if (inputM) {
+        gyro = { globalIdx: i, destCh: line.destCh, srcRaw: line.srcRaw, chn: parseInt(inputM[1]) };
+      } else {
+        hasUnknown = true;
+      }
+    } else if (name === '' && line.srcRaw === 'TH' && !throttle) {
+      // Unnamed throttle line — radio-native setup without wizard naming
+      throttle = { globalIdx: i, destCh: line.destCh, weight: line.weight };
+    } else if (name === '' && line.srcRaw === 'ST' && !steering) {
+      // Unnamed steering line — radio-native setup without wizard naming
+      steering = { globalIdx: i, destCh: line.destCh, weight: line.weight };
     } else {
       hasUnknown = true;
     }
   }
 
   if (hasUnknown) {
-    return { kind: 'unrecognised', throttle, cruise, drate, steering, strim };
+    return { kind: 'unrecognised', throttle, cruise, drate, steering, strim, gyro };
   }
   if (!throttle && !steering) {
     return empty;
   }
-  return { kind: 'recognised', throttle, cruise, drate, steering, strim };
+  return { kind: 'recognised', throttle, cruise, drate, steering, strim, gyro };
 }
 
 // ── Mutation helpers ──────────────────────────────────────────────────────────
@@ -228,23 +258,33 @@ export function removeSTrim(model: Model, a: BasicAnalysis): Model {
 
 export function addSTrim(model: Model, a: BasicAnalysis): Model {
   if (!a.steering) return model;
+  // Pick the first pot channel not already used by an expo line.
+  const usedChns = new Set((model.expoData ?? []).filter(e => /^P\d/.test(e.srcRaw ?? '')).map(e => e.chn));
+  const strimChn = !usedChns.has(2) ? 2 : !usedChns.has(3) ? 3 : null;
+  if (strimChn === null) return model;  // Both pots in use — nothing to add
+  const strimExpo: ExpoLine = {
+    mode: 3, scale: 0, trimSource: 0,
+    srcRaw: strimChn === 2 ? 'P1' : 'P2',
+    chn: strimChn, swtch: 'NONE', flightModes: '000000000',
+    weight: 100, name: '', offset: 0, curve: { type: 1, value: 0 },
+  };
+  const needsExpo = !usedChns.has(strimChn);
   const trimLine: MixLine = {
     weight: 5,
     destCh: a.steering.destCh,
-    srcRaw: 'I2',
-    carryTrim: 0,
-    mixWarn: 0,
-    mltpx: 'ADD',
-    offset: 0,
-    swtch: 'NONE',
-    flightModes: '000000000',
-    delayUp: 0,
-    delayDown: 0,
-    speedUp: 0,
-    speedDown: 0,
+    srcRaw: `I${strimChn}`,
+    carryTrim: 0, mixWarn: 0, mltpx: 'ADD', offset: 0,
+    swtch: 'NONE', flightModes: '000000000',
+    delayUp: 0, delayDown: 0, speedUp: 0, speedDown: 0,
     name: 'S-TRIM',
   };
-  const mixData = [...model.mixData, trimLine];
+  const expoData = needsExpo ? [...(model.expoData ?? []), strimExpo] : (model.expoData ?? []);
+  return { ...model, expoData, mixData: [...model.mixData, trimLine] };
+}
+
+export function removeGyroGain(model: Model, a: BasicAnalysis): Model {
+  if (!a.gyro) return model;
+  const mixData = model.mixData.filter((_, i) => i !== a.gyro!.globalIdx);
   return { ...model, mixData };
 }
 
@@ -264,10 +304,16 @@ export interface WizardParams {
   wantSteering: boolean;
   steeringDestCh: number;
   steeringWeight: number;
-  wantSTrim: boolean;
+  // Gyro gain
+  wantGyroGain: boolean;
+  gyroGainDestCh: number;
+  gyroGainPot: string;     // 'P1' or 'P2'
   wantKidControl: boolean;
   moduleProtocol: number;
   moduleFailsafe: string;
+  scale: string;
+  modelName: string;
+  vehicleType: string;
 }
 
 // Convert an existing analysis back into wizard params so the wizard can be pre-populated.
@@ -282,27 +328,38 @@ export function analysisToWizardParams(analysis: BasicAnalysis, model?: Model): 
     wantCruise:      !!analysis.cruise,
     cruiseSw:        analysis.cruise?.setSw       ?? d.cruiseSw,
     cruiseSpeed:     analysis.cruise?.cruiseSpeed ?? d.cruiseSpeed,
-    dRateMode:       analysis.drate ? 'pot' : 'none',
+    dRateMode:       analysis.drate
+      ? (analysis.drate.switchMode ? 'switch' : 'pot')
+      : 'none',
     dRatePot:        (() => {
-      if (!analysis.drate || !model) return d.dRatePot;
+      if (!analysis.drate || analysis.drate.switchMode || !model) return d.dRatePot;
       const expo = (model.expoData ?? []).find(e => e.chn === analysis.drate!.chn);
       return expo?.srcRaw === 'P1' ? 'P1' : 'P2';
     })(),
-    dRateSwitch:     d.dRateSwitch,
-    dRatePercent:    d.dRatePercent,
+    dRateSwitch:     analysis.drate?.switchMode?.swtch ?? d.dRateSwitch,
+    dRatePercent:    analysis.drate?.switchMode?.percent ?? d.dRatePercent,
     wantSteering:    !!analysis.steering,
     steeringDestCh:  analysis.steering?.destCh   ?? d.steeringDestCh,
     steeringWeight:  analysis.steering?.weight    ?? d.steeringWeight,
-    wantSTrim:       !!analysis.strim,
+    wantGyroGain:    !!analysis.gyro,
+    gyroGainDestCh:  analysis.gyro?.destCh ?? d.gyroGainDestCh,
+    gyroGainPot: (() => {
+      if (!analysis.gyro || !model) return d.gyroGainPot;
+      const expo = (model.expoData ?? []).find(e => e.chn === analysis.gyro!.chn);
+      return expo?.srcRaw === 'P1' ? 'P1' : 'P2';
+    })(),
     wantKidControl:  false,
     moduleProtocol:  isNaN(currentProtocol) ? d.moduleProtocol : currentProtocol,
     moduleFailsafe:  mod?.failsafeMode ?? d.moduleFailsafe,
+    scale:           '',
+    modelName:       model?.header?.name ?? '',
+    vehicleType:     '',
   };
 }
 
 export function defaultWizardParams(): WizardParams {
   return {
-    throttleDestCh: 2,
+    throttleDestCh: 1,   // CH2
     throttleWeight: 100,
     wantCruise: false,
     cruiseSw: 'SC2',
@@ -312,12 +369,17 @@ export function defaultWizardParams(): WizardParams {
     dRateSwitch: 'SC0',
     dRatePercent: 50,
     wantSteering: true,
-    steeringDestCh: 3,
+    steeringDestCh: 0,   // CH1
     steeringWeight: 100,
-    wantSTrim: false,
+    wantGyroGain: false,
+    gyroGainDestCh: 2,   // CH3
+    gyroGainPot: 'P2',
     wantKidControl: false,
     moduleProtocol: 43,
     moduleFailsafe: 'no pulses',
+    scale: '',
+    modelName: '',
+    vehicleType: '',
   };
 }
 
@@ -420,7 +482,6 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
       mixData.push(blankMix('D-RATE', p.throttleDestCh, 'I2', 'MUL', 100, 0));
     } else {
       expoData.push(blankExpoLine('P2', 3, 50, 50));
-      inputNames['2'] = { val: 'STT' };
       inputNames['3'] = { val: 'TDR' };
       mixData.push(blankMix('D-RATE', p.throttleDestCh, 'I3', 'MUL', 100, 0));
     }
@@ -435,13 +496,17 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
     // Expo for ST already created at chn 1.
     mixData.push(blankMix('STEER', p.steeringDestCh, 'I1', 'ADD', p.steeringWeight, 0));
 
-    if (p.wantSTrim) {
-      if (!inputNames['2']) {
-        expoData.push(blankExpoLine('P1', 2, 100, 0));
-        inputNames['2'] = { val: 'STT' };
-      }
-      mixData.push(blankMix('S-TRIM', p.steeringDestCh, 'I2', 'ADD', 5, 0));
+  }
+
+  // Gyro gain channel.
+  if (p.wantGyroGain) {
+    const gyroChn = p.gyroGainPot === 'P1' ? 2 : 3;
+    const gyroKey = String(gyroChn);
+    if (!inputNames[gyroKey]) {
+      expoData.push(blankExpoLine(p.gyroGainPot, gyroChn, 100, 0));
+      inputNames[gyroKey] = { val: 'GYRO' };
     }
+    mixData.push(blankMix('GYRO-GAIN', p.gyroGainDestCh, `I${gyroChn}`, 'ADD', 100, 0));
   }
 
   return { mixData, expoData, logicalSw, inputNames, moduleData };

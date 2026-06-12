@@ -15,6 +15,10 @@ interface Props {
 export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBanner }: Props) {
   const sdRoot = useEditorStore((s) => s.sdRoot);
   const models = useEditorStore((s) => s.models);
+  const modelImages = useEditorStore((s) => s.modelImages);
+  const modelMeta = useEditorStore((s) => s.modelMeta);
+  const vehicleCategories = useEditorStore((s) => s.vehicleCategories);
+  const vehicleTypeImages = useEditorStore((s) => s.vehicleTypeImages);
   const dirty = useEditorStore((s) => s.dirty);
   const loadAllModels = useEditorStore((s) => s.loadAllModels);
   const createModel = useEditorStore((s) => s.createModel);
@@ -106,18 +110,29 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
         <div className={css.loading}>Loading models…</div>
       ) : (
         <div className={css.grid}>
-          {modelKeys.map((key) => (
-            <ModelCard
-              key={key}
-              modelKey={key}
-              model={models[key]}
-              isDirty={dirty.has(key)}
-              onEdit={() => navigate({ page: 'editor', modelKey: key })}
-              onDuplicate={() => handleDuplicate(key)}
-              onDelete={() => setConfirmDelete(key)}
-              onHistory={sdRoot ? () => setHistoryFor({ key, name: models[key]?.header?.name ?? key }) : undefined}
-            />
-          ))}
+          {modelKeys.map((key) => {
+            const vehicleTypeId = modelMeta[key]?.vehicleType;
+            const vehicleTypeName = vehicleTypeId
+              ? vehicleCategories.find((c) => c.id === vehicleTypeId)?.name
+              : undefined;
+            const vehicleTypeImageUrl = vehicleTypeId ? vehicleTypeImages[vehicleTypeId] : undefined;
+            return (
+              <ModelCard
+                key={key}
+                modelKey={key}
+                model={models[key]}
+                isDirty={dirty.has(key)}
+                imageUrl={modelImages[key]}
+                scale={modelMeta[key]?.scale}
+                vehicleTypeName={vehicleTypeName}
+                vehicleTypeImageUrl={vehicleTypeImageUrl}
+                onEdit={() => navigate({ page: 'editor', modelKey: key })}
+                onDuplicate={() => handleDuplicate(key)}
+                onDelete={() => setConfirmDelete(key)}
+                onHistory={sdRoot ? () => setHistoryFor({ key, name: models[key]?.header?.name ?? key }) : undefined}
+              />
+            );
+          })}
 
           {/* New model card */}
           {modelKeys.length < 60 && (
@@ -160,8 +175,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
           <div className={css.confirmBox}>
             <div className={css.confirmTitle}>Delete model?</div>
             <div className={css.confirmMsg}>
-              This removes <strong>{models[confirmDelete]?.header?.name || confirmDelete}</strong> from the app.
-              The file on the SD card is not deleted until you save. This cannot be undone in the current session.
+              This will permanently delete <strong>{models[confirmDelete]?.header?.name || confirmDelete}</strong> from the SD card immediately. This cannot be undone.
             </div>
             <div className={css.confirmActions}>
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>

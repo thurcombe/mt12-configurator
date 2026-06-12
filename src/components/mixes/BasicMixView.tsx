@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
@@ -15,7 +15,7 @@ import {
   removeCruise,
   addCruise,
   removeSTrim,
-  addSTrim,
+  removeGyroGain,
   defaultWizardParams,
   generateBasicModel,
   type BasicAnalysis,
@@ -26,10 +26,7 @@ import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
 import css from './BasicMixView.module.css';
 
-// Surface-relevant protocols shown in the wizard (most common first).
-const SURFACE_PROTOCOLS = MULTI_PROTOCOLS.filter(p =>
-  [43, 73, 28, 6].includes(p.id)
-);
+const SURFACE_PROTOCOLS = MULTI_PROTOCOLS;
 
 const FAILSAFE_OPTIONS = [
   { value: 'no pulses', label: 'Stop — cut all output (safest for surface vehicles)' },
@@ -39,16 +36,25 @@ const FAILSAFE_OPTIONS = [
 
 interface Props {
   model: Model;
+  modelKey: string;
   onChange: (updater: (m: Model) => Model) => void;
   onSwitchToAdvanced?: () => void;
+  onWizardActiveChange?: (active: boolean) => void;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
+export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, onWizardActiveChange }: Props) {
   const [wizardActive, setWizardActive] = useState(false);
   const [kidControlActive, setKidControlActive] = useState(false);
   const analysis = useMemo(() => analyseBasicPatterns(model), [model]);
+  const vehicleCategories = useEditorStore(s => s.vehicleCategories);
+  const modelVehicleTypeId = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
+  const kidPreset = modelVehicleTypeId
+    ? vehicleCategories.find(c => c.id === modelVehicleTypeId)?.kidType
+    : undefined;
+
+  function setWizard(v: boolean) { setWizardActive(v); onWizardActiveChange?.(v); }
 
   // Inline KidControl wizard
   if (kidControlActive) {
@@ -58,23 +64,24 @@ export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
           onClick={() => setKidControlActive(false)}>
           ← Back to summary
         </button>
-        <KidModeWizard model={model} onChange={onChange} />
+        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} initialVehicleType={kidPreset} />
       </div>
     );
   }
 
   // Setup wizard
   if (analysis.kind === 'empty' || wizardActive) {
-    const initialParams = (wizardActive && analysis.kind === 'recognised')
-      ? analysisToWizardParams(analysis, model)
-      : undefined;
+    const isRerun = wizardActive && analysis.kind === 'recognised';
+    const initialParams = isRerun ? analysisToWizardParams(analysis, model) : undefined;
+    onWizardActiveChange?.(true);
     return (
       <SetupWizard
+        modelKey={modelKey}
         onChange={onChange}
         initialParams={initialParams}
-        onCancel={wizardActive ? () => setWizardActive(false) : undefined}
+        onCancel={wizardActive ? () => setWizard(false) : undefined}
         onSwitchToAdvanced={onSwitchToAdvanced}
-        onLaunchKidControl={() => { setWizardActive(false); setKidControlActive(true); }}
+        onLaunchKidControl={() => { setWizard(false); setKidControlActive(true); }}
       />
     );
   }
@@ -86,9 +93,10 @@ export function BasicMixView({ model, onChange, onSwitchToAdvanced }: Props) {
   return (
     <RecognisedView
       model={model}
+      modelKey={modelKey}
       analysis={analysis}
       onChange={onChange}
-      onRunWizard={() => setWizardActive(true)}
+      onRunWizard={() => setWizard(true)}
       onRunKidControl={() => setKidControlActive(true)}
     />
   );
@@ -118,15 +126,22 @@ function UnrecognisedNotice({ onSwitchToAdvanced }: { onSwitchToAdvanced?: () =>
 
 interface RecognisedViewProps {
   model: Model;
+  modelKey: string;
   analysis: BasicAnalysis;
   onChange: (updater: (m: Model) => Model) => void;
   onRunWizard: () => void;
   onRunKidControl: () => void;
 }
 
-function RecognisedView({ model, analysis, onChange, onRunWizard, onRunKidControl }: RecognisedViewProps) {
+function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRunKidControl }: RecognisedViewProps) {
   const inputMap = useMemo(() => buildInputMap(model.expoData ?? []), [model.expoData]);
   const kidActive = !!model.flightModeData?.['1'];
+  const vehicleCategories = useEditorStore(s => s.vehicleCategories);
+  const modelMeta = useEditorStore(s => s.modelMeta[modelKey]);
+  const setModelScale = useEditorStore(s => s.setModelScale);
+  const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+
+  const selectedCat = vehicleCategories.find(c => c.id === (modelMeta?.vehicleType ?? ''));
 
   return (
     <div className={css.root}>
@@ -136,33 +151,48 @@ function RecognisedView({ model, analysis, onChange, onRunWizard, onRunKidContro
       {analysis.steering && (
         <SteeringCard analysis={analysis} onChange={onChange} />
       )}
+      {analysis.gyro && (
+        <GyroGainCard analysis={analysis} inputMap={inputMap} onChange={onChange} />
+      )}
+
+      {/* Vehicle details */}
+      <section className={css.card}>
+        <div className={css.cardHeader}>
+          <span className={css.cardIcon}>🚗</span>
+          <span className={css.cardTitle}>Vehicle details</span>
+        </div>
+        <div className={css.fieldRow}>
+          <span className={css.fieldLabel}>Vehicle type</span>
+          <select
+            style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+            value={modelMeta?.vehicleType ?? ''}
+            onChange={(e) => setModelVehicleType(modelKey, e.target.value)}
+          >
+            <option value="">Not specified</option>
+            {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          </select>
+        </div>
+        {selectedCat && (
+          <p className={css.fieldHint}>{selectedCat.description} · {selectedCat.speedMin}–{selectedCat.speedMax} mph</p>
+        )}
+        <div className={css.fieldRow}>
+          <span className={css.fieldLabel}>Scale</span>
+          <select
+            style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+            value={modelMeta?.scale ?? ''}
+            onChange={(e) => setModelScale(modelKey, e.target.value)}
+          >
+            <option value="">Not specified</option>
+            {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </section>
 
       {/* Radio link */}
       <RadioLinkCard model={model} onChange={onChange} />
 
       {/* KidControl */}
-      <section className={css.card}>
-        <div className={css.cardHeader}>
-          <span className={css.cardIcon}>🔒</span>
-          <span className={css.cardTitle}>KidControl</span>
-          {kidActive && <span className={css.cardMeta}>Active</span>}
-        </div>
-        {kidActive ? (
-          <>
-            <p className={css.fieldHint}>KidControl is active — reduced throttle and steering limits are in effect when the trigger switch is engaged.</p>
-            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
-              ⚙ Re-run KidControl wizard
-            </button>
-          </>
-        ) : (
-          <>
-            <p className={css.fieldHint}>KidControl adds a safe driving mode with reduced speed and steering limits, activated by a switch.</p>
-            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
-              + Set up KidControl
-            </button>
-          </>
-        )}
-      </section>
+      <KidControlCard model={model} kidActive={kidActive} onRunKidControl={onRunKidControl} />
 
       {/* Setup wizard card */}
       <section className={css.card}>
@@ -264,6 +294,90 @@ interface CardProps {
   onChange: (updater: (m: Model) => Model) => void;
 }
 
+// ── KidControl card ───────────────────────────────────────────────────────────
+
+function expoFeel(expo: number): string {
+  if (expo <= 5)  return 'direct';
+  if (expo <= 25) return 'slightly softer';
+  if (expo <= 50) return 'noticeably softer';
+  if (expo <= 75) return 'very soft';
+  return 'extremely soft';
+}
+
+function rampDesc(up: number, down: number): string {
+  const u = (up * 0.1).toFixed(1);
+  const d = (down * 0.1).toFixed(1);
+  if (up > 0 && down > 0) return `${u}s to speed up, ${d}s to slow down`;
+  if (up > 0) return `${u}s to speed up`;
+  return `${d}s to slow down`;
+}
+
+function KidControlCard({ model, kidActive, onRunKidControl }: { model: Model; kidActive: boolean; onRunKidControl: () => void }) {
+  const fm1 = model.flightModeData?.['1'];
+  const triggerSwitch = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
+  const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
+  const thExpo = kidExpos.find(l => l.name === 'KID-TH');
+  const stExpo = kidExpos.find(l => l.name === 'KID-ST');
+  const spMix = (model.mixData ?? []).find(l => l.name === 'KID-SP');
+
+  return (
+    <section className={css.card}>
+      <div className={css.cardHeader}>
+        <span className={css.cardIcon}>🔒</span>
+        <span className={css.cardTitle}>KidControl</span>
+        {kidActive && <span className={css.cardMetaGreen}>Active</span>}
+      </div>
+      {kidActive ? (
+        <>
+          <p className={css.fieldHint}>Reduced throttle and steering limits apply when the trigger switch is engaged.</p>
+          {triggerSwitch && (
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Trigger switch</span>
+              <span className={css.fieldInfo}>{triggerSwitch}</span>
+            </div>
+          )}
+          {thExpo && (
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Throttle limit</span>
+              <span className={css.fieldInfo}>
+                {thExpo.weight}% max
+                {thExpo.curve?.value ? ` — ${expoFeel(thExpo.curve.value)} response (${thExpo.curve.value}% expo)` : ''}
+              </span>
+            </div>
+          )}
+          {spMix && (spMix.speedUp > 0 || spMix.speedDown > 0) && (
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Speed ramp</span>
+              <span className={css.fieldInfo}>{rampDesc(spMix.speedUp, spMix.speedDown)}</span>
+            </div>
+          )}
+          {stExpo && (
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Steering limit</span>
+              <span className={css.fieldInfo}>
+                {stExpo.weight}% max
+                {stExpo.curve?.value ? ` — ${expoFeel(stExpo.curve.value)} response (${stExpo.curve.value}% expo)` : ''}
+              </span>
+            </div>
+          )}
+          <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
+            ⚙ Re-run KidControl wizard
+          </button>
+        </>
+      ) : (
+        <>
+          <p className={css.fieldHint}>KidControl adds a safe driving mode with reduced speed and steering limits, activated by a switch.</p>
+          <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
+            + Set up KidControl
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+// ── Throttle card ──────────────────────────────────────────────────────────────
+
 function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
   const { throttle, cruise, drate } = analysis;
   if (!throttle) return null;
@@ -316,6 +430,16 @@ function CruiseSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChan
 }
 
 function DRateSubCard({ drate, inputMap }: { drate: NonNullable<BasicAnalysis['drate']>; inputMap: Record<number, string> }) {
+  if (drate.switchMode) {
+    return (
+      <div className={css.subCard}>
+        <div className={css.subHeader}><span className={css.subTitle}>Speed limiter</span></div>
+        <p className={css.fieldHint}>
+          Switch <strong>{drate.switchMode.swtch}</strong> caps throttle at <strong>{drate.switchMode.percent}%</strong> when active.
+        </p>
+      </div>
+    );
+  }
   const knobLabel = inputMap[drate.chn] ?? srcRawLabel(drate.srcRaw);
   const [min, max] = drate.range;
   return (
@@ -345,13 +469,7 @@ function SteeringCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
         <span className={css.fieldLabel}>Steering rate</span>
         <WeightSlider value={steering.weight} onChange={(v) => onChange((m) => setSteeringWeight(m, analysis, v))} min={0} max={100} />
       </div>
-      {strim ? (
-        <STrimSubCard analysis={analysis} onChange={onChange} />
-      ) : (
-        <button className={`btn btn-ghost btn-sm ${css.addBtn}`} onClick={() => onChange((m) => addSTrim(m, analysis))}>
-          + Add steering trim
-        </button>
-      )}
+      {strim && <STrimSubCard analysis={analysis} onChange={onChange} />}
     </section>
   );
 }
@@ -375,16 +493,41 @@ function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
   );
 }
 
+// ── Gyro gain card ────────────────────────────────────────────────────────────
+
+function GyroGainCard({ analysis, inputMap, onChange }: CardProps) {
+  const { gyro } = analysis;
+  if (!gyro) return null;
+  const potLabel = inputMap[gyro.chn] ?? (gyro.chn === 2 ? 'P1' : 'P2');
+  return (
+    <section className={css.card}>
+      <div className={css.cardHeader}>
+        <span className={css.cardIcon}>⬡</span>
+        <span className={css.cardTitle}>Gyro gain</span>
+        <span className={css.cardMeta}>CH{gyro.destCh + 1}</span>
+        <button className="btn btn-ghost btn-sm" style={{ color:'var(--danger)', fontSize:12, marginLeft:'auto' }}
+          onClick={() => onChange((m) => removeGyroGain(m, analysis))}>Remove</button>
+      </div>
+      <p className={css.fieldHint}>
+        The <strong>{potLabel}</strong> knob controls gyro sensitivity on CH{gyro.destCh + 1}.
+      </p>
+    </section>
+  );
+}
+
 // ── Setup wizard ───────────────────────────────────────────────────────────────
 
-type WizardStep = 'module' | 'throttle' | 'cruise' | 'drate' | 'steering' | 'kidcontrol' | 'confirm';
-const STEPS: WizardStep[] = ['module', 'throttle', 'cruise', 'drate', 'steering', 'kidcontrol', 'confirm'];
+const RC_SCALES = ['1:5','1:6','1:8','1:10','1:12','1:14','1:16','1:18','1:24','1:28','1:64'];
+
+type WizardStep = 'details' | 'module' | 'throttle' | 'cruise' | 'drate' | 'steering' | 'gyro' | 'kidcontrol' | 'confirm';
+const STEPS: WizardStep[] = ['details', 'module', 'throttle', 'cruise', 'drate', 'steering', 'gyro', 'kidcontrol', 'confirm'];
 const STEP_LABELS: Record<WizardStep, string> = {
-  module: 'Radio link', throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter',
-  steering: 'Steering', kidcontrol: 'KidControl', confirm: 'Done',
+  details: 'Vehicle', module: 'Radio link', throttle: 'Throttle', cruise: 'Cruise', drate: 'Speed limiter',
+  steering: 'Steering', gyro: 'Gyro', kidcontrol: 'KidControl', confirm: 'Done',
 };
 
 interface WizardProps {
+  modelKey: string;
   onChange: (updater: (m: Model) => Model) => void;
   initialParams?: WizardParams;
   onCancel?: () => void;
@@ -392,25 +535,74 @@ interface WizardProps {
   onLaunchKidControl: () => void;
 }
 
-function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
+function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
   const [step, setStep] = useState<WizardStep>(STEPS[0]);
-  const [params, setParams] = useState<WizardParams>(initialParams ?? defaultWizardParams());
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
+  const uploadModelImage = useEditorStore(s => s.uploadModelImage);
+  const setModelScale = useEditorStore(s => s.setModelScale);
+  const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+  const vehicleCategories = useEditorStore(s => s.vehicleCategories);
+  const existingImageUrl = useEditorStore(s => s.modelImages[modelKey]);
+  const existingScale = useEditorStore(s => s.modelMeta[modelKey]?.scale ?? '');
+  const existingVehicleType = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
+  const existingModelName = useEditorStore(s => s.models[modelKey]?.header?.name ?? '');
+  const [params, setParams] = useState<WizardParams>({
+    ...(initialParams ?? defaultWizardParams()),
+    scale: existingScale,
+    modelName: initialParams?.modelName ?? existingModelName,
+    vehicleType: initialParams?.vehicleType ?? existingVehicleType,
+  });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   function patch(p: Partial<WizardParams>) { setParams(prev => ({ ...prev, ...p })); }
-  function next() { setStep(STEPS[STEPS.indexOf(step) + 1]); }
   function back() { setStep(STEPS[STEPS.indexOf(step) - 1]); }
+
+  const potConflict = params.dRateMode === 'pot' && params.wantGyroGain && params.dRatePot === params.gyroGainPot;
+  const swConflict  = params.wantCruise && params.dRateMode === 'switch' && params.cruiseSw === params.dRateSwitch;
+
+  // What gets removed when the user proceeds through a conflicting step.
+  const stepConflictWarning: Partial<Record<WizardStep, string>> = {};
+  if (potConflict) {
+    stepConflictWarning.drate = 'Gyro gain uses the same knob — proceeding will remove gyro gain.';
+    stepConflictWarning.gyro  = 'Speed limiter uses the same knob — proceeding will disable the speed limiter.';
+  }
+  if (swConflict) {
+    stepConflictWarning.cruise = 'Speed limiter uses the same switch — proceeding will disable the speed limiter.';
+    stepConflictWarning.drate  = stepConflictWarning.drate
+      ? stepConflictWarning.drate + ' Cruise control uses the same switch — proceeding will also remove cruise.'
+      : 'Cruise control uses the same switch — proceeding will remove cruise.';
+  }
+
+  function nextStep() {
+    const updates: Partial<WizardParams> = {};
+    if (step === 'drate') {
+      if (potConflict) updates.wantGyroGain = false;
+      if (swConflict)  updates.wantCruise = false;
+    }
+    if (step === 'cruise' && swConflict) updates.dRateMode = 'none';
+    if (step === 'gyro'  && potConflict) updates.dRateMode = 'none';
+    if (Object.keys(updates).length) setParams(prev => ({ ...prev, ...updates }));
+    setStep(STEPS[STEPS.indexOf(step) + 1]);
+  }
 
   function finish() {
     const generated = generateBasicModel(params);
     onChange((m) => ({
       ...m,
+      header: params.modelName ? { ...m.header, name: params.modelName } : m.header,
       mixData: generated.mixData,
       expoData: [...(m.expoData ?? []).filter(() => false), ...generated.expoData],
       logicalSw: { ...(m.logicalSw ?? {}), ...generated.logicalSw },
       inputNames: { ...(m.inputNames ?? {}), ...generated.inputNames },
       moduleData: generated.moduleData,
     }));
+    if (params.scale !== existingScale) {
+      setModelScale(modelKey, params.scale);
+    }
+    if (params.vehicleType !== existingVehicleType) {
+      setModelVehicleType(modelKey, params.vehicleType);
+    }
     if (params.wantKidControl) {
       onLaunchKidControl();
     } else {
@@ -418,9 +610,27 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
     }
   }
 
-  const chOptions = Array.from({ length: 16 }, (_, i) => (
-    <option key={i} value={i}>CH{i + 1}</option>
-  ));
+  function chOptions(selfCh: number) {
+    const used = new Map<number, string>();
+    if (params.throttleDestCh !== selfCh) used.set(params.throttleDestCh, 'throttle');
+    if (params.wantSteering && params.steeringDestCh !== selfCh) used.set(params.steeringDestCh, 'steering');
+    if (params.wantGyroGain && params.gyroGainDestCh !== selfCh) used.set(params.gyroGainDestCh, 'gyro gain');
+    return Array.from({ length: 16 }, (_, i) => {
+      const who = used.get(i);
+      return (
+        <option key={i} value={i}>
+          {who ? `CH${i + 1} — in use (${who})` : `CH${i + 1}`}
+        </option>
+      );
+    });
+  }
+
+  function chConflict(selfCh: number, selfLabel: string): string | null {
+    if (params.throttleDestCh === selfCh && selfLabel !== 'throttle') return 'This channel is also assigned to throttle.';
+    if (params.wantSteering && params.steeringDestCh === selfCh && selfLabel !== 'steering') return 'This channel is also assigned to steering.';
+    if (params.wantGyroGain && params.gyroGainDestCh === selfCh && selfLabel !== 'gyro gain') return 'This channel is also assigned to gyro gain.';
+    return null;
+  }
 
   return (
     <div className={css.wizard}>
@@ -449,6 +659,95 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
           </span>
         ))}
       </div>
+
+      {step === 'details' && (
+        <>
+          <p className={css.stepTitle}>Vehicle details</p>
+          <p className={css.stepSub}>Tell us about your model. All fields are optional — you can fill them in later from the editor.</p>
+          <div className={css.wizardConfig}>
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Name</span>
+              <input
+                type="text"
+                maxLength={15}
+                placeholder="e.g. Traxxas Slash"
+                value={params.modelName}
+                onChange={(e) => patch({ modelName: e.target.value })}
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', flex:1 }}
+                autoFocus
+              />
+            </div>
+            <p className={css.fieldHint} style={{ marginTop: -4 }}>Maximum 15 characters — this is an EdgeTX limit.</p>
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Scale</span>
+              <select
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+                value={params.scale}
+                onChange={(e) => patch({ scale: e.target.value })}
+              >
+                <option value="">Not specified</option>
+                {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className={css.fieldRow} style={{ alignItems: 'flex-start', gap: 8 }}>
+              <span className={css.fieldLabel} style={{ paddingTop: 6 }}>Vehicle type</span>
+              <div style={{ flex: 1 }}>
+                <select
+                  style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width: '100%' }}
+                  value={params.vehicleType}
+                  onChange={(e) => patch({ vehicleType: e.target.value })}
+                >
+                  <option value="">Not specified</option>
+                  {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name} — {c.description} ({c.speedMin}–{c.speedMax} mph)</option>)}
+                </select>
+              </div>
+            </div>
+            <div className={css.fieldRow} style={{ alignItems: 'flex-start' }}>
+              <span className={css.fieldLabel} style={{ paddingTop: 6 }}>Photo</span>
+              <div style={{ flex: 1 }}>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    uploadModelImage(modelKey, file);
+                    setImagePreview(URL.createObjectURL(file));
+                    e.target.value = '';
+                  }}
+                />
+                {(imagePreview || existingImageUrl) ? (
+                  <>
+                    <img
+                      src={imagePreview ?? existingImageUrl}
+                      alt="Model preview"
+                      style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 6, display: 'block', marginBottom: 6 }}
+                    />
+                    <button className="btn btn-ghost btn-sm" onClick={() => imageInputRef.current?.click()}>
+                      Change photo
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className={css.choiceBtn}
+                    style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px' }}
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <span style={{ fontSize: 20 }}>📷</span>
+                    <span className={css.choiceLabel}>Choose a photo</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className={css.wizardActions}>
+            {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+          </div>
+        </>
+      )}
 
       {step === 'module' && (
         <>
@@ -480,8 +779,8 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
             </div>
           </div>
           <div className={css.wizardActions}>
-            {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -495,13 +794,18 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
               <span className={css.fieldLabel}>Throttle channel</span>
               <select className={css.channelSelect} value={params.throttleDestCh}
                 onChange={(e) => patch({ throttleDestCh: parseInt(e.target.value) })}>
-                {chOptions}
+                {chOptions(params.throttleDestCh)}
               </select>
             </div>
+            {chConflict(params.throttleDestCh, 'throttle') && (
+              <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
+                {chConflict(params.throttleDestCh, 'throttle')}
+              </p>
+            )}
           </div>
           <div className={css.wizardActions}>
-            {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -526,15 +830,25 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
                 <span className={css.fieldLabel}>Cruise switch</span>
                 <SwitchPicker value={params.cruiseSw} onChange={(v) => patch({ cruiseSw: v })} />
               </div>
+              {params.dRateMode === 'switch' && params.dRateSwitch === params.cruiseSw && (
+                <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
+                  This switch is also assigned to the speed limiter.
+                </p>
+              )}
               <div className={css.fieldRow}>
                 <span className={css.fieldLabel}>Cruise speed</span>
                 <WeightSlider value={params.cruiseSpeed} onChange={(v) => patch({ cruiseSpeed: v })} min={0} max={100} />
               </div>
             </div>
           )}
+          {stepConflictWarning.cruise && (
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
+              ⚠ {stepConflictWarning.cruise}
+            </p>
+          )}
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -565,19 +879,24 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
             <div className={css.wizardConfig}>
               <p className={css.fieldHint} style={{ marginBottom: 8 }}>Which knob should control the speed limit? Hover to highlight it on the diagram.</p>
               <div style={{ display: 'flex', gap: 10 }}>
-                {['P1', 'P2'].map(pot => (
-                  <button
-                    key={pot}
-                    className={params.dRatePot === pot ? css.choiceBtnActive : css.choiceBtn}
-                    style={{ flex: 1 }}
-                    onClick={() => patch({ dRatePot: pot })}
-                    onMouseEnter={() => setHighlight(pot)}
-                    onMouseLeave={() => setHighlight(null)}
-                  >
-                    <span className={css.choiceLabel}>{pot} knob</span>
-                    <span className={css.choiceDesc}>{pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}</span>
-                  </button>
-                ))}
+                {(['P1', 'P2'] as const).map(pot => {
+                  const takenByGyro = params.wantGyroGain && params.gyroGainPot === pot;
+                  return (
+                    <button
+                      key={pot}
+                      className={params.dRatePot === pot ? css.choiceBtnActive : css.choiceBtn}
+                      style={{ flex: 1 }}
+                      onClick={() => patch({ dRatePot: pot })}
+                      onMouseEnter={() => setHighlight(pot)}
+                      onMouseLeave={() => setHighlight(null)}
+                    >
+                      <span className={css.choiceLabel}>{pot} knob</span>
+                      <span className={css.choiceDesc} style={takenByGyro ? { color:'var(--danger)' } : undefined}>
+                        {takenByGyro ? 'Already used by gyro gain' : pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -588,6 +907,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
                 <span className={css.fieldLabel}>Limit switch</span>
                 <SwitchPicker value={params.dRateSwitch} onChange={(v) => patch({ dRateSwitch: v })} />
               </div>
+              {params.wantCruise && params.cruiseSw === params.dRateSwitch && (
+                <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
+                  This switch is also assigned to cruise control.
+                </p>
+              )}
               <div className={css.fieldRow}>
                 <span className={css.fieldLabel}>Max throttle when on</span>
                 <WeightSlider value={params.dRatePercent} onChange={(v) => patch({ dRatePercent: v })} min={0} max={100} />
@@ -596,9 +920,14 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
             </div>
           )}
 
+          {stepConflictWarning.drate && (
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
+              ⚠ {stepConflictWarning.drate}
+            </p>
+          )}
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -623,23 +952,82 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
                 <span className={css.fieldLabel}>Steering channel</span>
                 <select className={css.channelSelect} value={params.steeringDestCh}
                   onChange={(e) => patch({ steeringDestCh: parseInt(e.target.value) })}>
-                  {chOptions}
+                  {chOptions(params.steeringDestCh)}
                 </select>
               </div>
-              <div className={css.fieldRow}>
-                <span className={css.fieldLabel}>Steering trim</span>
-                <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
-                  <input type="checkbox" checked={params.wantSTrim}
-                    onChange={(e) => patch({ wantSTrim: e.target.checked })}
-                    style={{ accentColor:'var(--accent)', width:14, height:14 }} />
-                  <span style={{ fontSize:13, color:'var(--text-muted)' }}>Add a trim adjustment for steering centre</span>
-                </label>
-              </div>
+              {chConflict(params.steeringDestCh, 'steering') && (
+                <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
+                  {chConflict(params.steeringDestCh, 'steering')}
+                </p>
+              )}
             </div>
           )}
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+          </div>
+        </>
+      )}
+
+      {step === 'gyro' && (
+        <>
+          <p className={css.stepTitle}>Gyro gain control</p>
+          <p className={css.stepSub}>Assign a pot knob to control gyro sensitivity. Optional — skip if your vehicle has no gyro or uses fixed gain.</p>
+          <div className={css.choiceGrid}>
+            <button className={params.wantGyroGain ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantGyroGain: true })}>
+              <span className={css.choiceLabel}>Yes, add gyro gain</span>
+              <span className={css.choiceDesc}>A knob will control gyro sensitivity</span>
+            </button>
+            <button className={!params.wantGyroGain ? css.choiceBtnActive : css.choiceBtn} onClick={() => patch({ wantGyroGain: false })}>
+              <span className={css.choiceLabel}>No gyro</span>
+              <span className={css.choiceDesc}>Vehicle has no gyro or uses fixed sensitivity</span>
+            </button>
+          </div>
+          {params.wantGyroGain && (
+            <div className={css.wizardConfig}>
+              <div className={css.fieldRow}>
+                <span className={css.fieldLabel}>Gyro channel</span>
+                <select className={css.channelSelect} value={params.gyroGainDestCh}
+                  onChange={(e) => patch({ gyroGainDestCh: parseInt(e.target.value) })}>
+                  {chOptions(params.gyroGainDestCh)}
+                </select>
+              </div>
+              {chConflict(params.gyroGainDestCh, 'gyro gain') && (
+                <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
+                  {chConflict(params.gyroGainDestCh, 'gyro gain')}
+                </p>
+              )}
+              <p className={css.fieldHint}>Which channel does your gyro receiver listen to for gain control?</p>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                {(['P1', 'P2'] as const).map(pot => {
+                  const takenByDRate = params.dRateMode === 'pot' && params.dRatePot === pot;
+                  return (
+                    <button
+                      key={pot}
+                      className={params.gyroGainPot === pot ? css.choiceBtnActive : css.choiceBtn}
+                      style={{ flex: 1 }}
+                      onClick={() => patch({ gyroGainPot: pot })}
+                      onMouseEnter={() => setHighlight(pot)}
+                      onMouseLeave={() => setHighlight(null)}
+                    >
+                      <span className={css.choiceLabel}>{pot} knob</span>
+                      <span className={css.choiceDesc} style={takenByDRate ? { color:'var(--danger)' } : undefined}>
+                        {takenByDRate ? 'Already used by speed limiter' : pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {stepConflictWarning.gyro && (
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
+              ⚠ {stepConflictWarning.gyro}
+            </p>
+          )}
+          <div className={css.wizardActions}>
+            <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -660,7 +1048,7 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
           </div>
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={next}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
           </div>
         </>
       )}
@@ -669,6 +1057,11 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
         <>
           <p className={css.stepTitle}>Ready to {initialParams ? 'apply' : 'create'}</p>
           <div className={css.wizardConfig} style={{ gap:6 }}>
+            {params.modelName && (
+              <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+                <strong>Name</strong>: {params.modelName}
+              </p>
+            )}
             <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
               <strong>Radio link</strong>: {SURFACE_PROTOCOLS.find(p => p.id === params.moduleProtocol)?.name ?? `Protocol ${params.moduleProtocol}`} · Failsafe: {FAILSAFE_OPTIONS.find(f => f.value === params.moduleFailsafe)?.label?.split(' — ')[0] ?? params.moduleFailsafe}
             </p>
@@ -681,12 +1074,26 @@ function SetupWizard({ onChange, initialParams, onCancel, onSwitchToAdvanced, on
             {params.wantSteering && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
                 <strong>Steering</strong> on CH{params.steeringDestCh + 1}
-                {params.wantSTrim && ' · with trim'}
+              </p>
+            )}
+            {params.wantGyroGain && (
+              <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+                <strong>Gyro gain</strong> on CH{params.gyroGainDestCh + 1} via {params.gyroGainPot} knob
               </p>
             )}
             {params.wantKidControl && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
                 <strong>KidControl</strong> — wizard will launch next
+              </p>
+            )}
+            {params.scale && (
+              <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+                <strong>Scale</strong>: {params.scale}
+              </p>
+            )}
+            {params.vehicleType && (
+              <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
+                <strong>Vehicle type</strong>: {vehicleCategories.find(c => c.id === params.vehicleType)?.name ?? params.vehicleType}
               </p>
             )}
           </div>

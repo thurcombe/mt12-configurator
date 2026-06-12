@@ -44,6 +44,7 @@ function buildFunctionMap(model: Model): FunctionMap {
     if (pot) {
       if (name === 'D-RATE' || name === 'DRATE') add(pot, 'Speed limiter');
       else if (name === 'S-TRIM' || name === 'STRIM') add(pot, 'Steering trim');
+      else if (name === 'GYRO-GAIN' || name === 'GYROGAIN' || name === 'GYRO') add(pot, 'Gyro gain');
       else add(pot, (inputMap[parseInt(inputM![1])] ?? name) || 'Input');
     }
     // Condition switches on mix lines
@@ -73,6 +74,7 @@ function buildFunctionMap(model: Model): FunctionMap {
     add(sw, label);
   }
 
+
   // Special functions
   for (const fn of Object.values(model.customFn ?? {})) {
     if (!fn.swtch || fn.swtch === 'NONE') continue;
@@ -98,8 +100,8 @@ const CONTROLS: CtrlDef[] = [
   { name:'SA',  desc:'3-position switch'              },
   { name:'TH',  desc:'Throttle trigger'               },
   { name:'SD',  desc:'Grip button (thumb)'            },
-  { name:'T1',  desc:'Steering trim lever', inert:true },
-  { name:'T2',  desc:'Steering trim lever', inert:true },
+  { name:'T1',  desc:'Trim lever', inert:true },
+  { name:'T2',  desc:'Trim lever', inert:true },
   { name:'T3',  desc:'Trim lever',          inert:true },
   { name:'T4',  desc:'Trim lever',          inert:true },
   { name:'T5',  desc:'Trim lever',          inert:true },
@@ -278,18 +280,16 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
             {(() => {
               const fns = showFunctions ? (functionMap?.[c.name] ?? []) : [];
               const hasFunction = fns.length > 0;
-              const labelText = showFunctions
-                ? (hasFunction ? fns[0] : (c.inert ? c.desc : c.name))
-                : c.name;
+              const labelText = showFunctions ? (hasFunction ? fns[0] : c.name) : c.name;
               const isMapped = showFunctions && hasFunction && !c.inert;
               return (
                 <>
                   <span style={{
                     display:'inline-block', fontSize, fontWeight: isMapped ? 700 : 500,
                     fontFamily:'system-ui,sans-serif',
-                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (isMapped ? '#dbeafe' : 'rgba(255,255,255,0.5)')),
+                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (isMapped ? '#dbeafe' : (showFunctions ? 'rgba(255,255,255,0.3)' : '#fff'))),
                     background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : 'rgba(29,78,216,0.85)')
-                                   : (isMapped ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)'),
+                                   : (isMapped ? 'rgba(0,0,0,0.65)' : (showFunctions ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)')),
                     padding:'1px 5px', borderRadius:3,
                     whiteSpace:'nowrap',
                   }}>{labelText}</span>
@@ -363,14 +363,15 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
   const [positions, setPositions] = useState<Positions>({});
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load positions from SD card when it connects; migrate from localStorage if needed.
+  // Load positions from SD card. Migrate and remove any legacy localStorage data.
   useEffect(() => {
     if (!sdRoot) return;
     (async () => {
       let saved = await readWebConfig<Positions>(sdRoot, WEBCONFIG_FILE);
       if (!saved) {
-        // One-time migration from localStorage.
+        // One-time migration from localStorage to SD card.
         try {
           const legacy = localStorage.getItem(LEGACY_KEY);
           if (legacy) {
@@ -378,7 +379,9 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
             await writeWebConfig(sdRoot, WEBCONFIG_FILE, saved);
             localStorage.removeItem(LEGACY_KEY);
           }
-        } catch { /* ignore */ }
+        } catch (e) {
+          setSaveError(`Could not save label positions to SD card: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
       if (saved) setPositions(saved);
     })();
@@ -400,7 +403,14 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
 
   async function savePositions(next: Positions) {
     setPositions(next);
-    if (sdRoot) await writeWebConfig(sdRoot, WEBCONFIG_FILE, next);
+    if (sdRoot) {
+      try {
+        await writeWebConfig(sdRoot, WEBCONFIG_FILE, next);
+        setSaveError(null);
+      } catch (e) {
+        setSaveError(`Could not save label positions to SD card: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   }
 
   function pctFromPointer(e: React.PointerEvent<HTMLDivElement>): { x: number; y: number } {
@@ -444,21 +454,9 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
   return (
     <div className={`${css.root} ${className ?? ''}`}>
 
-      {/* Labels / Functions toggle — shown when model data is available */}
-      {model && (
-        <div className={css.placeBar}>
-          <button
-            className={!showFunctions ? css.placeBtn : css.placeBtnActive}
-            onClick={() => setShowFunctions(false)}
-          >
-            Labels
-          </button>
-          <button
-            className={showFunctions ? css.placeBtn : css.placeBtnActive}
-            onClick={() => setShowFunctions(true)}
-          >
-            Functions
-          </button>
+      {saveError && (
+        <div style={{ fontSize: 11, color: 'var(--danger)', background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 4, padding: '4px 8px', marginBottom: 4 }}>
+          {saveError}
         </div>
       )}
 
@@ -534,6 +532,21 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
           </div>
         )}
       </div>
+
+      {/* Labels / Functions toggle — shown when model data is available */}
+      {model && (
+        <div className={css.viewToggle} onClick={() => setShowFunctions(v => !v)}>
+          <span className={`${css.viewToggleLabel} ${!showFunctions ? css.viewToggleLabelActive : ''}`}>
+            Labels
+          </span>
+          <div className={css.toggleTrack}>
+            <div className={`${css.toggleThumb} ${showFunctions ? css.toggleThumbRight : ''}`} />
+          </div>
+          <span className={`${css.viewToggleLabel} ${showFunctions ? css.viewToggleLabelActive : ''}`}>
+            Functions
+          </span>
+        </div>
+      )}
 
       {!placing && sdRoot && (
         <p className={css.hint}>Blue = switches &amp; knobs · Grey = trim levers (reference only)</p>
@@ -614,6 +627,19 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
               large
             />
           </div>
+
+          {model && !placing && (
+            <div
+              style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, userSelect:'none', cursor:'pointer' }}
+              onClick={(e) => { e.stopPropagation(); setShowFunctions(v => !v); }}
+            >
+              <span style={{ color: !showFunctions ? '#fff' : 'rgba(255,255,255,0.45)', fontWeight: !showFunctions ? 600 : 400 }}>Labels</span>
+              <div style={{ position:'relative', width:36, height:20, background:'var(--accent)', borderRadius:10, flexShrink:0 }}>
+                <div style={{ position:'absolute', top:3, left:3, width:14, height:14, background:'#fff', borderRadius:'50%', transition:'transform 0.15s', transform: showFunctions ? 'translateX(16px)' : 'none' }} />
+              </div>
+              <span style={{ color: showFunctions ? '#fff' : 'rgba(255,255,255,0.45)', fontWeight: showFunctions ? 600 : 400 }}>Functions</span>
+            </div>
+          )}
         </div>
       )}
     </div>

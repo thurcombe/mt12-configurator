@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { TabBar } from '../components/layout/TabBar.tsx';
@@ -66,13 +66,19 @@ const TAB_DESCRIPTIONS: Record<string, string> = {
 
 export function ModelEditor({ modelKey, navigate }: Props) {
   const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('basic');
-  const [tab, setTab] = useState('mixes');
+  const [tab, setTab] = useState('module');
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>(undefined);
+  const [wizardActive, setWizardActive] = useState(false);
   const model = useEditorStore((s) => s.models[modelKey]);
   const isDirty = useEditorStore((s) => s.isDirty(modelKey));
   const updateModel = useEditorStore((s) => s.updateModel);
   const saveModel = useEditorStore((s) => s.saveModel);
   const sdRoot = useEditorStore((s) => s.sdRoot);
+  const imageUrl = useEditorStore((s) => s.modelImages[modelKey]);
+  const uploadModelImage = useEditorStore((s) => s.uploadModelImage);
+  const modelScale = useEditorStore((s) => s.modelMeta[modelKey]?.scale ?? '');
+  const setModelScale = useEditorStore((s) => s.setModelScale);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   if (!model) {
     return (
@@ -91,10 +97,47 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
   function switchToAdvanced() {
     setViewMode('advanced');
-    setTab('mixes');
+    setTab('module');
   }
 
   // ── Basic view ─────────────────────────────────────────────────────────────
+
+  const RC_SCALES = ['1:5','1:6','1:8','1:10','1:12','1:14','1:16','1:18','1:24','1:28','1:64'];
+
+  const photoButton = (
+    <>
+      <button
+        className={css.photoBtn}
+        onClick={() => imageInputRef.current?.click()}
+        title={imageUrl ? 'Change model photo' : 'Add model photo'}
+      >
+        {imageUrl
+          ? <img src={imageUrl} alt="" className={css.photoBtnThumb} />
+          : <span className={css.photoBtnIcon}>📷</span>
+        }
+      </button>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadModelImage(modelKey, file);
+          e.target.value = '';
+        }}
+      />
+      <select
+        className={css.scaleSelect}
+        value={modelScale}
+        onChange={(e) => setModelScale(modelKey, e.target.value)}
+        title="Model scale"
+      >
+        <option value="">Scale</option>
+        {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    </>
+  );
 
   if (viewMode === 'basic') {
     return (
@@ -103,14 +146,17 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
             ← Back
           </button>
-          <input
-            type="text"
-            className={css.nameInput}
-            value={model.header?.name ?? ''}
-            placeholder={modelKey}
-            maxLength={15}
-            onChange={(e) => handleChange((m) => ({ ...m, header: { ...m.header, name: e.target.value } }))}
-          />
+          {!wizardActive && photoButton}
+          {!wizardActive && (
+            <input
+              type="text"
+              className={css.nameInput}
+              value={model.header?.name ?? ''}
+              placeholder={modelKey}
+              maxLength={15}
+              onChange={(e) => handleChange((m) => ({ ...m, header: { ...m.header, name: e.target.value } }))}
+            />
+          )}
           {isDirty && <span className="badge badge-warning">Unsaved</span>}
           <div style={{ flex: 1 }} />
           {isDirty && (
@@ -124,7 +170,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
         <div className={css.body}>
           <div className={css.content}>
-            <BasicMixView model={model} onChange={handleChange} />
+            <BasicMixView model={model} modelKey={modelKey} onChange={handleChange} onWizardActiveChange={setWizardActive} />
           </div>
           <div className={css.diagramPanel}>
             <div className={css.diagramTitle}>MT12 controls</div>
@@ -150,6 +196,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
+        {photoButton}
         <input
           type="text"
           className={css.nameInput}
@@ -187,7 +234,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
         <div className={css.diagramPanel}>
           <div className={css.diagramTitle}>MT12 controls</div>
-          <Mt12Diagram sdRoot={sdRoot} selected={diagramSelected} onSelect={setDiagramSelected} />
+          <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} />
           {diagramSelected && (
             <p className={css.diagramHint}>
               <strong>{diagramSelected}</strong> — physical location on transmitter

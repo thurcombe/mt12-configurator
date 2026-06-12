@@ -1,0 +1,6 @@
+services:
+  mt12-configurator:
+    image: thurcombe/mt12-configurator:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped
