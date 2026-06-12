@@ -6,6 +6,8 @@ Replaces painful on-device menu navigation — read and write YAML model files d
 
 ![Docker Image](https://img.shields.io/docker/v/thurcombe/mt12-configurator?label=docker&logo=docker)
 
+**[📖 User Manual](docs/user-manual.md)** — full walkthrough with screenshots of every feature
+
 ---
 
 ## Features
