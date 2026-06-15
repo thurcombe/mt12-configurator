@@ -9,7 +9,7 @@ RUN npm run build
 
 # Serve stage
 FROM nginx:alpine AS runner
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && apk del curl
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
