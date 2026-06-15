@@ -15,6 +15,18 @@ import type { Radio } from '../types/radio.ts';
 // Model slot key: 'model00', 'model01', etc. (no .yml extension).
 export type ModelKey = string;
 
+const MODEL_KEY_RE = /^model\d+$/;
+function assertValidModelKey(key: string): void {
+  if (!MODEL_KEY_RE.test(key)) throw new Error(`Invalid model key: "${key}"`);
+}
+
+const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp']);
+function safeImageExt(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  const ext = dot >= 0 ? filename.slice(dot).toLowerCase() : '';
+  return ALLOWED_IMAGE_EXTS.has(ext) ? ext : '.png';
+}
+
 export interface AppSettings {
   backupCount: number;
 }
@@ -156,8 +168,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   uploadModelImage: async (key, file) => {
+    assertValidModelKey(key);
     const { sdRoot, modelImages } = get();
-    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase() || '.png';
+    const ext = safeImageExt(file.name);
     const sdPath = `IMAGES/${key}${ext}`;
     if (sdRoot) {
       const buf = await file.arrayBuffer();
@@ -219,7 +232,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   uploadVehicleTypeImage: async (typeId, file) => {
     const { sdRoot, vehicleTypeImages } = get();
-    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase() || '.png';
+    const ext = safeImageExt(file.name);
     const sdPath = `.webconfig/vehicle-type-images/${typeId}${ext}`;
     if (sdRoot) {
       const buf = await file.arrayBuffer();
@@ -368,6 +381,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   createModel: (key: ModelKey, name = '') => {
+    assertValidModelKey(key);
     set((s) => {
       const dirty = new Set(s.dirty);
       dirty.add(key);
@@ -378,6 +392,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   duplicateModel: (sourceKey: ModelKey, destKey: ModelKey) => {
+    assertValidModelKey(sourceKey);
+    assertValidModelKey(destKey);
     set((s) => {
       const source = s.models[sourceKey];
       if (!source) return s;
@@ -415,6 +431,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   importModelFromYaml: (key: ModelKey, yaml: string) => {
+    assertValidModelKey(key);
     try {
       const model = parseModel(yaml);
       set((s) => ({

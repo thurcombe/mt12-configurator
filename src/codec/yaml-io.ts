@@ -13,7 +13,7 @@ function postProcess(text: string): string {
 }
 
 export function loadYaml(text: string): unknown {
-  return yaml.load(preProcess(text));
+  return yaml.load(preProcess(text), { schema: yaml.CORE_SCHEMA });
 }
 
 export function dumpYaml(obj: unknown): string {

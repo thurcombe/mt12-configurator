@@ -8,11 +8,20 @@ export async function pickSdCard(): Promise<SdRoot> {
   return showDirectoryPicker({ mode: 'readwrite', id: 'edgetx-sdcard' });
 }
 
+function assertSafeSegments(segments: string[]): void {
+  for (const seg of segments) {
+    if (!seg || seg === '.' || seg === '..' || seg.includes('\0')) {
+      throw new Error(`Unsafe path segment: "${seg}"`);
+    }
+  }
+}
+
 async function resolveDir(
   root: SdRoot,
   segments: string[],
   create = false,
 ): Promise<FileSystemDirectoryHandle> {
+  assertSafeSegments(segments);
   let dir: FileSystemDirectoryHandle = root;
   for (const seg of segments) {
     dir = await dir.getDirectoryHandle(seg, { create });
@@ -23,6 +32,7 @@ async function resolveDir(
 export async function readTextFile(root: SdRoot, relativePath: string): Promise<string> {
   const parts = relativePath.split('/');
   const filename = parts.pop()!;
+  assertSafeSegments([...parts, filename]);
   const dir = parts.length ? await resolveDir(root, parts) : root;
   const fh = await dir.getFileHandle(filename);
   const file = await fh.getFile();
@@ -32,6 +42,7 @@ export async function readTextFile(root: SdRoot, relativePath: string): Promise<
 export async function writeTextFile(root: SdRoot, relativePath: string, content: string): Promise<void> {
   const parts = relativePath.split('/');
   const filename = parts.pop()!;
+  assertSafeSegments([...parts, filename]);
   const dir = parts.length ? await resolveDir(root, parts, true) : root;
   const fh = await dir.getFileHandle(filename, { create: true });
   const writable = await fh.createWritable();
@@ -85,6 +96,7 @@ export async function deleteModelImage(root: SdRoot, modelKey: string): Promise<
 export async function deleteFile(root: SdRoot, relativePath: string): Promise<void> {
   const parts = relativePath.split('/');
   const filename = parts.pop()!;
+  assertSafeSegments([...parts, filename]);
   const dir = parts.length ? await resolveDir(root, parts) : root;
   await dir.removeEntry(filename);
 }
@@ -92,6 +104,7 @@ export async function deleteFile(root: SdRoot, relativePath: string): Promise<vo
 export async function writeBinaryFile(root: SdRoot, relativePath: string, data: ArrayBuffer): Promise<void> {
   const parts = relativePath.split('/');
   const filename = parts.pop()!;
+  assertSafeSegments([...parts, filename]);
   const dir = parts.length ? await resolveDir(root, parts, true) : root;
   const fh = await dir.getFileHandle(filename, { create: true });
   const writable = await fh.createWritable();

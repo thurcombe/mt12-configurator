@@ -13,6 +13,11 @@ export interface BackupEntry {
   path: string;          // relative path "BACKUP/..."
 }
 
+// Strip characters that are unsafe in filenames or that enable path traversal.
+function sanitiseModelName(name: string): string {
+  return name.replace(/[/\\<>:"|?*\0]/g, '_').replace(/\.{2,}/g, '_').trim() || 'unknown';
+}
+
 // Generate a backup filename timestamp: YYYY-MM-DDTHH-MM-SS
 function nowStamp(): string {
   const d = new Date();
@@ -27,15 +32,16 @@ export async function writeBackup(
   content: string,
   maxBackups = DEFAULT_MAX_BACKUPS,
 ): Promise<void> {
-  const filename = `${modelName}-${nowStamp()}.yml`;
+  const safeName = sanitiseModelName(modelName);
+  const filename = `${safeName}-${nowStamp()}.yml`;
   await writeTextFile(root, `BACKUP/${filename}`, content);
-  await pruneBackups(root, modelName, maxBackups);
+  await pruneBackups(root, safeName, maxBackups);
 }
 
 // List backups for a specific model name, sorted newest-first.
 export async function listBackups(root: SdRoot, modelName: string): Promise<BackupEntry[]> {
   const files = await listDirFiles(root, 'BACKUP');
-  const prefix = `${modelName}-`;
+  const prefix = `${sanitiseModelName(modelName)}-`;
   return files
     .filter((f) => f.startsWith(prefix) && f.endsWith('.yml'))
     .sort()
@@ -55,7 +61,7 @@ export async function readBackup(root: SdRoot, entry: BackupEntry): Promise<stri
 
 // Delete oldest backups, keeping only `keep` most recent.
 export async function pruneBackups(root: SdRoot, modelName: string, keep: number): Promise<void> {
-  const entries = await listBackups(root, modelName);
+  const entries = await listBackups(root, sanitiseModelName(modelName));
   const toDelete = entries.slice(keep);
   for (const entry of toDelete) {
     await deleteFile(root, entry.path);
