@@ -8,7 +8,7 @@ export async function pickSdCard(): Promise<SdRoot> {
   return showDirectoryPicker({ mode: 'readwrite', id: 'edgetx-sdcard' });
 }
 
-function assertSafeSegments(segments: string[]): void {
+export function assertSafeSegments(segments: string[]): void {
   for (const seg of segments) {
     if (!seg || seg === '.' || seg === '..' || seg.includes('\0')) {
       throw new Error(`Unsafe path segment: "${seg}"`);

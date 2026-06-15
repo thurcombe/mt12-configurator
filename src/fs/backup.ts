@@ -14,7 +14,7 @@ export interface BackupEntry {
 }
 
 // Strip characters that are unsafe in filenames or that enable path traversal.
-function sanitiseModelName(name: string): string {
+export function sanitiseModelName(name: string): string {
   return name.replace(/[/\\<>:"|?*\0]/g, '_').replace(/\.{2,}/g, '_').trim() || 'unknown';
 }
 

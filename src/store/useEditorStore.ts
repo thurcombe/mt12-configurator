@@ -16,12 +16,12 @@ import type { Radio } from '../types/radio.ts';
 export type ModelKey = string;
 
 const MODEL_KEY_RE = /^model\d+$/;
-function assertValidModelKey(key: string): void {
+export function assertValidModelKey(key: string): void {
   if (!MODEL_KEY_RE.test(key)) throw new Error(`Invalid model key: "${key}"`);
 }
 
 const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp']);
-function safeImageExt(filename: string): string {
+export function safeImageExt(filename: string): string {
   const dot = filename.lastIndexOf('.');
   const ext = dot >= 0 ? filename.slice(dot).toLowerCase() : '';
   return ALLOWED_IMAGE_EXTS.has(ext) ? ext : '.png';
