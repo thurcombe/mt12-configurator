@@ -1,6 +1,8 @@
 name: Build and Push Docker Image
 
 on:
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 03:00 UTC
   push:
     branches:
       - main
@@ -51,5 +53,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          pull: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
