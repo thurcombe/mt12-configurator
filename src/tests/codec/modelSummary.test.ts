@@ -27,8 +27,8 @@ describe('buildInputMap', () => {
 
   it('uses the first expo line per channel (no overwrite)', () => {
     const lines = [
-      { chn: 0, srcRaw: 'TH', weight: 100, offset: 0, curve: { type: 0, value: 0 }, name: '', swtch: 'NONE', flightModes: '000000000', mode: 0 },
-      { chn: 0, srcRaw: 'ST', weight: 100, offset: 0, curve: { type: 0, value: 0 }, name: '', swtch: 'NONE', flightModes: '000000000', mode: 0 },
+      { chn: 0, srcRaw: 'TH', weight: 100, offset: 0, curve: { type: 0, value: 0 }, name: '', swtch: 'NONE', flightModes: '000000000', mode: 0, scale: 0, trimSource: 0 },
+      { chn: 0, srcRaw: 'ST', weight: 100, offset: 0, curve: { type: 0, value: 0 }, name: '', swtch: 'NONE', flightModes: '000000000', mode: 0, scale: 0, trimSource: 0 },
     ];
     const map = buildInputMap(lines);
     expect(map[0]).toBe('Throttle');
