@@ -308,7 +308,8 @@ export interface WizardParams {
   wantSteering: boolean;
   steeringDestCh: number;
   steeringWeight: number;
-  strimSrc: string;     // physical input for steering trim, e.g. 'P1', 'SA', 'FL1'
+  strimSrc: string;     // physical input for steering trim, e.g. 'P1', 'T2', 'T5'
+  strimWeight: number;  // trim authority % (additive weight on steering channel)
   // Gyro gain
   wantGyroGain: boolean;
   gyroGainDestCh: number;
@@ -359,6 +360,7 @@ export function analysisToWizardParams(analysis: BasicAnalysis, model?: Model): 
       }
       return strimMix.srcRaw ?? d.strimSrc;
     })(),
+    strimWeight: analysis.strim?.weight ?? d.strimWeight,
     wantGyroGain:    !!analysis.gyro,
     gyroGainDestCh:  analysis.gyro?.destCh ?? d.gyroGainDestCh,
     gyroGainPot: (() => {
@@ -391,6 +393,7 @@ export function defaultWizardParams(): WizardParams {
     steeringDestCh: 0,   // CH1
     steeringWeight: 100,
     strimSrc: '',
+    strimWeight: 5,
     wantGyroGain: false,
     gyroGainDestCh: 2,   // CH3
     gyroGainPot: '',
@@ -524,10 +527,10 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
         expoData.push(blankExpoLine(p.strimSrc, strimChn, 100, 0));
         inputNames[String(strimChn)] = { val: 'STR' };
       }
-      mixData.push(blankMix('S-TRIM', p.steeringDestCh, `I${strimChn}`, 'ADD', 5, 0));
+      mixData.push(blankMix('S-TRIM', p.steeringDestCh, `I${strimChn}`, 'ADD', p.strimWeight, 0));
     } else if (p.strimSrc) {
       // Trim lever (T1–T5) — used directly as srcRaw, no expo line needed.
-      mixData.push(blankMix('S-TRIM', p.steeringDestCh, p.strimSrc, 'ADD', 5, 0));
+      mixData.push(blankMix('S-TRIM', p.steeringDestCh, p.strimSrc, 'ADD', p.strimWeight, 0));
     }
   }
 

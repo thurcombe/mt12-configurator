@@ -990,6 +990,15 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                   ]}
                 />
               </div>
+              {params.strimSrc && (
+                <div className={css.fieldRow} style={{ marginTop: 8 }}>
+                  <span className={css.fieldLabel}>Trim authority</span>
+                  <input type="range" min={1} max={30} value={params.strimWeight}
+                    onChange={(e) => patch({ strimWeight: parseInt(e.target.value) })}
+                    style={{ flex: 1 }} />
+                  <span style={{ minWidth: 36, textAlign: 'right', fontSize: 13 }}>{params.strimWeight}%</span>
+                </div>
+              )}
             </div>
           )}
           {stepConflictWarning.steering && (
@@ -1106,7 +1115,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             {params.wantSteering && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
                 <strong>Steering</strong> on CH{params.steeringDestCh + 1}
-                {` · Trim via ${params.strimSrc}`}
+                {params.strimSrc && ` · Trim via ${params.strimSrc} (${params.strimWeight}% authority)`}
               </p>
             )}
             {params.wantGyroGain && (
