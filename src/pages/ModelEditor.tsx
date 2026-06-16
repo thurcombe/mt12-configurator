@@ -229,7 +229,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {tab === 'limits'      && <LimitsEditor model={model} onChange={handleChange} />}
           {tab === 'logicalsw'   && <LogicalSwEditor model={model} onChange={handleChange} />}
           {tab === 'specialfn'   && <SpecialFnEditor model={model} onChange={handleChange} />}
-          {tab === 'kidmode'     && <KidModeWizard model={model} onChange={handleChange} />}
+          {tab === 'kidmode'     && <KidModeWizard model={model} onChange={handleChange} modelKey={modelKey} />}
         </div>
 
         <div className={css.diagramPanel}>
