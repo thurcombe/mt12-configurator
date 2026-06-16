@@ -9,21 +9,22 @@ A browser-based editor for creating and managing EdgeTX model configuration file
 1. [Getting Started](#1-getting-started)
 2. [The Model List](#2-the-model-list)
 3. [Basic View](#3-basic-view)
-4. [KidControl Wizard](#4-kidcontrol-wizard)
-5. [Advanced View — Module](#5-advanced-view--module)
-6. [Advanced View — Timers](#6-advanced-view--timers)
-7. [Advanced View — Drive Modes](#7-advanced-view--drive-modes)
-8. [Advanced View — Mixes](#8-advanced-view--mixes)
-9. [Advanced View — Expos](#9-advanced-view--expos)
-10. [Advanced View — Limits](#10-advanced-view--limits)
-11. [Advanced View — Logical Switches](#11-advanced-view--logical-switches)
-12. [Advanced View — Special Functions](#12-advanced-view--special-functions)
-13. [Advanced View — KidControl Tab](#13-advanced-view--kidcontrol-tab)
-14. [Radio Settings](#14-radio-settings)
-15. [Vehicle Types](#15-vehicle-types)
-16. [App Settings](#16-app-settings)
-17. [Saving, Backup & Restore](#17-saving-backup--restore)
-18. [Help & About](#18-help--about)
+4. [Setup Wizard](#4-setup-wizard)
+5. [KidControl Wizard](#5-kidcontrol-wizard)
+6. [Advanced View — Module](#6-advanced-view--module)
+7. [Advanced View — Timers](#7-advanced-view--timers)
+8. [Advanced View — Drive Modes](#8-advanced-view--drive-modes)
+9. [Advanced View — Mixes](#9-advanced-view--mixes)
+10. [Advanced View — Expos](#10-advanced-view--expos)
+11. [Advanced View — Limits](#11-advanced-view--limits)
+12. [Advanced View — Logical Switches](#12-advanced-view--logical-switches)
+13. [Advanced View — Special Functions](#13-advanced-view--special-functions)
+14. [Advanced View — KidControl Tab](#14-advanced-view--kidcontrol-tab)
+15. [Radio Settings](#15-radio-settings)
+16. [Vehicle Types](#16-vehicle-types)
+17. [App Settings](#17-app-settings)
+18. [Saving & Backup](#18-saving--backup)
+19. [Help & About](#19-help--about)
 
 ---
 
@@ -107,7 +108,12 @@ Click **Remove** to delete the cruise control mix entirely.
 
 ### Speed limiter
 
-Shows that the P2 knob (scroll wheel) scales all throttle. Turning P2 fully down stops the vehicle. This is always active unless removed via Advanced > Mixes.
+Shows the current speed limiter configuration. Two modes are available:
+
+- **Variable** — a trim lever (T1–T5) or knob (P1/P2) scales throttle continuously. Moving the control to its minimum position stops the vehicle.
+- **Switch** — a switch position cuts throttle to a fixed percentage. The limit only applies when the switch is in the configured position.
+
+The speed limiter is always active unless removed via Advanced > Mixes.
 
 ### Steering
 
@@ -119,24 +125,26 @@ A trim mix applied on top of the steering input — adjusts the neutral/centre p
 
 ### Vehicle details
 
-- **Vehicle type** — links this model to one of your [Vehicle Types](#15-vehicle-types), which provides KidControl presets and an optional default image
+- **Vehicle type** — links this model to one of your [Vehicle Types](#16-vehicle-types), which provides KidControl presets and an optional default image
 - **Scale** — the 1:N scale of your RC vehicle (metadata only, stored on the SD card)
 
 ### Radio link
 
-Displays the current receiver protocol (e.g. Traxxas TQi) and the **Signal lost** (failsafe) behaviour. Click through to [Module](#5-advanced-view--module) in Advanced view to change these.
+Displays the current receiver protocol (e.g. Traxxas TQi) and the **Signal lost** (failsafe) behaviour. Click through to [Module](#6-advanced-view--module) in Advanced view to change these.
 
 ### KidControl
 
-Shows whether KidControl is active on this model. If not yet configured, click **＋ Set up KidControl** to launch the [KidControl Wizard](#4-kidcontrol-wizard).
+Shows whether KidControl is active on this model. If not yet configured, click **＋ Set up KidControl** to launch the [KidControl Wizard](#5-kidcontrol-wizard).
 
 ### Vehicle setup
 
-Click **Re-run setup wizard** to re-open the full setup wizard. This lets you change throttle/steering channel assignments, protocol, failsafe, and speed limiter settings without going into Advanced view.
+Click **Re-run setup wizard** to re-open the full setup wizard. This lets you change any configuration set during initial setup — channel assignments, protocol, failsafe, speed limiter, steering trim, and gyro gain — without going into Advanced view.
+
+> When re-running the wizard on an existing model, all steps are pre-populated with the current model's values so you only need to change what you want.
 
 ### The MT12 Controls diagram
 
-The right panel shows a photo of the MT12 with your controls labelled. When an SD card is connected and input labels have been configured in [Radio Settings](#14-radio-settings), each switch and pot is annotated.
+The right panel shows a photo of the MT12 with your controls labelled. When an SD card is connected and input labels have been configured in [Radio Settings](#15-radio-settings), each switch and pot is annotated.
 
 Toggle **Labels / Functions** at the bottom to switch between showing the assigned names and the EdgeTX function names (SA, SB, P1, etc.).
 
@@ -144,7 +152,40 @@ Toggle **Labels / Functions** at the bottom to switch between showing the assign
 
 ---
 
-## 4. KidControl Wizard
+## 4. Setup Wizard
+
+The setup wizard runs automatically when a new model is created, and can be re-run at any time via **Re-run setup wizard** in the Basic view. It walks through each major configuration area in turn, pre-filling values from the current model when re-running.
+
+### Input pickers and diagram highlighting
+
+Throughout the wizard, dropdown pickers for physical inputs (trim levers, knobs, switches) highlight the corresponding control on the **MT12 Controls diagram** as you hover over each option. This makes it easy to identify the right control without referring to the transmitter.
+
+### Wizard steps
+
+**Vehicle** — Set the model name, vehicle category, and scale. Selecting a vehicle category here also determines the KidControl preset defaults.
+
+**Radio link** — Choose the RF protocol and failsafe behaviour.
+
+**Throttle** — Assign the throttle channel and set the maximum trigger rate.
+
+**Cruise control** — Optionally assign a switch for cruise hold and set a default cruise speed.
+
+**Speed limiter** — Choose how throttle is limited:
+- *None* — no speed limiter
+- *Variable* — assign a trim lever (T1–T5) or knob (P1/P2) to scale throttle continuously
+- *Switch* — assign a switch position that cuts throttle to a fixed percentage
+
+**Steering** — Assign the steering channel, set the steering rate, and optionally choose a **steering trim** source. The trim source is a trim lever (T1–T5) or knob that adjusts the steering neutral point. T1–T5 are rocker-style trim buttons — each press steps the trim value up or down.
+
+**Gyro gain** — Optionally assign a trim lever (T1–T5) or knob to control gyro sensitivity on a dedicated channel.
+
+**KidControl** — Optionally launch the [KidControl Wizard](#5-kidcontrol-wizard) as the final step.
+
+**Done** — Review a summary of all settings and click **Apply** to generate the model's mix and expo lines.
+
+---
+
+## 5. KidControl Wizard
 
 KidControl creates a safe driving profile activated by a physical switch on the transmitter. When the switch is engaged, reduced throttle and steering limits apply — flip the switch back to return to normal control.
 
@@ -152,18 +193,15 @@ The wizard opens from the **Basic view** when you click **＋ Set up KidControl*
 
 ### Step 1 — Vehicle type
 
-Choose the type of vehicle you are setting limits for. This selects appropriate default values for the sliders in step 3.
+> **This step is skipped automatically** if the model already has a vehicle type set (configured in the Basic view Vehicle details section or during initial setup). The wizard jumps straight to step 2 using the saved type.
+
+If no vehicle type is set, the wizard shows the full list of vehicle categories from your [Vehicle Types](#16-vehicle-types) page. Choosing a category here saves it to the model's metadata so future wizard runs skip this step.
 
 ![KidControl wizard — vehicle type](screenshots/06-kidcontrol-wizard-vehicle-select.png)
 
-| Option | Description |
-|--------|-------------|
-| 🐢 Crawler | Rock crawler — slow and stable, subtle limits |
-| 🏁 Sport | Sport/touring — moderate speed, responsive steering |
-| 🚗 Rally | Rally car — faster, more aggressive throttle/steering |
-| ⚡ High-speed | Fast racer — high top speed, needs strong limits |
+Each category maps to one of four KidControl presets (Crawler, Sport, Rally, High-speed) that determine the default throttle and steering limits in step 3. The mapping is shown on the Vehicle Types page.
 
-Clicking a vehicle type immediately advances to step 2.
+Clicking a category immediately advances to step 2.
 
 ### Step 2 — Speed class
 
@@ -200,7 +238,7 @@ Click **Apply** to write the KidControl configuration to the model. Click **← 
 
 ---
 
-## 5. Advanced View — Module
+## 6. Advanced View — Module
 
 Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor shows a row of tabs; the default tab is **Module**.
 
@@ -224,7 +262,7 @@ The MT12 also has an external module bay (SMA connector). Configure a second RF 
 
 ---
 
-## 6. Advanced View — Timers
+## 7. Advanced View — Timers
 
 ![Advanced view — Timers](screenshots/08-editor-timers.png)
 
@@ -244,7 +282,7 @@ Timers are useful for tracking battery run time, session duration, or enforcing 
 
 ---
 
-## 7. Advanced View — Drive Modes
+## 8. Advanced View — Drive Modes
 
 ![Advanced view — Drive Modes](screenshots/09-editor-drive-modes.png)
 
@@ -263,7 +301,7 @@ KidControl uses **FM1** as its safe-mode slot. When the KidControl switch is eng
 
 ---
 
-## 8. Advanced View — Mixes
+## 9. Advanced View — Mixes
 
 ![Advanced view — Mixes](screenshots/10-editor-mixes.png)
 
@@ -298,7 +336,7 @@ Drag a mix line by its handle to reorder it within a channel group. Order matter
 
 ---
 
-## 9. Advanced View — Expos
+## 10. Advanced View — Expos
 
 ![Advanced view — Expos](screenshots/11-editor-expos.png)
 
@@ -320,7 +358,7 @@ Multiple expo lines can be stacked on the same input — the active line is sele
 
 ---
 
-## 10. Advanced View — Limits
+## 11. Advanced View — Limits
 
 ![Advanced view — Limits](screenshots/12-editor-limits.png)
 
@@ -338,7 +376,7 @@ Use limits to prevent servo over-travel if the physical linkage cannot reach the
 
 ---
 
-## 11. Advanced View — Logical Switches
+## 12. Advanced View — Logical Switches
 
 ![Advanced view — Logical Switches](screenshots/13-editor-logical-sw.png)
 
@@ -372,7 +410,7 @@ Each row is one logical switch (L1, L2, …) with:
 
 ---
 
-## 12. Advanced View — Special Functions
+## 13. Advanced View — Special Functions
 
 ![Advanced view — Special Functions](screenshots/14-editor-special-fn.png)
 
@@ -401,7 +439,7 @@ Each row has:
 
 ---
 
-## 13. Advanced View — KidControl Tab
+## 14. Advanced View — KidControl Tab
 
 ![KidControl tab in advanced view](screenshots/15-editor-kidcontrol-tab.png)
 
@@ -420,7 +458,7 @@ When **KidControl is active**, it shows a summary card with:
 
 ---
 
-## 14. Radio Settings
+## 15. Radio Settings
 
 The Radio Settings page configures transmitter-global options — audio, display, and switch/pot labelling. Access it from the **Radio Settings** button in the header.
 
@@ -476,19 +514,33 @@ The diagram on the right of the Radio Settings page shows the transmitter layout
 
 ---
 
-## 15. Vehicle Types
+## 16. Vehicle Types
 
 The Vehicle Types page lets you manage the list of vehicle types that appear in the model editor's **Vehicle details** section and in the KidControl wizard.
 
 ![Vehicle Types page](screenshots/23-vehicle-types-page.png)
 
-### Built-in types
+### Built-in categories
 
-Four types are always available: **Crawler**, **Sport**, **Rally**, **High-speed**. These cannot be deleted but can be used as templates.
+Nine categories are always available and cannot be deleted:
 
-### Custom types
+| Category | Description | KidControl preset |
+|----------|-------------|-------------------|
+| 🐢 Crawler | Rock crawler — very low speed, maximum precision | Crawler |
+| ⛰️ Scale Trail | Scale trail truck — realistic crawling | Crawler |
+| 🏁 Short Course | Short course truck — off-road oval racing | Sport |
+| 🏎️ Buggy / Truggy | Off-road buggy or truggy — fast and agile | Rally |
+| 🚛 Monster Truck | Monster truck — big air, bashing | Sport |
+| 🏎️ Sport / Touring | On-road sport or touring car | Sport |
+| 🚗 Rally | Rally car — mixed surface, aggressive throttle | Rally |
+| ⚡ Desert Racer | High-speed desert racer — very fast | High-speed |
+| 💨 Drift | Drift car — controlled slides, rear-wheel drive | Sport |
 
-Click **＋ Add type** to create a custom vehicle type. Each type has:
+The **KidControl preset** column shows which set of default limits the KidControl wizard uses for that category.
+
+### Custom categories
+
+Click **＋ Add type** to create a custom vehicle category. Each category has:
 
 | Field | Description |
 |-------|-------------|
@@ -496,11 +548,11 @@ Click **＋ Add type** to create a custom vehicle type. Each type has:
 | Icon/image | An image uploaded from your computer, stored on the SD card |
 | KidControl defaults | Pre-set throttle limit, steering limit, and expo values for the KidControl wizard |
 
-Custom types are stored in `.webconfig/vehicle-categories.json` on the SD card — they travel with the card, not with individual model files.
+Custom categories are stored in `.webconfig/vehicle-categories.json` on the SD card — they travel with the card, not with individual model files.
 
 ---
 
-## 16. App Settings
+## 17. App Settings
 
 Click the **⚙** icon in the header to open App Settings.
 
@@ -514,7 +566,7 @@ Settings are saved to `.webconfig/app-settings.json` on the SD card when one is 
 
 ---
 
-## 17. Saving, Backup & Restore
+## 18. Saving & Backup
 
 ### Saving with an SD card connected
 
@@ -537,17 +589,19 @@ If you try to navigate away from a model with unsaved changes, the app shows a c
 - **Stay** — return to the editor without losing changes
 - **Leave** — discard the unsaved changes and navigate away
 
-### Backup & Restore
+### Restoring from a backup
 
-When an SD card is connected, each model card has a **History** button. This opens a list of timestamped backups for that model. From there you can:
+> **Requires an SD card to be connected.** The History button is not shown in offline mode.
+
+When an SD card is connected, each model card has a **History** button. Click it to open a list of timestamped backups for that model. From there you can:
 
 1. Browse backups sorted by date
 2. Preview a diff between a backup and the current model
-3. Click **Restore** to replace the current model with the backup (this itself creates a backup of the current state first)
+3. Click **Restore this backup** to replace the current model with that version (the current state is itself backed up first before overwriting)
 
 ---
 
-## 18. Help & About
+## 19. Help & About
 
 Click the **Help** button in the header to open the About dialog.
 
