@@ -65,7 +65,15 @@ Each model card shows:
 - **Protocol badge** — the RF protocol this model uses (e.g. Traxxas TQi, CROSSFIRE)
 - **Mix count** — number of active mix lines
 - **Edit**, **Duplicate**, **Delete** action buttons
-- **History** button (only shown when an SD card is connected) — opens the backup restore dialog
+- **Backup** button (only shown when an SD card is connected) — immediately writes a timestamped backup of the current model to `BACKUP/`. The button briefly shows "Backed up!" to confirm the action completed.
+- **History** button (only shown when an SD card is connected) — opens the backup browser for this model, with diff preview, download, restore-to-any-slot, and bulk delete
+
+### Toolbar actions
+
+When an SD card is connected, the toolbar above the model grid shows two additional buttons:
+
+- **Manage backups** — opens the backup browser showing every backup file across all models and radio settings. Use this to restore any backup (including deleted models), delete stale entries, or download backup files.
+- **Refresh from card** — reloads all model files from the SD card, discarding any in-memory changes.
 
 ### Creating a new model
 
@@ -464,6 +472,11 @@ The Radio Settings page configures transmitter-global options — audio, display
 
 > **Note:** Radio Settings requires an SD card to be connected. The settings are stored in `RADIO/radio.yml` on the card.
 
+Two buttons appear in the top bar when an SD card is connected and radio settings are loaded:
+
+- **Backup** — writes an immediate timestamped backup of the current radio settings to `BACKUP/`. The button briefly shows "Backed up!" to confirm.
+- **History** — opens the radio backup browser (grayed out if no radio backups exist yet). From there you can preview, restore, download, or delete radio backups. Restore loads the backup into memory and marks radio settings as unsaved — click **Save** to write it back to the card.
+
 ![Radio Settings — top](screenshots/19-radio-settings-top.png)
 
 ### Audio
@@ -589,15 +602,40 @@ If you try to navigate away from a model with unsaved changes, the app shows a c
 - **Stay** — return to the editor without losing changes
 - **Leave** — discard the unsaved changes and navigate away
 
-### Restoring from a backup
+### Manual backup
 
-> **Requires an SD card to be connected.** The History button is not shown in offline mode.
+When an SD card is connected, each model card shows a **Backup** button. Clicking it immediately writes a timestamped copy of the current model to the `BACKUP/` folder — useful before making risky edits, or when you want a named checkpoint without saving. This does not affect the **Unsaved** dirty state; it captures what is currently on disk, not any in-memory changes.
 
-When an SD card is connected, each model card has a **History** button. Click it to open a list of timestamped backups for that model. From there you can:
+### Backup browser
 
-1. Browse backups sorted by date
-2. Preview a diff between a backup and the current model
-3. Click **Restore this backup** to replace the current model with that version (the current state is itself backed up first before overwriting)
+Both the **History** button (per model card) and the **Restore backup** toolbar button open the same backup browser. It has two panels:
+
+**Left — backup list**
+
+Lists timestamped backup files, sorted newest-first.
+
+In the **Manage backups** view (opened from the model list toolbar), entries are grouped by model name. Each group is collapsed by default — click a group header to expand it and see that model's individual backups.
+
+A **Manage** button at the top of the sidebar switches into delete mode: checkboxes appear on every entry, a **Select all** checkbox at the top selects or deselects everything, and a **Delete N** button appears when entries are checked. Clicking **Delete N** asks for a single confirmation before permanently removing all selected backups. Click **Done** to exit delete mode.
+
+**Right — preview and restore**
+
+When you select a backup the right panel shows:
+
+| Control | Description |
+|---------|-------------|
+| **Restore to** | Dropdown to choose the destination slot. Pick any existing model slot to overwrite it, or pick **New slot** to load the backup as a fresh model in the next available slot. |
+| **Diff** checkbox | When the target slot contains an existing model, tick this to see a line-by-line diff (green `+` lines exist only in the backup; red `−` lines exist only in the current version). Untick to view the raw YAML. |
+| **Download** | Downloads the backup file as a `.yml` file to your computer without restoring it. |
+| **Restore** | Restores the backup into the chosen slot. The current version of the target model is itself backed up first. In the per-model history view, the dialog closes after restore; in the all-models view it stays open so you can restore multiple backups. Not available for radio backups — see below. |
+
+A summary bar below the controls shows the count of added and removed lines when diffing.
+
+> **Radio backups** — radio backups do not appear in the model backup browser. Manage them via the **History** button on the Radio Settings page.
+
+### Restoring a deleted model
+
+If a model has been deleted its card is gone, so the **History** button is no longer accessible. Use the **Manage backups** button in the model list toolbar instead. This opens the backup browser in all-models mode, showing every backup file across all models. Select the backup, confirm it looks correct in the preview or diff, choose **New slot** (or an existing slot to overwrite) in the **Restore to** dropdown, then click **Restore**. The model loads as an unsaved draft — review it and click **Save** to write it back to the card.
 
 ---
 
