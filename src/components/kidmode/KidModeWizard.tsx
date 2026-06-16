@@ -10,33 +10,20 @@ import {
   type KidModeParams,
 } from './kidDefaults.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
+import { useEditorStore } from '../../store/useEditorStore.ts';
+import type { VehicleCategory } from '../../data/vehicleTypes.ts';
 import css from './KidModeWizard.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
   onApplied?: () => void;
-  initialVehicleType?: VehicleType;
+  modelKey: string;
 }
 
 type Step = 'vehicle' | 'speed' | 'sliders';
 
-const VEHICLE_TYPES: VehicleType[] = ['crawler', 'sport', 'rally', 'highspeed'];
 const SPEED_CLASSES: SpeedClass[] = ['slow', 'medium', 'fast'];
-
-const VEHICLE_ICONS: Record<VehicleType, string> = {
-  crawler: '🐢',
-  sport: '🏁',
-  rally: '🚗',
-  highspeed: '⚡',
-};
-
-const VEHICLE_DESCRIPTIONS: Record<VehicleType, string> = {
-  crawler: 'Rock crawler — slow and stable by nature, subtle kid limits',
-  sport: 'Sport/touring — moderate speed, responsive steering',
-  rally: 'Rally car — faster, more aggressive throttle/steering',
-  highspeed: 'Fast racer — high top speed, needs strong limits',
-};
 
 const SPEED_DESCRIPTIONS: Record<SpeedClass, string> = {
   slow: 'Very conservative — for young or first-time drivers',
@@ -97,11 +84,19 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
-export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }: Props) {
-  const [step, setStep] = useState<Step>(initialVehicleType ? 'speed' : 'vehicle');
-  const [vehicle, setVehicle] = useState<VehicleType>(initialVehicleType ?? 'crawler');
+export function KidModeWizard({ model, onChange, onApplied, modelKey }: Props) {
+  const storedTypeId = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
+  const vehicleCategories = useEditorStore(s => s.vehicleCategories);
+  const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+
+  const storedCat = vehicleCategories.find(c => c.id === storedTypeId);
+  const derivedKidType = storedCat?.kidType;
+
+  const [step, setStep] = useState<Step>(derivedKidType ? 'speed' : 'vehicle');
+  const [vehicle, setVehicle] = useState<VehicleType>(derivedKidType ?? 'crawler');
+  const [vehicleLabel, setVehicleLabel] = useState<string>(storedCat?.name ?? VEHICLE_LABELS[derivedKidType ?? 'crawler']);
   const [speed, setSpeed] = useState<SpeedClass>('slow');
-  const [params, setParams] = useState<KidModeParams>(DEFAULTS[initialVehicleType ?? 'crawler'].slow);
+  const [params, setParams] = useState<KidModeParams>(DEFAULTS[derivedKidType ?? 'crawler'].slow);
   const [triggerSwitch, setTriggerSwitch] = useState('FL10');
 
   const active = isKidModeActive(model);
@@ -110,10 +105,12 @@ export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }
     setParams((p) => ({ ...p, [key]: value }));
   }
 
-  function handleSelectVehicle(v: VehicleType) {
-    setVehicle(v);
+  function handleSelectCategory(cat: VehicleCategory) {
+    setModelVehicleType(modelKey, cat.id);
+    setVehicle(cat.kidType);
+    setVehicleLabel(cat.name);
     setStep('speed');
-    setParams(DEFAULTS[v][speed]);
+    setParams(DEFAULTS[cat.kidType][speed]);
   }
 
   function handleSelectSpeed(s: SpeedClass) {
@@ -216,11 +213,11 @@ export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }
         <div>
           <h3 className={css.stepTitle}>What type of vehicle?</h3>
           <div className={css.cardGrid}>
-            {VEHICLE_TYPES.map((v) => (
-              <button key={v} className={css.typeCard} onClick={() => handleSelectVehicle(v)}>
-                <span className={css.typeIcon}>{VEHICLE_ICONS[v]}</span>
-                <span className={css.typeLabel}>{VEHICLE_LABELS[v]}</span>
-                <span className={css.typeDesc}>{VEHICLE_DESCRIPTIONS[v]}</span>
+            {vehicleCategories.map((cat) => (
+              <button key={cat.id} className={css.typeCard} onClick={() => handleSelectCategory(cat)}>
+                <span className={css.typeIcon}>{cat.icon}</span>
+                <span className={css.typeLabel}>{cat.name}</span>
+                <span className={css.typeDesc}>{cat.description}</span>
               </button>
             ))}
           </div>
@@ -231,7 +228,7 @@ export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }
       {step === 'speed' && (
         <div>
           <h3 className={css.stepTitle}>How fast is the driver?</h3>
-          <p className={css.stepSub}>Vehicle: <strong>{VEHICLE_LABELS[vehicle]}</strong></p>
+          <p className={css.stepSub}>Vehicle: <strong>{vehicleLabel}</strong></p>
           <div className={css.speedGrid}>
             {SPEED_CLASSES.map((s) => (
               <button
@@ -259,7 +256,7 @@ export function KidModeWizard({ model, onChange, onApplied, initialVehicleType }
         <div>
           <h3 className={css.stepTitle}>Adjust limits</h3>
           <p className={css.stepSub}>
-            {VEHICLE_LABELS[vehicle]} · {SPEED_LABELS[speed]} — tweak before applying
+            {vehicleLabel} · {SPEED_LABELS[speed]} — tweak before applying
           </p>
 
           <div className={css.section}>

@@ -49,11 +49,6 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
   const [wizardActive, setWizardActive] = useState(false);
   const [kidControlActive, setKidControlActive] = useState(false);
   const analysis = useMemo(() => analyseBasicPatterns(model), [model]);
-  const vehicleCategories = useEditorStore(s => s.vehicleCategories);
-  const modelVehicleTypeId = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
-  const kidPreset = modelVehicleTypeId
-    ? vehicleCategories.find(c => c.id === modelVehicleTypeId)?.kidType
-    : undefined;
 
   function setWizard(v: boolean) { setWizardActive(v); onWizardActiveChange?.(v); }
 
@@ -65,7 +60,7 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
           onClick={() => setKidControlActive(false)}>
           ← Back to summary
         </button>
-        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} initialVehicleType={kidPreset} />
+        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} modelKey={modelKey} />
       </div>
     );
   }
@@ -1111,7 +1106,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             {params.wantSteering && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
                 <strong>Steering</strong> on CH{params.steeringDestCh + 1}
-                {` · Trim via ${params.strimSrc}`}
+                {params.strimSrc && ` · Trim via ${params.strimSrc}`}
               </p>
             )}
             {params.wantGyroGain && (
