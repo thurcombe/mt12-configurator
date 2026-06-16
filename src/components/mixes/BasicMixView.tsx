@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
+import { InputSourcePicker } from '../shared/InputSourcePicker.tsx';
 import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import {
@@ -558,8 +559,12 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
   function patch(p: Partial<WizardParams>) { setParams(prev => ({ ...prev, ...p })); }
   function back() { setStep(STEPS[STEPS.indexOf(step) - 1]); }
 
-  const potConflict = params.dRateMode === 'pot' && params.wantGyroGain && params.dRatePot === params.gyroGainPot;
+  const potConflict = params.dRateMode === 'pot' && params.wantGyroGain && !!params.dRatePot && !!params.gyroGainPot && params.dRatePot === params.gyroGainPot;
   const swConflict  = params.wantCruise && params.dRateMode === 'switch' && params.cruiseSw === params.dRateSwitch;
+
+  // Steering trim source conflicts — relevant when strimSrc matches any other source.
+  const strimDRateConflict = params.wantSteering && !!params.strimSrc && params.dRateMode === 'pot' && !!params.dRatePot && params.strimSrc === params.dRatePot;
+  const strimGyroConflict  = params.wantSteering && !!params.strimSrc && params.wantGyroGain && !!params.gyroGainPot && params.strimSrc === params.gyroGainPot;
 
   // What gets removed when the user proceeds through a conflicting step.
   const stepConflictWarning: Partial<Record<WizardStep, string>> = {};
@@ -573,6 +578,13 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
       ? stepConflictWarning.drate + ' Cruise control uses the same switch — proceeding will also remove cruise.'
       : 'Cruise control uses the same switch — proceeding will remove cruise.';
   }
+  if (strimDRateConflict && strimGyroConflict) {
+    stepConflictWarning.steering = 'Steering trim uses the same knob as speed limiter and gyro gain — proceeding will disable both.';
+  } else if (strimDRateConflict) {
+    stepConflictWarning.steering = 'Steering trim uses the same knob as speed limiter — proceeding will disable the speed limiter.';
+  } else if (strimGyroConflict) {
+    stepConflictWarning.steering = 'Steering trim uses the same knob as gyro gain — proceeding will disable gyro gain.';
+  }
 
   function nextStep() {
     const updates: Partial<WizardParams> = {};
@@ -582,6 +594,10 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
     }
     if (step === 'cruise' && swConflict) updates.dRateMode = 'none';
     if (step === 'gyro'  && potConflict) updates.dRateMode = 'none';
+    if (step === 'steering') {
+      if (strimDRateConflict) updates.dRateMode = 'none';
+      if (strimGyroConflict)  updates.wantGyroGain = false;
+    }
     if (Object.keys(updates).length) setParams(prev => ({ ...prev, ...updates }));
     setStep(STEPS[STEPS.indexOf(step) + 1]);
   }
@@ -861,7 +877,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <button className={params.dRateMode === 'pot' ? css.choiceBtnActive : css.choiceBtn}
               onClick={() => patch({ dRateMode: 'pot' })}>
               <span className={css.choiceLabel}>Knob (variable)</span>
-              <span className={css.choiceDesc}>A knob continuously controls max speed from 0 to 100%</span>
+              <span className={css.choiceDesc}>A knob or trim lever continuously controls max speed from 0 to 100%</span>
             </button>
             <button className={params.dRateMode === 'switch' ? css.choiceBtnActive : css.choiceBtn}
               onClick={() => patch({ dRateMode: 'switch' })}>
@@ -877,26 +893,21 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
 
           {params.dRateMode === 'pot' && (
             <div className={css.wizardConfig}>
-              <p className={css.fieldHint} style={{ marginBottom: 8 }}>Which knob should control the speed limit? Hover to highlight it on the diagram.</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {(['P1', 'P2'] as const).map(pot => {
-                  const takenByGyro = params.wantGyroGain && params.gyroGainPot === pot;
-                  return (
-                    <button
-                      key={pot}
-                      className={params.dRatePot === pot ? css.choiceBtnActive : css.choiceBtn}
-                      style={{ flex: 1 }}
-                      onClick={() => patch({ dRatePot: pot })}
-                      onMouseEnter={() => setHighlight(pot)}
-                      onMouseLeave={() => setHighlight(null)}
-                    >
-                      <span className={css.choiceLabel}>{pot} knob</span>
-                      <span className={css.choiceDesc} style={takenByGyro ? { color:'var(--danger)' } : undefined}>
-                        {takenByGyro ? 'Already used by gyro gain' : pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className={css.fieldRow}>
+                <span className={css.fieldLabel}>Speed limit source</span>
+                <InputSourcePicker
+                  value={params.dRatePot}
+                  onChange={(v) => patch({ dRatePot: v })}
+                  options={[
+                    { value:'T1', label:'T1', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T1' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T1' ? 'steering trim' : undefined) },
+                    { value:'T2', label:'T2', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T2' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T2' ? 'steering trim' : undefined) },
+                    { value:'T3', label:'T3', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T3' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T3' ? 'steering trim' : undefined) },
+                    { value:'T4', label:'T4', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T4' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T4' ? 'steering trim' : undefined) },
+                    { value:'T5', label:'T5', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T5' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T5' ? 'steering trim' : undefined) },
+                    { value:'P1', label:'P1 knob', group:'Knobs', conflict: (params.wantGyroGain && params.gyroGainPot === 'P1' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'P1' ? 'steering trim' : undefined) },
+                    { value:'P2', label:'P2 knob', group:'Knobs', conflict: (params.wantGyroGain && params.gyroGainPot === 'P2' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'P2' ? 'steering trim' : undefined) },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -960,11 +971,41 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                   {chConflict(params.steeringDestCh, 'steering')}
                 </p>
               )}
+              <div className={css.fieldRow} style={{ marginTop: 12 }}>
+                <span className={css.fieldLabel}>Steering trim</span>
+                <InputSourcePicker
+                  value={params.strimSrc}
+                  onChange={(v) => patch({ strimSrc: v })}
+                  options={[
+                    { value:'T1', label:'T1', group:'Trim levers' },
+                    { value:'T2', label:'T2', group:'Trim levers' },
+                    { value:'T3', label:'T3', group:'Trim levers' },
+                    { value:'T4', label:'T4', group:'Trim levers' },
+                    { value:'T5', label:'T5', group:'Trim levers' },
+                    { value:'P1', label:'P1 knob', group:'Knobs',
+                      conflict: params.dRateMode === 'pot' && params.dRatePot === 'P1' && params.wantGyroGain && params.gyroGainPot === 'P1' ? 'speed limiter + gyro gain'
+                               : params.dRateMode === 'pot' && params.dRatePot === 'P1' ? 'speed limiter'
+                               : params.wantGyroGain && params.gyroGainPot === 'P1' ? 'gyro gain'
+                               : undefined },
+                    { value:'P2', label:'P2 knob', group:'Knobs',
+                      conflict: params.dRateMode === 'pot' && params.dRatePot === 'P2' && params.wantGyroGain && params.gyroGainPot === 'P2' ? 'speed limiter + gyro gain'
+                               : params.dRateMode === 'pot' && params.dRatePot === 'P2' ? 'speed limiter'
+                               : params.wantGyroGain && params.gyroGainPot === 'P2' ? 'gyro gain'
+                               : undefined },
+                  ]}
+                />
+              </div>
             </div>
+          )}
+          {stepConflictWarning.steering && (
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
+              ⚠ {stepConflictWarning.steering}
+            </p>
           )}
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}
+              disabled={params.wantSteering && !params.strimSrc}>Next →</button>
           </div>
         </>
       )}
@@ -997,26 +1038,21 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                   {chConflict(params.gyroGainDestCh, 'gyro gain')}
                 </p>
               )}
-              <p className={css.fieldHint}>Which channel does your gyro receiver listen to for gain control?</p>
-              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                {(['P1', 'P2'] as const).map(pot => {
-                  const takenByDRate = params.dRateMode === 'pot' && params.dRatePot === pot;
-                  return (
-                    <button
-                      key={pot}
-                      className={params.gyroGainPot === pot ? css.choiceBtnActive : css.choiceBtn}
-                      style={{ flex: 1 }}
-                      onClick={() => patch({ gyroGainPot: pot })}
-                      onMouseEnter={() => setHighlight(pot)}
-                      onMouseLeave={() => setHighlight(null)}
-                    >
-                      <span className={css.choiceLabel}>{pot} knob</span>
-                      <span className={css.choiceDesc} style={takenByDRate ? { color:'var(--danger)' } : undefined}>
-                        {takenByDRate ? 'Already used by speed limiter' : pot === 'P1' ? 'Top-right dial' : 'Left of steering wheel'}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className={css.fieldRow} style={{ marginTop: 8 }}>
+                <span className={css.fieldLabel}>Gyro gain source</span>
+                <InputSourcePicker
+                  value={params.gyroGainPot}
+                  onChange={(v) => patch({ gyroGainPot: v })}
+                  options={[
+                    { value:'T1', label:'T1', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T1' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T1' ? 'steering trim' : undefined) },
+                    { value:'T2', label:'T2', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T2' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T2' ? 'steering trim' : undefined) },
+                    { value:'T3', label:'T3', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T3' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T3' ? 'steering trim' : undefined) },
+                    { value:'T4', label:'T4', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T4' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T4' ? 'steering trim' : undefined) },
+                    { value:'T5', label:'T5', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T5' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T5' ? 'steering trim' : undefined) },
+                    { value:'P1', label:'P1 knob', group:'Knobs', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'P1' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'P1' ? 'steering trim' : undefined) },
+                    { value:'P2', label:'P2 knob', group:'Knobs', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'P2' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'P2' ? 'steering trim' : undefined) },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -1027,7 +1063,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           )}
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
-            <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            <button className="btn btn-primary btn-sm" onClick={nextStep}
+              disabled={params.wantGyroGain && !params.gyroGainPot}>Next →</button>
           </div>
         </>
       )}
@@ -1074,6 +1111,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             {params.wantSteering && (
               <p style={{ margin:0, fontSize:13, color:'var(--text)' }}>
                 <strong>Steering</strong> on CH{params.steeringDestCh + 1}
+                {` · Trim via ${params.strimSrc}`}
               </p>
             )}
             {params.wantGyroGain && (

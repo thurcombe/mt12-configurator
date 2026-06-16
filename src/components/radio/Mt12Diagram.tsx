@@ -46,6 +46,11 @@ function buildFunctionMap(model: Model): FunctionMap {
       else if (name === 'S-TRIM' || name === 'STRIM') add(pot, 'Steering trim');
       else if (name === 'GYRO-GAIN' || name === 'GYROGAIN' || name === 'GYRO') add(pot, 'Gyro gain');
       else add(pot, (inputMap[parseInt(inputM![1])] ?? name) || 'Input');
+    } else if (!inputM && line.srcRaw && line.srcRaw !== 'NONE') {
+      // Direct physical source (trim lever, switch) — map by name
+      if (name === 'S-TRIM' || name === 'STRIM') add(line.srcRaw, 'Steering trim');
+      else if (name === 'D-RATE' || name === 'DRATE') add(line.srcRaw, 'Speed limiter');
+      else if (name === 'GYRO-GAIN' || name === 'GYROGAIN' || name === 'GYRO') add(line.srcRaw, 'Gyro gain');
     }
     // Condition switches on mix lines
     if (line.swtch && line.swtch !== 'NONE' && line.swtch !== 'ON') {
@@ -110,6 +115,22 @@ const CONTROLS: CtrlDef[] = [
 const WEBCONFIG_FILE = 'diagram-labels.json';
 // Legacy localStorage key — migrated to SD card on first connection.
 const LEGACY_KEY = 'mt12-dot-positions';
+
+// Built-in label positions — used when no SD card is connected or before the user has placed labels.
+// SD card data takes precedence when available.
+const BUILTIN_POSITIONS: Positions = {
+  P1: { dx:77.9, dy:25.6, lx:88.6, ly:13.6 },
+  P2: { dx:38.7, dy:26.1, lx:17.2, ly:13.9 },
+  SC: { dx:48,   dy:43.8, lx:61,   ly:71.9 },
+  SA: { dx:58.5, dy:45.7, lx:64.1, ly:58   },
+  TH: { dx:72.1, dy:41.7, lx:82.3, ly:41.6 },
+  SD: { dx:11.2, dy:87.6, lx:4.8,  ly:66   },
+  T1: { dx:48.5, dy:17.1, lx:39.1, ly:6.2  },
+  T2: { dx:68.6, dy:17.2, lx:76.7, ly:7.3  },
+  T3: { dx:74.3, dy:33.1, lx:85.3, ly:34.1 },
+  T4: { dx:43.5, dy:33.5, lx:25.7, ly:38.3 },
+  T5: { dx:46.4, dy:36.2, lx:11.9, ly:51.2 },
+};
 
 interface DotPos {
   dx: number; dy: number;
@@ -207,7 +228,7 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
           if (!pos) return null;
           const on = active(c.name);
           const { lx, ly } = getLabelPos(pos);
-          const col = on ? '#3b82f6' : (c.inert ? '#6b7280' : '#1e40af');
+          const col = c.inert ? '#6b7280' : '#3b82f6';
           const lineEnd = retract(pos.dx, pos.dy, lx, ly, 4);
           return (
             <g key={c.name}
@@ -360,7 +381,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
   const [enlarged, setEnlarged] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [activeControl, setActiveControl] = useState<string>(CONTROLS[0].name);
-  const [positions, setPositions] = useState<Positions>({});
+  const [positions, setPositions] = useState<Positions>(BUILTIN_POSITIONS);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -466,16 +487,16 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
           <button className={css.placeBtn} onClick={() => { setPlacing(true); setEnlarged(true); }}>
             {allPlaced ? '⚙ Reposition labels' : '⚙ Place control labels'}
           </button>
-          {Object.keys(positions).length > 0 && !confirmingClear && (
+          {!confirmingClear && (
             <button className={css.placeBtn} onClick={() => setConfirmingClear(true)}>
-              Clear all
+              Reset
             </button>
           )}
           {confirmingClear && (
             <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
-              <span style={{ color:'var(--text)' }}>Remove all label positions?</span>
-              <button className="btn btn-danger btn-sm" onClick={() => { savePositions({}); setConfirmingClear(false); }}>
-                Remove
+              <span style={{ color:'var(--text)' }}>Reset label positions to default?</span>
+              <button className="btn btn-danger btn-sm" onClick={() => { savePositions(BUILTIN_POSITIONS); setConfirmingClear(false); }}>
+                Reset
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirmingClear(false)}>
                 Cancel
@@ -488,7 +509,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
         </div>
       ) : (
         <p className={css.hint} style={{ marginBottom: 4 }}>
-          Connect your SD card to place control labels and enable input settings.
+          Connect your SD card to reposition labels.
         </p>
       )}
 
@@ -509,28 +530,6 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
           showFunctions={showFunctions}
         />
 
-        {/* Overlay when no SD card */}
-        {!sdRoot && (
-          <div style={{
-            position:'absolute', inset:0,
-            background:'rgba(0,0,0,0.45)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            borderRadius:7,
-          }}>
-            <span style={{
-              background:'rgba(0,0,0,0.75)',
-              color:'#fff',
-              fontSize:12,
-              fontFamily:'system-ui,sans-serif',
-              padding:'6px 14px',
-              borderRadius:6,
-              textAlign:'center',
-              lineHeight:1.5,
-            }}>
-              Connect SD card<br/>to enable labels
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Labels / Functions toggle — shown when model data is available */}
