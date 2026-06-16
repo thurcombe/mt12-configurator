@@ -5,7 +5,7 @@ on:
     - cron: '0 3 * * 1'  # Every Monday at 03:00 UTC
   push:
     branches:
-      - main
+      - '**'
     tags:
       - 'v*'
   pull_request:
@@ -69,7 +69,8 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch,enable=${{ github.event_name != 'schedule' }}
+            type=raw,value=dev-${{ github.run_id }},enable=${{ github.ref_type != 'tag' && github.ref_name != 'main' && github.event_name != 'schedule' && github.event_name != 'pull_request' }}
+            type=ref,event=branch,enable=${{ github.ref_name == 'main' && github.event_name != 'schedule' }}
             type=semver,pattern={{version}},enable=${{ github.event_name != 'schedule' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name != 'schedule' }}
             type=raw,value=latest,enable={{is_default_branch}}
