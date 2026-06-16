@@ -302,7 +302,7 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
               const fns = showFunctions ? (functionMap?.[c.name] ?? []) : [];
               const hasFunction = fns.length > 0;
               const labelText = showFunctions ? (hasFunction ? fns[0] : c.name) : c.name;
-              const isMapped = showFunctions && hasFunction && !c.inert;
+              const isMapped = showFunctions && hasFunction;
               return (
                 <>
                   <span style={{
