@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
 import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages } from '../fs/sdcard.ts';
+import { createMemoryRoot } from '../fs/memoryFs.ts';
+import { SD_TEMPLATE } from 'virtual:sd-template';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
 import { writeBackup, listBackups, listAllBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
@@ -249,7 +251,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   connectSdCard: async () => {
     try {
-      const root = await pickSdCard();
+      const isDemo = new URLSearchParams(window.location.search).has('demo');
+      const root = isDemo
+        ? (createMemoryRoot(SD_TEMPLATE) as unknown as SdRoot)
+        : await pickSdCard();
       set({ sdRoot: root, lastError: null });
       // Load settings from SD card webconfig.
       const saved = await readWebConfig<AppSettings>(root, SETTINGS_WEBCONFIG);

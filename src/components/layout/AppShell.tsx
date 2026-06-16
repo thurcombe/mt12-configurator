@@ -1,14 +1,31 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import type { Route } from '../../App.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { SettingsModal } from './SettingsModal.tsx';
 import { AboutModal } from './AboutModal.tsx';
 import css from './AppShell.module.css';
+import { exportToZip } from '../../fs/memoryFs.ts';
+import type { MemoryDirHandle } from '../../fs/memoryFs.ts';
 
 interface Props {
   children: ReactNode;
   route: Route;
   navigate: (r: Route) => void;
+}
+
+function isDemoMode(): boolean {
+  return new URLSearchParams(window.location.search).has('demo');
+}
+
+async function downloadDemoZip(root: unknown) {
+  const zip = await exportToZip(root as MemoryDirHandle);
+  const blob = new Blob([zip.buffer as ArrayBuffer], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mt12-sdcard.zip';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function AppShell({ children, route, navigate }: Props) {
@@ -25,10 +42,42 @@ export function AppShell({ children, route, navigate }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
 
+  const demo = isDemoMode();
   const dirtyCount = dirty.size;
+
+  // Auto-connect the virtual SD card when entering demo mode.
+  useEffect(() => {
+    if (demo && !sdRoot) {
+      connectSdCard();
+    }
+  }, [demo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={css.shell}>
+      {demo && (
+        <div style={{
+          background: 'color-mix(in srgb, var(--accent) 18%, transparent)',
+          borderBottom: '1px solid var(--accent)',
+          padding: '6px 20px',
+          fontSize: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          color: 'var(--accent)',
+        }}>
+          <strong>Demo mode</strong> — changes are in-memory only and will be lost on refresh.
+          {sdRoot && (
+            <button
+              className="btn btn-sm"
+              style={{ marginLeft: 'auto', fontSize: 11, borderColor: 'var(--accent)', color: 'var(--accent)' }}
+              onClick={() => downloadDemoZip(sdRoot)}
+            >
+              Download SD card ↓
+            </button>
+          )}
+        </div>
+      )}
+
       <header className={css.header}>
         <button
           className={css.title}
@@ -106,15 +155,19 @@ export function AppShell({ children, route, navigate }: Props) {
           <span className={`${css.dot} ${sdRoot ? css.connected : css.disconnected}`} />
           {sdRoot ? (
             <>
-              <span>SD card connected</span>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={disconnectSdCard}>
-                Disconnect
-              </button>
+              <span>{demo ? 'Demo loaded' : 'SD card connected'}</span>
+              {!demo && (
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={disconnectSdCard}>
+                  Disconnect
+                </button>
+              )}
             </>
           ) : (
-            <button className="btn btn-ghost btn-sm" onClick={connectSdCard}>
-              Connect SD card
-            </button>
+            !demo && (
+              <button className="btn btn-ghost btn-sm" onClick={connectSdCard}>
+                Connect SD card
+              </button>
+            )
           )}
         </div>
       </header>
