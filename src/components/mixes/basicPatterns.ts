@@ -393,7 +393,7 @@ export function defaultWizardParams(): WizardParams {
     steeringDestCh: 0,   // CH1
     steeringWeight: 100,
     strimSrc: '',
-    strimWeight: 5,
+    strimWeight: 100,
     wantGyroGain: false,
     gyroGainDestCh: 2,   // CH3
     gyroGainPot: '',
