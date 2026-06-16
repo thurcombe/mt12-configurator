@@ -13,6 +13,7 @@ interface Props {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onBackup?: () => void;
   onHistory?: () => void;
 }
 
@@ -27,7 +28,7 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, onEdit, onDuplicate, onDelete, onHistory }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, onEdit, onDuplicate, onDelete, onBackup, onHistory }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
@@ -59,6 +60,7 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
       <div className={css.actions}>
         <button className="btn btn-primary btn-sm" onClick={onEdit}>Edit</button>
         <button className="btn btn-ghost btn-sm" onClick={onDuplicate}>Duplicate</button>
+        {onBackup && <button className="btn btn-ghost btn-sm" onClick={onBackup}>Backup</button>}
         {onHistory && <button className="btn btn-ghost btn-sm" onClick={onHistory}>History</button>}
         <button className="btn btn-danger btn-sm" onClick={onDelete}>Delete</button>
       </div>

@@ -23,7 +23,7 @@ Replaces painful on-device menu navigation — read and write YAML model files d
 - **Radio Settings** — audio, display, switch and pot config with interactive MT12 diagram
 - **Kid Mode Wizard** — generates safe-driving constraints (throttle expo, speed limits, steering DR) per vehicle type and speed class
 - **Direct SD Card Access** — uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) in Chrome/Edge; falls back to zip download in other browsers
-- **Backup & Restore** — auto-backup before every save, diff preview, one-click restore
+- **Backup & Restore** — auto-backup before every save, manual per-model backup button, line-diff preview against any target slot, restore to any slot or a new one, delete individual backups, download backup YAML directly
 
 ## Browser Support
 

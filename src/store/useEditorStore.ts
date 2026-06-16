@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
 import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages } from '../fs/sdcard.ts';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
-import { writeBackup, listBackups, readBackup } from '../fs/backup.ts';
+import { writeBackup, listBackups, listAllBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
 import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
 import { parseModel, serialiseModel } from '../codec/model-codec.ts';
@@ -114,8 +114,13 @@ interface EditorState {
   updateRadio: (updater: (r: Radio) => Radio) => void;
 
   // Actions — backups
+  backupModel: (key: ModelKey) => Promise<void>;
+  backupRadio: () => Promise<void>;
   listBackups: (modelName: string) => Promise<BackupEntry[]>;
+  listAllBackups: () => Promise<BackupEntry[]>;
   restoreBackup: (key: ModelKey, entry: BackupEntry) => Promise<void>;
+  deleteBackup: (entry: BackupEntry) => Promise<void>;
+  restoreRadioBackup: (entry: BackupEntry) => Promise<void>;
 
   // Actions — save all
   saveAll: () => Promise<void>;
@@ -490,6 +495,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
+  backupRadio: async () => {
+    const { sdRoot, radio, settings } = get();
+    if (!sdRoot || !radio) return;
+    try {
+      const yaml = serialiseRadio(radio);
+      await writeBackup(sdRoot, 'radio', yaml, settings.backupCount);
+    } catch (e) {
+      set({ lastError: friendlyError(e, 'radio.yml') });
+    }
+  },
+
+  backupModel: async (key: ModelKey) => {
+    const { sdRoot, models, settings } = get();
+    if (!sdRoot) return;
+    const model = models[key];
+    if (!model) return;
+    try {
+      const yaml = serialiseModel(model);
+      await writeBackup(sdRoot, modelNameFromModel(model), yaml, settings.backupCount);
+    } catch (e) {
+      set({ lastError: friendlyError(e, `${key}.yml`) });
+    }
+  },
+
   listBackups: async (modelName: string) => {
     const { sdRoot } = get();
     if (!sdRoot) return [];
@@ -497,6 +526,47 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return await listBackups(sdRoot, modelName);
     } catch {
       return [];
+    }
+  },
+
+  listAllBackups: async () => {
+    const { sdRoot } = get();
+    if (!sdRoot) return [];
+    try {
+      return await listAllBackups(sdRoot);
+    } catch {
+      return [];
+    }
+  },
+
+  deleteBackup: async (entry: BackupEntry) => {
+    const { sdRoot } = get();
+    if (!sdRoot) return;
+    try {
+      await deleteFile(sdRoot, entry.path);
+    } catch (e) {
+      set({ lastError: friendlyError(e, entry.filename) });
+    }
+  },
+
+  restoreRadioBackup: async (entry: BackupEntry) => {
+    const { sdRoot, radio, settings } = get();
+    if (!sdRoot) return;
+    try {
+      // Backup current radio before overwriting.
+      if (radio) {
+        const currentYaml = serialiseRadio(radio);
+        await writeBackup(sdRoot, 'radio', currentYaml, settings.backupCount);
+      }
+      const backupYaml = await readBackup(sdRoot, entry);
+      const restoredRadio = parseRadio(backupYaml);
+      set((s) => {
+        const dirty = new Set(s.dirty);
+        dirty.add('radio');
+        return { radio: restoredRadio, dirty, lastError: null };
+      });
+    } catch (e) {
+      set({ lastError: friendlyError(e, entry.filename) });
     }
   },
 

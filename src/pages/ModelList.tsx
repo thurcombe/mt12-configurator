@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Toast } from '../components/shared/Toast.tsx';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { findFreeSlot } from '../codec/modelTemplate.ts';
@@ -25,10 +26,13 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const duplicateModel = useEditorStore((s) => s.duplicateModel);
   const deleteModel = useEditorStore((s) => s.deleteModel);
   const importModelFromYaml = useEditorStore((s) => s.importModelFromYaml);
+  const backupModel = useEditorStore((s) => s.backupModel);
 
   const [loading, setLoading] = useState(false);
   const [historyFor, setHistoryFor] = useState<{ key: string; name: string } | null>(null);
+  const [restoreAllOpen, setRestoreAllOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -97,12 +101,20 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       <div className={css.toolbar}>
         <span className={css.toolbarTitle}>Models</span>
         {sdRoot && (
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => { setLoading(true); loadAllModels().finally(() => setLoading(false)); }}
-          >
-            Refresh from card
-          </button>
+          <>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setRestoreAllOpen(true)}
+            >
+              Manage backups
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setLoading(true); loadAllModels().finally(() => setLoading(false)); }}
+            >
+              Refresh from card
+            </button>
+          </>
         )}
       </div>
 
@@ -129,6 +141,10 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}
                 onDelete={() => setConfirmDelete(key)}
+                onBackup={sdRoot ? async () => {
+                  await backupModel(key);
+                  setToast(`Backed up: ${models[key]?.header?.name || key}`);
+                } : undefined}
                 onHistory={sdRoot ? () => setHistoryFor({ key, name: models[key]?.header?.name ?? key }) : undefined}
               />
             );
@@ -169,6 +185,12 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
           onClose={() => setHistoryFor(null)}
         />
       )}
+
+      {restoreAllOpen && (
+        <BackupHistory onClose={() => setRestoreAllOpen(false)} />
+      )}
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
 
       {confirmDelete && (
         <div className={css.confirmOverlay}>

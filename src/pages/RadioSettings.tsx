@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Route } from '../App.tsx';
+import { BackupHistory } from '../components/models/BackupHistory.tsx';
+import { Toast } from '../components/shared/Toast.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import type { SdRoot } from '../fs/sdcard.ts';
 import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
@@ -366,16 +368,33 @@ function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; s
 export function RadioSettings({ navigate }: Props) {
   const [tab, setTab] = useState('audio');
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>();
+  const [toast, setToast] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [hasRadioBackups, setHasRadioBackups] = useState(false);
 
   const sdRoot = useEditorStore((s) => s.sdRoot);
   const radio = useEditorStore((s) => s.radio);
   const loadRadio = useEditorStore((s) => s.loadRadio);
+  const listBackups = useEditorStore((s) => s.listBackups);
   const isDirty = useEditorStore((s) => s.isDirty('radio'));
   const saveRadio = useEditorStore((s) => s.saveRadio);
+  const backupRadio = useEditorStore((s) => s.backupRadio);
 
   useEffect(() => {
     if (sdRoot && !radio) loadRadio();
   }, [sdRoot, radio, loadRadio]);
+
+  // Check whether any radio backups exist so we can enable the History button.
+  useEffect(() => {
+    if (!sdRoot) { setHasRadioBackups(false); return; }
+    listBackups('radio').then(entries => setHasRadioBackups(entries.length > 0));
+  }, [sdRoot, listBackups]);
+
+  async function handleBackup() {
+    await backupRadio();
+    setHasRadioBackups(true);
+    setToast('Radio settings backed up');
+  }
 
   // When a diagram control is clicked, switch to the relevant settings tab.
   function handleDiagramSelect(control: string) {
@@ -399,6 +418,18 @@ export function RadioSettings({ navigate }: Props) {
         {radio && <span className={css.board}>{radio.board}</span>}
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
+        {sdRoot && radio && (
+          <>
+            <button className="btn btn-ghost btn-sm" onClick={handleBackup}>Backup</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={!hasRadioBackups}
+              onClick={() => setShowHistory(true)}
+            >
+              History
+            </button>
+          </>
+        )}
         {isDirty && (
           <button className="btn btn-primary btn-sm" onClick={saveRadio}>Save</button>
         )}
@@ -442,6 +473,11 @@ export function RadioSettings({ navigate }: Props) {
           )}
         </div>
       </div>
+
+      {showHistory && (
+        <BackupHistory radioOnly onClose={() => setShowHistory(false)} />
+      )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

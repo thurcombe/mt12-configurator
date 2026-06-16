@@ -54,6 +54,22 @@ export async function listBackups(root: SdRoot, modelName: string): Promise<Back
     }));
 }
 
+// List all backups across all models, sorted newest-first.
+export async function listAllBackups(root: SdRoot): Promise<BackupEntry[]> {
+  const files = await listDirFiles(root, 'BACKUP');
+  return files
+    .filter((f) => f.endsWith('.yml'))
+    .sort()
+    .reverse()
+    .map((filename) => {
+      const base = filename.slice(0, -4);
+      const tsMatch = base.match(/-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})$/);
+      const timestamp = tsMatch ? tsMatch[1] : '';
+      const modelName = tsMatch ? base.slice(0, base.length - tsMatch[0].length) : base;
+      return { filename, modelName, timestamp, path: `BACKUP/${filename}` };
+    });
+}
+
 // Read backup content.
 export async function readBackup(root: SdRoot, entry: BackupEntry): Promise<string> {
   return readTextFile(root, entry.path);
