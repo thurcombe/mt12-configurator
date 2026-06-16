@@ -329,6 +329,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const model = models[key];
     if (!model) return;
 
+    // Remove from freshModelKeys immediately (synchronous, before any await) so that if the
+    // user navigates away while the write is in flight, confirmLeave calls revertModel rather
+    // than discardFreshModel. revertModel reads from disk (if write completed) or preserves the
+    // in-memory model (if write not yet done) — either way the model is not lost.
+    set((s) => {
+      const freshModelKeys = new Set(s.freshModelKeys);
+      freshModelKeys.delete(key);
+      return { freshModelKeys };
+    });
+
     const yaml = serialiseModel(model);
 
     if (!sdRoot) {
@@ -337,9 +347,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((s) => {
         const dirty = new Set(s.dirty);
         dirty.delete(key);
-        const freshModelKeys = new Set(s.freshModelKeys);
-        freshModelKeys.delete(key);
-        return { dirty, freshModelKeys, lastError: null };
+        return { dirty, lastError: null };
       });
       return;
     }
@@ -354,9 +362,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((s) => {
         const dirty = new Set(s.dirty);
         dirty.delete(key);
-        const freshModelKeys = new Set(s.freshModelKeys);
-        freshModelKeys.delete(key);
-        return { dirty, freshModelKeys, lastError: null };
+        return { dirty, lastError: null };
       });
     } catch (e) {
       set({ lastError: friendlyError(e, `${key}.yml`) });
