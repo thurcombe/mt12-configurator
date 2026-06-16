@@ -538,7 +538,7 @@ interface WizardProps {
 
 function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
   const [step, setStep] = useState<WizardStep>(STEPS[0]);
-  const setHighlight = useEditorStore(s => s.setDiagramHighlight);
+
   const uploadModelImage = useEditorStore(s => s.uploadModelImage);
   const setModelScale = useEditorStore(s => s.setModelScale);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
