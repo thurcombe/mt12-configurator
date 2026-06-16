@@ -93,7 +93,7 @@ The GitHub Actions workflow in `.github/workflows/docker-publish.yml` builds and
 
 | Secret | Description |
 |---|---|
-| `DOCKERHUB_USERNAME` | Docker Hub username (`thurcombe`) |
+| `DOCKERHUB_USERNAME` | Docker Hub username|
 | `DOCKERHUB_TOKEN` | Docker Hub access token (not your password) |
 
 Create a Docker Hub access token at [hub.docker.com → Account Settings → Security](https://hub.docker.com/settings/security), then add both secrets under **Settings → Secrets and variables → Actions** in the GitHub repo.
