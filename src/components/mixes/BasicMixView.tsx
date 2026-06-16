@@ -876,8 +876,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.choiceGrid}>
             <button className={params.dRateMode === 'pot' ? css.choiceBtnActive : css.choiceBtn}
               onClick={() => patch({ dRateMode: 'pot' })}>
-              <span className={css.choiceLabel}>Knob (variable)</span>
-              <span className={css.choiceDesc}>A knob or trim lever continuously controls max speed from 0 to 100%</span>
+              <span className={css.choiceLabel}>Variable</span>
+              <span className={css.choiceDesc}>A knob or trim lever continuously sets the max speed from 0 to 100%</span>
             </button>
             <button className={params.dRateMode === 'switch' ? css.choiceBtnActive : css.choiceBtn}
               onClick={() => patch({ dRateMode: 'switch' })}>
