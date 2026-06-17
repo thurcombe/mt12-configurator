@@ -1,8 +1,8 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import type { Route } from '../../App.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
-import { SettingsModal } from './SettingsModal.tsx';
 import { AboutModal } from './AboutModal.tsx';
+import { HelpModal } from './HelpModal.tsx';
 import css from './AppShell.module.css';
 import { exportToZip } from '../../fs/memoryFs.ts';
 import type { MemoryDirHandle } from '../../fs/memoryFs.ts';
@@ -39,8 +39,8 @@ export function AppShell({ children, route, navigate }: Props) {
   const disconnectSdCard = useEditorStore((s) => s.disconnectSdCard);
   const saveAll = useEditorStore((s) => s.saveAll);
 
-  const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const demo = isDemoMode();
   const dirtyCount = dirty.size;
@@ -105,50 +105,27 @@ export function AppShell({ children, route, navigate }: Props) {
         </button>
 
         <button
-          className="btn btn-ghost btn-sm"
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
           onClick={() => navigate({ page: 'vehicle-types' })}
           style={route.page === 'vehicle-types' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
         >
           Vehicle Types
         </button>
 
-        <a
-          href="https://manual.edgetx.org/"
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-ghost btn-sm"
-          title="EdgeTX documentation"
-          style={{ fontSize: 12 }}
-        >
-          EdgeTX docs
-        </a>
-
-        <a
-          href="https://cdn.shopify.com/s/files/1/0701/8066/7584/files/MT12_A1.4.pdf?v=1770617495"
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-ghost btn-sm"
-          title="Radiomaster MT12 user manual (PDF)"
-          style={{ fontSize: 12 }}
-        >
-          MT12 manual
-        </a>
-
         <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowAbout(true)}
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
+          onClick={() => setShowHelp(true)}
           style={{ fontSize: 12 }}
         >
           Help
         </button>
 
         <button
-          className="btn btn-ghost btn-sm"
-          title="App settings"
-          onClick={() => setShowSettings(true)}
-          style={{ padding: '4px 8px', fontSize: 16 }}
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
+          onClick={() => setShowAbout(true)}
+          style={{ fontSize: 12 }}
         >
-          ⚙
+          About
         </button>
 
         <div className={css.sdStatus}>
@@ -214,8 +191,8 @@ export function AppShell({ children, route, navigate }: Props) {
 
       <main className={css.main}>{children}</main>
 
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

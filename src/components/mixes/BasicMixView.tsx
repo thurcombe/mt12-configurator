@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
@@ -25,12 +25,13 @@ import {
 import { buildInputMap } from '../../codec/modelSummary.ts';
 import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
+import { listImagesInDir } from '../../fs/sdcard.ts';
 import css from './BasicMixView.module.css';
 
 const SURFACE_PROTOCOLS = MULTI_PROTOCOLS;
 
 const FAILSAFE_OPTIONS = [
-  { value: 'no pulses', label: 'Stop — cut all output (safest for surface vehicles)' },
+  { value: 'no pulses', label: 'Stop — safest' },
   { value: 'hold',      label: 'Hold — keep last position' },
   { value: 'NOT_SET',   label: 'Not set — receiver decides' },
 ];
@@ -55,8 +56,8 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
   // Inline KidControl wizard
   if (kidControlActive) {
     return (
-      <div className={css.root}>
-        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12, alignSelf: 'flex-start' }}
+      <div>
+        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }}
           onClick={() => setKidControlActive(false)}>
           ← Back to summary
         </button>
@@ -105,13 +106,13 @@ function UnrecognisedNotice({ onSwitchToAdvanced }: { onSwitchToAdvanced?: () =>
     <div className={css.notice}>
       <span className={css.noticeIcon}>ℹ</span>
       <div>
-        <p className={css.noticeTitle}>Custom configuration detected</p>
+        <p className={css.noticeTitle}>This model must be managed in Advanced view</p>
         <p className={css.noticeBody}>
-          This model uses mix lines that don't match the standard surface patterns.
-          {onSwitchToAdvanced && (
-            <> <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }}
-              onClick={onSwitchToAdvanced}>Switch to Advanced view</button> to see and edit them.</>
-          )}
+          The mix configuration doesn't match the standard surface patterns and cannot be displayed here.
+          {onSwitchToAdvanced
+            ? <> Use <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4, marginRight: 4 }} onClick={onSwitchToAdvanced}>Advanced view</button> to view and edit this model.</>
+            : ' Switch to Advanced view to view and edit this model.'
+          }
         </p>
       </div>
     </div>
@@ -384,7 +385,7 @@ function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
         <span className={css.cardTitle}>Throttle</span>
         <span className={css.cardMeta}>CH{throttle.destCh + 1}</span>
       </div>
-      <p className={css.fieldHint}>Your trigger controls forward/backward speed.</p>
+      <p className={css.fieldHint}>Sets how your trigger maps to throttle output. Configure cruise control and speed limiting below.</p>
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Trigger rate</span>
         <WeightSlider value={throttle.weight} onChange={(v) => onChange((m) => setThrottleWeight(m, analysis, v))} min={0} max={100} />
@@ -460,7 +461,7 @@ function SteeringCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
         <span className={css.cardTitle}>Steering</span>
         <span className={css.cardMeta}>CH{steering.destCh + 1}</span>
       </div>
-      <p className={css.fieldHint}>Your steering wheel controls direction.</p>
+      <p className={css.fieldHint}>Sets how the steering wheel maps to your servo channel, including the centre-point trim offset.</p>
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Steering rate</span>
         <WeightSlider value={steering.weight} onChange={(v) => onChange((m) => setSteeringWeight(m, analysis, v))} min={0} max={100} />
@@ -537,19 +538,45 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
   const uploadModelImage = useEditorStore(s => s.uploadModelImage);
   const setModelScale = useEditorStore(s => s.setModelScale);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+  const setModelPower = useEditorStore(s => s.setModelPower);
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
   const existingImageUrl = useEditorStore(s => s.modelImages[modelKey]);
   const existingScale = useEditorStore(s => s.modelMeta[modelKey]?.scale ?? '');
   const existingVehicleType = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
+  const existingPower = useEditorStore(s => s.modelMeta[modelKey]?.power ?? '');
   const existingModelName = useEditorStore(s => s.models[modelKey]?.header?.name ?? '');
+  const sdRoot = useEditorStore(s => s.sdRoot);
   const [params, setParams] = useState<WizardParams>({
     ...(initialParams ?? defaultWizardParams()),
     scale: existingScale,
     modelName: initialParams?.modelName ?? existingModelName,
     vehicleType: initialParams?.vehicleType ?? existingVehicleType,
+    power: initialParams?.power ?? existingPower,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sdImages, setSdImages] = useState<Array<{ filename: string; url: string }>>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const thumbScrollRef = useRef<HTMLDivElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+
+  useEffect(() => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    const check = () => setNeedsScroll(el.scrollWidth > el.clientWidth);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sdImages]);
+
+  function scrollThumbs(dir: -1 | 1) {
+    thumbScrollRef.current?.scrollBy({ left: dir * 180, behavior: 'smooth' });
+  }
+
+  useEffect(() => {
+    if (!sdRoot || step !== 'details') return;
+    listImagesInDir(sdRoot, 'IMAGES/library').then(setSdImages);
+  }, [sdRoot, step]);
 
   function patch(p: Partial<WizardParams>) { setParams(prev => ({ ...prev, ...p })); }
   function back() { setStep(STEPS[STEPS.indexOf(step) - 1]); }
@@ -613,6 +640,9 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
     }
     if (params.vehicleType !== existingVehicleType) {
       setModelVehicleType(modelKey, params.vehicleType);
+    }
+    if (params.power !== existingPower) {
+      setModelPower(modelKey, params.power);
     }
     if (params.wantKidControl) {
       onLaunchKidControl();
@@ -684,7 +714,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 placeholder="e.g. Traxxas Slash"
                 value={params.modelName}
                 onChange={(e) => patch({ modelName: e.target.value })}
-                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', flex:1 }}
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:200 }}
                 autoFocus
               />
             </div>
@@ -692,7 +722,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <div className={css.fieldRow}>
               <span className={css.fieldLabel}>Scale</span>
               <select
-                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:130 }}
                 value={params.scale}
                 onChange={(e) => patch({ scale: e.target.value })}
               >
@@ -700,55 +730,94 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div className={css.fieldRow} style={{ alignItems: 'flex-start', gap: 8 }}>
-              <span className={css.fieldLabel} style={{ paddingTop: 6 }}>Vehicle type</span>
-              <div style={{ flex: 1 }}>
-                <select
-                  style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width: '100%' }}
-                  value={params.vehicleType}
-                  onChange={(e) => patch({ vehicleType: e.target.value })}
-                >
-                  <option value="">Not specified</option>
-                  {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name} — {c.description} ({c.speedMin}–{c.speedMax} mph)</option>)}
-                </select>
-              </div>
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Vehicle type</span>
+              <select
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:280 }}
+                value={params.vehicleType}
+                onChange={(e) => patch({ vehicleType: e.target.value })}
+              >
+                <option value="">Not specified</option>
+                {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name} — {c.description} ({c.speedMin}–{c.speedMax} mph)</option>)}
+              </select>
+            </div>
+            <div className={css.fieldRow}>
+              <span className={css.fieldLabel}>Power</span>
+              <select
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:160 }}
+                value={params.power}
+                onChange={(e) => patch({ power: e.target.value as 'battery' | 'fuel' | '' })}
+              >
+                <option value="">Not specified</option>
+                <option value="battery">🔋 Battery (electric)</option>
+                <option value="fuel">⛽ Fuel (nitro/petrol)</option>
+              </select>
             </div>
             <div className={css.fieldRow} style={{ alignItems: 'flex-start' }}>
               <span className={css.fieldLabel} style={{ paddingTop: 6 }}>Photo</span>
-              <div style={{ flex: 1 }}>
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    uploadModelImage(modelKey, file);
-                    setImagePreview(URL.createObjectURL(file));
-                    e.target.value = '';
-                  }}
-                />
-                {(imagePreview || existingImageUrl) ? (
-                  <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {(imagePreview || existingImageUrl) && (
                     <img
                       src={imagePreview ?? existingImageUrl}
                       alt="Model preview"
-                      style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 6, display: 'block', marginBottom: 6 }}
+                      style={{ width: 54, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border)' }}
                     />
-                    <button className="btn btn-ghost btn-sm" onClick={() => imageInputRef.current?.click()}>
-                      Change photo
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className={css.choiceBtn}
-                    style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px' }}
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    <span style={{ fontSize: 20 }}>📷</span>
-                    <span className={css.choiceLabel}>Choose a photo</span>
+                  )}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      uploadModelImage(modelKey, file);
+                      setImagePreview(URL.createObjectURL(file));
+                      e.target.value = '';
+                    }}
+                  />
+                  <button className="btn btn-ghost btn-sm" onClick={() => imageInputRef.current?.click()}>
+                    Upload from device
                   </button>
+                </div>
+                {sdImages.length > 0 && (
+                  <div className={css.thumbCarousel}>
+                    {needsScroll && <button className={css.thumbNavBtn} onClick={() => scrollThumbs(-1)}>‹</button>}
+                    <div className={css.thumbScroll} ref={thumbScrollRef}>
+                      {sdImages.map(img => {
+                        const selected = (imagePreview ?? existingImageUrl) === img.url;
+                        return (
+                          <button
+                            key={img.filename}
+                            className={css.thumb}
+                            title={img.filename}
+                            onClick={async () => {
+                              const resp = await fetch(img.url);
+                              const blob = await resp.blob();
+                              const file = new File([blob], img.filename, { type: blob.type });
+                              uploadModelImage(modelKey, file);
+                              setImagePreview(img.url);
+                            }}
+                            style={{
+                              padding: 0,
+                              border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+                              borderRadius: 4,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              cursor: 'pointer',
+                              background: 'none',
+                              width: 90,
+                              height: 60,
+                            }}
+                          >
+                            <img src={img.url} alt={img.filename} style={{ width: 90, height: 60, objectFit: 'cover', display: 'block' }} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {needsScroll && <button className={css.thumbNavBtn} onClick={() => scrollThumbs(1)}>›</button>}
+                  </div>
                 )}
               </div>
             </div>

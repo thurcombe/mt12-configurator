@@ -72,7 +72,7 @@
 .carouselTrack > * {
   scroll-snap-align: start;
   flex-shrink: 0;
-  width: calc(100% - 44px);
+  width: 100%;
 }
 
 .carouselNav {

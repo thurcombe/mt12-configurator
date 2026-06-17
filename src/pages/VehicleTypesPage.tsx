@@ -88,20 +88,19 @@ export function VehicleTypesPage({ navigate }: Props) {
 
   return (
     <div className={css.page}>
-      <div className={css.toolbar}>
-        <div>
-          <button className="btn btn-ghost btn-sm" style={{ marginBottom: 8 }} onClick={() => navigate({ page: 'list' })}>
-            ← Back to models
-          </button>
-          <div className={css.toolbarTitle}>Vehicle Types</div>
-          <p className={css.toolbarSub}>
-            Define the types of vehicles you drive. The type appears as a badge on the model list
-            and pre-selects KidControl limits when setting up a new model.
-            {!sdRoot && <span className={css.noSd}> Connect an SD card to persist custom types and images.</span>}
-          </p>
-        </div>
-        <button className="btn btn-primary btn-sm" style={{ flexShrink: 0 }} onClick={startAdd}>+ Add custom type</button>
+      <div className={css.topBar}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>← Back</button>
+        <span className={css.topBarTitle}>Vehicle Types</span>
+        <div style={{ flex: 1 }} />
+        <button className="btn btn-primary btn-sm" onClick={startAdd}>+ Add custom type</button>
       </div>
+      <div className={css.body}>
+      <div className={css.content}>
+        <p className={css.toolbarSub}>
+          Define the types of vehicles you drive. The type appears as a badge on the model list
+          and pre-selects KidControl limits when setting up a new model.
+          {!sdRoot && <span className={css.noSd}> Connect an SD card to persist custom types and images.</span>}
+        </p>
 
       <div className={css.section}>
         <h3 className={css.sectionTitle}>Built-in types</h3>
@@ -165,6 +164,8 @@ export function VehicleTypesPage({ navigate }: Props) {
       {!addingNew && custom.length === 0 && (
         <p className={css.emptyHint}>No custom types yet — click "Add custom type" to create one.</p>
       )}
+      </div>
+      </div>
     </div>
   );
 }

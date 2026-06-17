@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Toast } from '../components/shared/Toast.tsx';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
@@ -36,9 +36,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmDeleteBackupsToo, setConfirmDeleteBackupsToo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
   const importRef = useRef<HTMLInputElement>(null);
-  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sdRoot) return;
@@ -73,22 +71,6 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
     deleteModel(confirmDelete);
     setConfirmDelete(null);
     setConfirmDeleteBackupsToo(false);
-  }
-
-  const carouselItems = [...modelKeys, 'new', 'import'];
-
-  const onCarouselScroll = useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const cardWidth = el.clientWidth - 44 + 12; // card width + gap
-    setCarouselIndex(Math.round(el.scrollLeft / cardWidth));
-  }, []);
-
-  function scrollCarousel(dir: -1 | 1) {
-    const el = carouselRef.current;
-    if (!el) return;
-    const cardWidth = el.clientWidth - 44 + 12;
-    el.scrollBy({ left: dir * cardWidth, behavior: 'smooth' });
   }
 
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -150,7 +132,6 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       {loading ? (
         <div className={css.loading}>Loading models…</div>
       ) : (
-        <>
         <div className={css.grid}>
           {modelKeys.map((key) => {
             const vehicleTypeId = modelMeta[key]?.vehicleType;
@@ -207,70 +188,6 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             onChange={handleImportFile}
           />
         </div>
-
-        {/* Carousel — shown on narrow screens */}
-        <div className={css.carousel}>
-          <div className={css.carouselTrack} ref={carouselRef} onScroll={onCarouselScroll}>
-            {modelKeys.map((key) => {
-              const vehicleTypeId = modelMeta[key]?.vehicleType;
-              const vehicleTypeName = vehicleTypeId
-                ? vehicleCategories.find((c) => c.id === vehicleTypeId)?.name
-                : undefined;
-              const vehicleTypeImageUrl = vehicleTypeId ? vehicleTypeImages[vehicleTypeId] : undefined;
-              return (
-                <ModelCard
-                  key={key}
-                  modelKey={key}
-                  model={models[key]}
-                  isDirty={dirty.has(key)}
-                  imageUrl={modelImages[key]}
-                  scale={modelMeta[key]?.scale}
-                  vehicleTypeName={vehicleTypeName}
-                  vehicleTypeImageUrl={vehicleTypeImageUrl}
-                  onEdit={() => navigate({ page: 'editor', modelKey: key })}
-                  onDuplicate={() => handleDuplicate(key)}
-                  onDelete={() => setConfirmDelete(key)}
-                  onBackup={sdRoot ? async () => {
-                    await backupModel(key);
-                    setToast(`Backed up: ${models[key]?.header?.name || key}`);
-                  } : undefined}
-                  onHistory={sdRoot ? () => setHistoryFor({ key, name: models[key]?.header?.name ?? key }) : undefined}
-                />
-              );
-            })}
-            {modelKeys.length < 60 && (
-              <button className={css.newModelPrompt} onClick={handleAddModel}>
-                <span className={css.newModelPlus}>＋</span>
-                <span>New model</span>
-              </button>
-            )}
-            {modelKeys.length < 60 && (
-              <button className={css.newModelPrompt} onClick={() => importRef.current?.click()}>
-                <span className={css.newModelPlus}>⬆</span>
-                <span>Import YAML</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.7 }}>from file</span>
-              </button>
-            )}
-          </div>
-          <div className={css.carouselNav}>
-            <button
-              className={css.carouselBtn}
-              onClick={() => scrollCarousel(-1)}
-              disabled={carouselIndex === 0}
-            >‹</button>
-            <div className={css.carouselDots}>
-              {carouselItems.map((_, i) => (
-                <div key={i} className={`${css.carouselDot} ${i === carouselIndex ? css.active : ''}`} />
-              ))}
-            </div>
-            <button
-              className={css.carouselBtn}
-              onClick={() => scrollCarousel(1)}
-              disabled={carouselIndex >= carouselItems.length - 1}
-            >›</button>
-          </div>
-        </div>
-        </>
       )}
 
       {historyFor && (

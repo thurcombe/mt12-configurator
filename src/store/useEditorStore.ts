@@ -72,9 +72,10 @@ interface EditorState {
   uploadModelImage: (key: ModelKey, file: File) => Promise<void>;
 
   // Per-model app metadata — stored in .webconfig/model-meta.json
-  modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string }>;
+  modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>;
   setModelScale: (key: ModelKey, scale: string) => Promise<void>;
   setModelVehicleType: (key: ModelKey, vehicleType: string) => Promise<void>;
+  setModelPower: (key: ModelKey, power: 'battery' | 'fuel' | '') => Promise<void>;
 
   // Vehicle categories (built-in + custom) — custom stored in .webconfig/vehicle-categories.json
   vehicleCategories: VehicleCategory[];
@@ -202,6 +203,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
   },
 
+  setModelPower: async (key, power) => {
+    const { sdRoot, modelMeta } = get();
+    const entry = { ...(modelMeta[key] ?? {}) };
+    if (power) entry.power = power as 'battery' | 'fuel';
+    else delete entry.power;
+    const next = { ...modelMeta, [key]: entry };
+    set({ modelMeta: next });
+    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  },
+
   loadVehicleCategories: async () => {
     const { sdRoot } = get();
     const custom = sdRoot
@@ -259,8 +270,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Load settings from SD card webconfig.
       const saved = await readWebConfig<AppSettings>(root, SETTINGS_WEBCONFIG);
       if (saved) set({ settings: { ...DEFAULT_SETTINGS, ...saved } });
-      // Load per-model metadata (scale, vehicleType etc.)
-      const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string }>>(root, 'model-meta.json');
+      // Load per-model metadata (scale, vehicleType, power etc.)
+      const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>>(root, 'model-meta.json');
       if (meta) set({ modelMeta: meta });
       // Load vehicle categories + type images
       get().loadVehicleCategories();
@@ -413,10 +424,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => {
       const source = s.models[sourceKey];
       if (!source) return s;
+      const srcName = source.header?.name ?? '';
+      const suffix = ' Copy';
+      const newName = srcName
+        ? (srcName.slice(0, 15 - suffix.length) + suffix).slice(0, 15)
+        : 'Copy';
       const dirty = new Set(s.dirty);
       dirty.add(destKey);
       return {
-        models: { ...s.models, [destKey]: { ...source } },
+        models: { ...s.models, [destKey]: { ...source, header: { ...source.header, name: newName } } },
         dirty,
       };
     });

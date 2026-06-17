@@ -10,6 +10,7 @@ interface Props {
   scale?: string;
   vehicleTypeName?: string;
   vehicleTypeImageUrl?: string;
+  power?: 'battery' | 'fuel';
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -28,7 +29,7 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, onEdit, onDuplicate, onDelete, onBackup, onHistory }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, onEdit, onDuplicate, onDelete, onBackup, onHistory }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
@@ -37,7 +38,11 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
   return (
     <div className={`${css.card} ${isDirty ? css.dirty : ''}`}>
       <div className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}>
-        <img src={displayImageUrl ?? '/model-default.png'} alt={name || modelKey} className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`} />
+        <img
+          src={displayImageUrl ?? '/model-default.png'}
+          alt={name || modelKey}
+          className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`}
+        />
       </div>
       <div className={css.header}>
         <span className={`${css.name} ${!name ? css.empty : ''}`}>
@@ -50,6 +55,8 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
         <span className="badge badge-accent">{protocolBadge(model)}</span>
         {scale && <span className="badge">{scale}</span>}
         {vehicleTypeName && <span className="badge">{vehicleTypeName}</span>}
+        {power === 'battery' && <span className="badge">🔋 Electric</span>}
+        {power === 'fuel' && <span className="badge">⛽ Fuel</span>}
         {model.flightModeData?.['1'] && <span className="badge badge-green">KidControl</span>}
         {isDirty && <span className="badge badge-warning">unsaved</span>}
         {model.mixData?.length > 0 && (

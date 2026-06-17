@@ -1,27 +1,43 @@
 .page {
-  padding: 24px 24px 48px;
-  max-width: 1100px;
-}
-
-.toolbar {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 28px;
+  flex-direction: column;
+  height: 100%;
 }
 
-.toolbarTitle {
-  font-size: 20px;
-  font-weight: 700;
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.topBarTitle {
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.content {
+  width: 100%;
+  max-width: 1050px;
+  padding: 24px 20px 48px;
 }
 
 .toolbarSub {
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.5;
-  margin: 0;
+  margin: 0 0 24px;
   max-width: 600px;
 }
 

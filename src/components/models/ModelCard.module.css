@@ -32,7 +32,8 @@
 }
 
 .image:hover {
-  transform: scale(1.06);
+  transform: scale(1.15);
+  filter: brightness(1.08);
   cursor: zoom-in;
 }
 

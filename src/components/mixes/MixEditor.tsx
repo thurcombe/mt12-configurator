@@ -71,6 +71,7 @@ function reorderWithinChannel(
 
 export function MixEditor({ model, onChange }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [isNewLine, setIsNewLine] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -137,6 +138,7 @@ export function MixEditor({ model, onChange }: Props) {
       return { ...m, mixData: newData };
     });
     setEditingIdx(insertAt);
+    setIsNewLine(true);
   }
 
   const allIds = mixData.map((_, i) => String(i));
@@ -187,9 +189,13 @@ export function MixEditor({ model, onChange }: Props) {
       {editingIdx !== null && mixData[editingIdx] && (
         <MixLineModal
           line={mixData[editingIdx]}
-          onSave={(line) => handleSaveLine(editingIdx, line)}
-          onDelete={() => handleDeleteLine(editingIdx)}
-          onClose={() => setEditingIdx(null)}
+          onSave={(line) => { handleSaveLine(editingIdx, line); setIsNewLine(false); }}
+          onDelete={() => { handleDeleteLine(editingIdx); setEditingIdx(null); setIsNewLine(false); }}
+          onClose={() => {
+            if (isNewLine) handleDeleteLine(editingIdx);
+            setEditingIdx(null);
+            setIsNewLine(false);
+          }}
         />
       )}
     </DndContext>

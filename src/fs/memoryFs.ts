@@ -114,9 +114,9 @@ export class MemoryDirHandle {
     }
   }
 
-  async *entries(): AsyncIterableIterator<[string, { kind: 'file' | 'directory' }]> {
-    for (const name of this._tree.files.keys()) yield [name, { kind: 'file' }];
-    for (const name of this._tree.dirs.keys()) yield [name, { kind: 'directory' }];
+  async *entries(): AsyncIterableIterator<[string, MemoryFileHandle | MemoryDirHandle]> {
+    for (const name of this._tree.files.keys()) yield [name, new MemoryFileHandle(this._tree, name)];
+    for (const name of this._tree.dirs.keys()) yield [name, new MemoryDirHandle(this._tree.dirs.get(name)!)];
   }
 }
 

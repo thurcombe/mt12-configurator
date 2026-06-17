@@ -1,3 +1,57 @@
+.thumb {
+  transition: transform 0.2s ease;
+  position: relative;
+}
+.thumb:hover {
+  transform: scale(2);
+  z-index: 10;
+}
+
+.thumbCarousel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thumbScroll {
+  display: flex;
+  gap: 5px;
+  overflow-x: scroll;
+  scrollbar-width: none;
+  flex: 1;
+  padding: 12px 0;
+}
+
+.thumbScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.thumbNavBtn {
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 24px;
+  height: 60px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.thumbNavBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.thumbNavBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .root {
   columns: 2;
   column-gap: 14px;

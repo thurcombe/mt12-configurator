@@ -414,7 +414,7 @@ export function RadioSettings({ navigate }: Props) {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
-        <h2 className={css.title}>Radio Settings</h2>
+        <span className={css.title}>Radio Settings</span>
         {radio && <span className={css.board}>{radio.board}</span>}
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
@@ -435,6 +435,8 @@ export function RadioSettings({ navigate }: Props) {
         )}
       </div>
 
+      {radio && <TabBar tabs={TABS} active={tab} onChange={setTab} />}
+
       <div className={css.body}>
         {/* Left: tabbed settings — only when radio is loaded */}
         <div className={css.settingsPane}>
@@ -446,15 +448,12 @@ export function RadioSettings({ navigate }: Props) {
               }
             </div>
           ) : (
-            <>
-              <TabBar tabs={TABS} active={tab} onChange={setTab} />
-              <div className={css.tabContent}>
-                {tab === 'audio' && <AudioTab />}
-                {tab === 'display' && <DisplayTab />}
-                {tab === 'switches' && <SwitchesTab onHover={handleHover} />}
-                {tab === 'pots' && <PotsTab onHover={handleHover} sdRoot={sdRoot} />}
-              </div>
-            </>
+            <div className={css.tabContent}>
+              {tab === 'audio' && <AudioTab />}
+              {tab === 'display' && <DisplayTab />}
+              {tab === 'switches' && <SwitchesTab onHover={handleHover} />}
+              {tab === 'pots' && <PotsTab onHover={handleHover} sdRoot={sdRoot} />}
+            </div>
           )}
         </div>
 

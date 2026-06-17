@@ -31,6 +31,9 @@ function readTemplateDir(dir: string, rel = ''): Record<string, string> {
       Object.assign(out, readTemplateDir(path.join(dir, entry.name), relPath));
     } else if (entry.isFile()) {
       if (SKIP_FILES.has(entry.name)) continue;
+      // Only bundle IMAGES/library/* and model00 — skip all other top-level model photos
+      const isImage = BINARY_EXTS.has(path.extname(entry.name).toLowerCase());
+      if (isImage && !relPath.startsWith('IMAGES/library/') && relPath !== 'IMAGES/model00.jpg') continue;
       const fullPath = path.join(dir, entry.name);
       const ext = path.extname(entry.name).toLowerCase();
       if (BINARY_EXTS.has(ext)) {
