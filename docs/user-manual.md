@@ -20,7 +20,7 @@ A browser-based editor for creating and managing EdgeTX model configuration file
 12. [Advanced View — Logical Switches](#12-advanced-view--logical-switches)
 13. [Advanced View — Special Functions](#13-advanced-view--special-functions)
 14. [Advanced View — KidControl Tab](#14-advanced-view--kidcontrol-tab)
-15. [Radio Settings](#15-radio-settings)
+15. [Transmitter Settings](#15-transmitter-settings)
 16. [Vehicle Types](#16-vehicle-types)
 17. [Saving & Backup](#17-saving--backup)
 18. [Help & About](#18-help--about)
@@ -502,11 +502,11 @@ The summary shows:
 
 ---
 
-## 15. Radio Settings
+## 15. Transmitter Settings
 
-Access Radio Settings from the **Radio Settings** button in the header.
+Access Transmitter Settings from the **Transmitter Settings** button in the header.
 
-> **Note:** Radio Settings requires an SD card (or demo) to be connected. The settings are read from and written to `RADIO/radio.yml` on the card.
+> **Note:** Transmitter Settings requires an SD card (or demo) to be connected. The settings are read from and written to `RADIO/radio.yml` on the card.
 
 Two buttons appear in the top bar when radio settings are loaded:
 
@@ -515,7 +515,7 @@ Two buttons appear in the top bar when radio settings are loaded:
 
 ### Audio tab
 
-![Radio Settings — Audio tab](screenshots/36-radio-settings-audio.png)
+![Transmitter Settings — Audio tab](screenshots/36-radio-settings-audio.png)
 
 | Section | Settings |
 |---------|---------|
@@ -524,7 +524,7 @@ Two buttons appear in the top bar when radio settings are loaded:
 
 ### Display tab
 
-![Radio Settings — Display tab](screenshots/37-radio-settings-display.png)
+![Transmitter Settings — Display tab](screenshots/37-radio-settings-display.png)
 
 | Setting | Description |
 |---------|-------------|
@@ -535,7 +535,7 @@ Two buttons appear in the top bar when radio settings are loaded:
 
 ### Switches tab
 
-![Radio Settings — Switches tab](screenshots/38-radio-settings-switches.png)
+![Transmitter Settings — Switches tab](screenshots/38-radio-settings-switches.png)
 
 Configure the **type** and **name** of each physical switch on the MT12:
 
@@ -549,7 +549,7 @@ Setting a meaningful name (e.g. "KID" for FL1 when used for KidControl) causes t
 
 ### Pots tab
 
-![Radio Settings — Pots tab](screenshots/39-radio-settings-pots.png)
+![Transmitter Settings — Pots tab](screenshots/39-radio-settings-pots.png)
 
 Configure the **type** and **name** of each pot (scroll wheel/knob):
 
@@ -562,7 +562,7 @@ Configure the **type** and **name** of each pot (scroll wheel/knob):
 
 ### MT12 Controls diagram
 
-The diagram on the right of the Radio Settings page shows the transmitter layout with your configured labels. Each control is annotated with its current name. Use **⚙ Reposition labels** to adjust label placement and **Reset** to restore defaults.
+The diagram on the right of the Transmitter Settings page shows the transmitter layout with your configured labels. Each control is annotated with its current name. Use **⚙ Reposition labels** to adjust label placement and **Reset** to restore defaults.
 
 ---
 
@@ -629,7 +629,7 @@ If you try to navigate away from a model with unsaved changes, the app shows a c
 - **Stay** — return to the editor without losing changes
 - **Leave** — discard the unsaved changes and navigate away
 
-The same dialog appears when navigating away from Radio Settings with unsaved changes.
+The same dialog appears when navigating away from Transmitter Settings with unsaved changes.
 
 ### Manual backup
 
@@ -660,7 +660,7 @@ When you select a backup, the right panel shows:
 | **Download** | Downloads the backup file as `.yml` without restoring |
 | **Restore** | Restores the backup into the chosen slot. The current version of the target model is itself backed up first |
 
-> **Radio backups** — radio backups are managed via the **History** button on the Radio Settings page, not through the model backup browser.
+> **Radio backups** — radio backups are managed via the **History** button on the Transmitter Settings page, not through the model backup browser.
 
 ### Restoring a deleted model
 

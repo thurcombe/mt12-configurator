@@ -37,7 +37,7 @@ interface Props {
   /** Set for per-model history view (from model card History button). */
   modelKey?: string;
   modelName?: string;
-  /** Set to show only radio backups (from Radio Settings page). */
+  /** Set to show only radio backups (from Transmitter Settings page). */
   radioOnly?: boolean;
   onClose: () => void;
 }

@@ -414,7 +414,7 @@ export function RadioSettings({ navigate }: Props) {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
-        <span className={css.title}>Radio Settings</span>
+        <span className={css.title}>Transmitter Settings</span>
         {radio && <span className={css.board}>{radio.board}</span>}
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
