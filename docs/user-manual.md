@@ -22,9 +22,8 @@ A browser-based editor for creating and managing EdgeTX model configuration file
 14. [Advanced View — KidControl Tab](#14-advanced-view--kidcontrol-tab)
 15. [Radio Settings](#15-radio-settings)
 16. [Vehicle Types](#16-vehicle-types)
-17. [App Settings](#17-app-settings)
-18. [Saving & Backup](#18-saving--backup)
-19. [Help & About](#19-help--about)
+17. [Saving & Backup](#17-saving--backup)
+18. [Help & About](#18-help--about)
 
 ---
 
@@ -47,173 +46,206 @@ The app uses the browser [File System Access API](https://developer.mozilla.org/
 
 ### Offline mode (no SD card)
 
-You can use the app without an SD card. The banner at the top of the model list explains the difference: any **Save** will download the YAML file to your computer instead of writing to the card.
+You can use the app without an SD card. A banner at the top of the model list explains that any **Save** will download the YAML file to your computer instead of writing to the card.
 
-![Model list — no SD card](screenshots/01-model-list-empty.png)
+![Model list — no SD card connected](screenshots/01-model-list-no-sdcard.png)
+
+### Demo mode
+
+Append `?demo` to the URL to load a virtual in-memory SD card pre-populated with sample models. Changes are not persisted to disk — use the **Download SD card ↓** button in the top bar to export the result as a ZIP file.
 
 ---
 
 ## 2. The Model List
 
-The model list is the home screen. It shows every model loaded from the SD card (or created/imported in the current session).
+The model list is the home screen. It shows every model loaded from the SD card (or created in the current session).
 
-![Model list with two models](screenshots/16-model-list-two-models.png)
+![Model list with demo models](screenshots/02-model-list-demo.png)
 
 Each model card shows:
 
-- **Model name** and slot number (e.g. `model00`)
-- **Protocol badge** — the RF protocol this model uses (e.g. Traxxas TQi, CROSSFIRE)
-- **Mix count** — number of active mix lines
-- **Edit**, **Duplicate**, **Delete** action buttons
-- **Backup** button (only shown when an SD card is connected) — immediately writes a timestamped backup of the current model to `BACKUP/`. The button briefly shows "Backed up!" to confirm the action completed.
-- **History** button (only shown when an SD card is connected) — opens the backup browser for this model, with diff preview, download, restore-to-any-slot, and bulk delete
+- **Model photo** (if one has been uploaded) — hover to zoom
+- **Model name** and slot key (e.g. `model00`)
+- **Protocol badge** — the RF protocol this model uses (e.g. Traxxas TQi, RadioLink)
+- **Scale badge** — if a scale has been set (e.g. 1:18)
+- **Vehicle type badge** — if a vehicle type has been assigned
+- **KidControl badge** (green) — shown when KidControl is active on the model
+- **Unsaved badge** (yellow) — shown when the model has changes not yet saved to the card
+- **Mix count** — how many active mix lines the model contains
+- **Edit**, **Duplicate**, **Backup**, **History**, **Delete** action buttons
+
+![Model card actions](screenshots/05-model-card-actions.png)
+
+The **Backup** button (shown only when an SD card or demo is connected) immediately writes a timestamped backup to `BACKUP/`. The button briefly shows "Backed up!" to confirm.
+
+The **History** button opens the backup browser for this model — see [Saving & Backup](#17-saving--backup).
 
 ### Toolbar actions
 
-When an SD card is connected, the toolbar above the model grid shows two additional buttons:
+When an SD card (or demo) is connected, the toolbar shows:
 
-- **Manage backups** — opens the backup browser showing every backup file across all models and radio settings. Use this to restore any backup (including deleted models), delete stale entries, or download backup files.
-- **Refresh from card** — reloads all model files from the SD card, discarding any in-memory changes.
+- **Manage backups** — opens the all-models backup browser
+- **Refresh from card** — reloads all model files from the SD card, discarding in-memory changes
 
 ### Creating a new model
 
-Click the **＋ New model** card. This creates a blank model in the next available slot and immediately opens the model editor in Basic view, where the setup wizard walks you through the initial configuration.
+Click the **＋ New model** card. A blank model is created in the next available slot and the editor opens immediately in Basic view, where the setup wizard guides you through the initial configuration.
 
 ### Importing an existing YAML file
 
-Click the **⬆ Import YAML** card. A file picker opens — select a `.yml` or `.yaml` model file from anywhere on your computer. The model is imported and opened in the editor immediately.
+Click the **⬆ Import YAML** card. A file picker opens — select any `.yml` or `.yaml` model file from your computer. The model is imported and opened in the editor.
 
 ### Deleting a model
 
-Click **Delete** on any model card. A confirmation dialog appears before anything is removed.
+Click **Delete** on a model card. A confirmation dialog appears before anything is removed.
 
-![Delete confirmation dialog](screenshots/18-delete-confirm-dialog.png)
+![Delete confirmation dialog](screenshots/33-delete-confirm-dialog.png)
 
-> **Warning:** When an SD card is connected, deletion removes the file from the card immediately. This cannot be undone.
+The dialog includes a checkbox to also delete all backups for the model. When an SD card is connected, deletion removes the file from the card immediately and cannot be undone.
 
 ---
 
 ## 3. Basic View
 
-When you open a model in the editor it starts in **Basic** view — a simplified, task-oriented summary of the most commonly changed settings. Switch to **Advanced** in the top-right toggle when you need full access to all parameters.
+When you open a model the editor starts in **Basic** view — a simplified, task-oriented summary of the most commonly changed settings. Use the **Basic / Advanced** toggle in the top-right to switch views.
 
-![Basic view](screenshots/04-editor-basic-view.png)
+![Basic view](screenshots/06-editor-basic-view.png)
 
-The basic view is divided into named sections on the left, and the **MT12 Controls** diagram on the right.
+The basic view shows named cards on the left and the **MT12 Controls** diagram on the right.
+
+![Basic view with MT12 diagram](screenshots/07-editor-basic-view-with-diagram.png)
 
 ### Throttle
 
-Shows which input drives your throttle channel and the current **Trigger rate** — the maximum throttle percentage (100% = full range, lower values reduce the top speed).
+Shows the throttle channel (e.g. CH2) and the current **Trigger rate** — the maximum throttle percentage. An optional **Cruise control** sub-card and **Speed limiter** sub-card appear if those features are configured.
 
-### Cruise control
-
-A sticky switch that holds the current throttle level without pressing the trigger. You can configure:
-
-- **Switch** — which physical switch engages cruise control
-- **Cruise speed** — the base speed (as a percentage) the cruise hold is centred on
-
-Click **Remove** to delete the cruise control mix entirely.
-
-### Speed limiter
-
-Shows the current speed limiter configuration. Two modes are available:
-
-- **Variable** — a trim lever (T1–T5) or knob (P1/P2) scales throttle continuously. Moving the control to its minimum position stops the vehicle.
-- **Switch** — a switch position cuts throttle to a fixed percentage. The limit only applies when the switch is in the configured position.
-
-The speed limiter is always active unless removed via Advanced > Mixes.
+- **Cruise control** — holds the current throttle without pressing the trigger. Configure the switch and cruise speed, or click **Remove** to delete it.
+- **Speed limiter** — shows either the knob assignment (variable mode) or the switch/percentage (switch mode). Remove it via Advanced > Mixes.
 
 ### Steering
 
-Shows which input drives your steering channel and the current **Steering rate** (maximum servo travel as a percentage).
+Shows the steering channel (e.g. CH1) and the current **Steering rate** (maximum servo travel). An optional **Steering trim** sub-card appears if a trim source is configured. Click **Remove** to delete the steering trim.
 
-### Steering trim
+### Gyro gain
 
-A trim mix applied on top of the steering input — adjusts the neutral/centre point of the steering. Click **Remove** to delete it.
+If a gyro gain channel is configured, a card shows which knob controls gyro sensitivity and which channel it sends on. Click **Remove** to delete it.
 
 ### Vehicle details
 
-- **Vehicle type** — links this model to one of your [Vehicle Types](#16-vehicle-types), which provides KidControl presets and an optional default image
-- **Scale** — the 1:N scale of your RC vehicle (metadata only, stored on the SD card)
+| Field | Description |
+|-------|-------------|
+| Vehicle type | Links this model to a [Vehicle Type](#16-vehicle-types), which provides KidControl presets |
+| Scale | The 1:N scale of your vehicle (metadata only, stored on the SD card) |
 
 ### Radio link
 
-Displays the current receiver protocol (e.g. Traxxas TQi) and the **Signal lost** (failsafe) behaviour. Click through to [Module](#6-advanced-view--module) in Advanced view to change these.
+Displays the current receiver protocol and the **Signal lost** (failsafe) behaviour. Edit these values directly from the dropdowns, or re-run the setup wizard for a guided flow.
 
 ### KidControl
 
-Shows whether KidControl is active on this model. If not yet configured, click **＋ Set up KidControl** to launch the [KidControl Wizard](#5-kidcontrol-wizard).
+Shows whether KidControl is active. If configured, displays the trigger switch, throttle limit, speed ramp, and steering limit settings, along with a **Re-run KidControl wizard** button. If not yet configured, shows a **+ Set up KidControl** button.
+
+See [KidControl Wizard](#5-kidcontrol-wizard) for setup instructions.
 
 ### Vehicle setup
 
-Click **Re-run setup wizard** to re-open the full setup wizard. This lets you change any configuration set during initial setup — channel assignments, protocol, failsafe, speed limiter, steering trim, and gyro gain — without going into Advanced view.
-
-> When re-running the wizard on an existing model, all steps are pre-populated with the current model's values so you only need to change what you want.
+Click **⚙ Re-run setup wizard** to re-open the full setup wizard. All steps are pre-populated with the current model's values so you only need to change what you want.
 
 ### The MT12 Controls diagram
 
-The right panel shows a photo of the MT12 with your controls labelled. When an SD card is connected and input labels have been configured in [Radio Settings](#15-radio-settings), each switch and pot is annotated.
-
-Toggle **Labels / Functions** at the bottom to switch between showing the assigned names and the EdgeTX function names (SA, SB, P1, etc.).
-
-![Basic view with diagram visible](screenshots/05-editor-basic-view-diagram.png)
+The right panel shows a photo of the MT12 with your controls labelled. Toggle **Labels / Functions** at the bottom to switch between showing the assigned names and the EdgeTX function names (SA, SB, P1, etc.). Click **⚙ Reposition labels** to adjust label placement.
 
 ---
 
 ## 4. Setup Wizard
 
-The setup wizard runs automatically when a new model is created, and can be re-run at any time via **Re-run setup wizard** in the Basic view. It walks through each major configuration area in turn, pre-filling values from the current model when re-running.
+The setup wizard runs automatically when a new model is created, and can be re-run at any time via **⚙ Re-run setup wizard** in the Basic view. It walks through each major area in turn, pre-filling from the current model when re-running.
 
-### Input pickers and diagram highlighting
+A breadcrumb at the top shows all steps: **Vehicle › Radio link › Throttle › Cruise › Speed limiter › Steering › Gyro › KidControl › Done**
 
-Throughout the wizard, dropdown pickers for physical inputs (trim levers, knobs, switches) highlight the corresponding control on the **MT12 Controls diagram** as you hover over each option. This makes it easy to identify the right control without referring to the transmitter.
+### Step 1 — Vehicle
 
-### Wizard steps
+![Wizard — Vehicle details step](screenshots/08-wizard-01-vehicle-step.png)
 
-**Vehicle** — Set the model name, vehicle category, and scale. Selecting a vehicle category here also determines the KidControl preset defaults.
+Set the model name (up to 15 characters), scale, vehicle type, power source (battery/fuel), and optionally upload a photo from your device or select one from the SD card's `IMAGES/library/` folder.
 
-**Radio link** — Choose the RF protocol and failsafe behaviour.
+### Step 2 — Radio link
 
-**Throttle** — Assign the throttle channel and set the maximum trigger rate.
+![Wizard — Radio link step](screenshots/09-wizard-02-radio-step.png)
 
-**Cruise control** — Optionally assign a switch for cruise hold and set a default cruise speed.
+Choose the RF protocol that matches your receiver (e.g. Traxxas TQi, FlySky AFHDS2A, DSM/Spektrum) and what the vehicle should do if the signal is lost (Stop / Hold / Not set).
 
-**Speed limiter** — Choose how throttle is limited:
-- *None* — no speed limiter
-- *Variable* — assign a trim lever (T1–T5) or knob (P1/P2) to scale throttle continuously
-- *Switch* — assign a switch position that cuts throttle to a fixed percentage
+### Step 3 — Throttle
 
-**Steering** — Assign the steering channel, set the steering rate, and optionally choose a **steering trim** source. The trim source is a trim lever (T1–T5) or knob that adjusts the steering neutral point. T1–T5 are rocker-style trim buttons — each press steps the trim value up or down.
+![Wizard — Throttle step](screenshots/10-wizard-03-throttle-step.png)
 
-**Gyro gain** — Optionally assign a trim lever (T1–T5) or knob to control gyro sensitivity on a dedicated channel.
+Select the output channel your ESC or motor controller listens on, and set the maximum trigger rate.
 
-**KidControl** — Optionally launch the [KidControl Wizard](#5-kidcontrol-wizard) as the final step.
+### Step 4 — Cruise control
 
-**Done** — Review a summary of all settings and click **Apply** to generate the model's mix and expo lines.
+![Wizard — Cruise control step](screenshots/11-wizard-04-cruise-step.png)
+
+Optionally assign a switch for cruise-hold and set a default cruise speed. Disable with the **No cruise control** option.
+
+### Step 5 — Speed limiter
+
+![Wizard — Speed limiter step](screenshots/12-wizard-05-speed-limiter-step.png)
+
+Choose how throttle is limited:
+
+| Mode | Description |
+|------|-------------|
+| None | No speed limiter |
+| Variable (knob) | A trim lever (T1–T5) or knob (P1/P2) scales throttle continuously. Fully down stops the vehicle |
+| Switch | A switch position cuts throttle to a fixed percentage |
+
+### Step 6 — Steering
+
+![Wizard — Steering step](screenshots/13-wizard-06-steering-step.png)
+
+Select the steering channel, set the steering rate, and optionally assign a **steering trim** source (a trim lever or knob that adjusts the steering neutral point).
+
+### Step 7 — Gyro gain
+
+![Wizard — Gyro gain step](screenshots/14-wizard-07-gyro-step.png)
+
+Optionally assign a trim lever (T1–T5) or knob to control gyro sensitivity on a dedicated channel.
+
+### Step 8 — KidControl
+
+![Wizard — KidControl step](screenshots/15-wizard-08-kidcontrol-step.png)
+
+Optionally launch the [KidControl Wizard](#5-kidcontrol-wizard) as the final step.
+
+### Step 9 — Done
+
+![Wizard — Confirm/Done step](screenshots/16-wizard-09-confirm-step.png)
+
+Review a summary of all settings and click **Apply** to generate the model's mix and expo lines. Click **Cancel** at any time to discard wizard changes and return to the editor.
 
 ---
 
 ## 5. KidControl Wizard
 
-KidControl creates a safe driving profile activated by a physical switch on the transmitter. When the switch is engaged, reduced throttle and steering limits apply — flip the switch back to return to normal control.
+KidControl creates a safe driving profile activated by a physical switch. When the switch is engaged, reduced throttle and steering limits apply — flip it back for full control.
 
-The wizard opens from the **Basic view** when you click **＋ Set up KidControl** in the KidControl section, or from the **KidControl tab** in Advanced view.
+Open the wizard from:
+- **Basic view** — click **+ Set up KidControl** in the KidControl card
+- **Advanced view** — go to the **KidControl** tab (the wizard appears automatically when KidControl isn't yet configured)
 
 ### Step 1 — Vehicle type
 
-> **This step is skipped automatically** if the model already has a vehicle type set (configured in the Basic view Vehicle details section or during initial setup). The wizard jumps straight to step 2 using the saved type.
+> **This step is skipped automatically** if the model already has a vehicle type set. The wizard jumps straight to step 2 using the saved type.
 
-If no vehicle type is set, the wizard shows the full list of vehicle categories from your [Vehicle Types](#16-vehicle-types) page. Choosing a category here saves it to the model's metadata so future wizard runs skip this step.
+![KidControl wizard — vehicle type selection](screenshots/26-kidcontrol-01-vehicle-step.png)
 
-![KidControl wizard — vehicle type](screenshots/06-kidcontrol-wizard-vehicle-select.png)
-
-Each category maps to one of four KidControl presets (Crawler, Sport, Rally, High-speed) that determine the default throttle and steering limits in step 3. The mapping is shown on the Vehicle Types page.
-
-Clicking a category immediately advances to step 2.
+Shows the full list of vehicle categories from your [Vehicle Types](#16-vehicle-types) page. Each category maps to a KidControl preset (Crawler, Sport, Rally, or High-speed) that provides default throttle and steering limits. Clicking a category advances immediately to step 2.
 
 ### Step 2 — Speed class
 
-Choose how conservative the limits should be for the driver.
+![KidControl wizard — speed class selection](screenshots/27-kidcontrol-02-speed-step.png)
+
+Choose how conservative the limits should be:
 
 | Option | Description |
 |--------|-------------|
@@ -221,58 +253,66 @@ Choose how conservative the limits should be for the driver.
 | Medium | Balanced — comfortable limits for most kids |
 | Fast | Light limits — for older or experienced kids |
 
-Clicking a speed class immediately advances to step 3.
+Clicking a speed class advances immediately to step 3 with pre-filled values based on the vehicle category and speed class combination.
 
 ### Step 3 — Adjust & Confirm
 
-The final step presents all the derived parameters as adjustable sliders, with a live description of what each setting means in practice.
+![KidControl wizard — adjust sliders](screenshots/28-kidcontrol-03-sliders-step.png)
 
-![KidControl wizard — sliders](screenshots/07-editor-advanced-module.png)
-
-Parameters you can adjust:
+All derived parameters are presented as adjustable sliders:
 
 | Parameter | What it controls |
 |-----------|-----------------|
-| Throttle limit | Maximum throttle as a percentage of full power |
-| Throttle expo | How soft the centre of the trigger feels |
-| Speed-up ramp | How many seconds it takes to reach full throttle |
-| Slow-down ramp | How many seconds it takes to release throttle fully |
-| Steering limit | Maximum steering servo travel as a percentage |
-| Steering expo | How soft the steering feels near centre |
+| Throttle — Max rate | Maximum throttle as a percentage of full power |
+| Throttle — Expo | How soft the centre of the trigger feels |
+| Speed up (×0.1s) | How many tenths of a second to reach full throttle |
+| Speed down (×0.1s) | How many tenths of a second to release throttle fully |
+| Steering — Max rate | Maximum steering servo travel as a percentage |
+| Steering — Expo | How soft the steering feels near centre |
 
-You also choose which **switch** activates KidControl (defaults to FL1-0).
+A **Trigger switch** picker at the bottom sets which switch activates KidControl (defaults to SA2).
 
-Click **Apply** to write the KidControl configuration to the model. Click **← Back to summary** at any time to cancel without changing anything.
+A live **Effective in KidControl (FM1)** summary shows the final values before you commit.
+
+Click **Apply KidControl** to write the configuration to the model. Click **← Back** to return to the speed class selection without changing anything.
+
+### KidControl active state
+
+Once applied, both the Basic view and the Advanced KidControl tab show a summary of the active settings.
+
+![Basic view — KidControl active](screenshots/30-basic-kidcontrol-active.png)
+
+The summary shows the trigger switch, throttle limit and expo, speed ramp values, and steering limit and expo. A **Re-run KidControl wizard** button lets you reconfigure, and a **Remove KidControl** button deletes the FM1 drive mode and all associated KidControl mix/expo lines.
 
 ---
 
 ## 6. Advanced View — Module
 
-Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor shows a row of tabs; the default tab is **Module**.
+Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor shows a row of tabs; the default is **Module**.
 
-![Advanced view — Module tab](screenshots/07-editor-advanced-module.png)
+![Advanced view — Module tab](screenshots/17-advanced-01-module.png)
 
-The Module tab configures the RF transmitter hardware that sends the signal to your receiver.
+The Module tab configures the RF hardware that sends the signal to your receiver.
 
-### Internal module
+### Internal module (slot 0)
 
 | Setting | Description |
 |---------|-------------|
-| Protocol | The RF protocol — must match your receiver. Common surface choices: Traxxas TQi, Traxxas TQ Gen2, DSM2, DSMX, FlySky AFHDS2A |
-| Sub-type | Protocol variant (where applicable) |
-| Channels | How many channels to transmit (typically 8) |
-| Failsafe mode | What the receiver does when the signal is lost: No pulses, Hold last position, or Custom |
-| RX number | Receiver binding number — change when binding a new receiver |
+| Mode | TYPE_MULTIMODULE for the built-in multi-protocol module |
+| Type (protocol) | Must match your receiver. Common surface choices: Traxxas TQi, Traxxas TQ Gen2, DSM/Spektrum, FlySky AFHDS2A, RadioLink |
+| Channels | How many channels to transmit (typically 16) |
+| Failsafe mode | What the receiver does when signal is lost: No pulses (stop), Hold last position, or Not set |
+| RX number | Receiver binding number — increment when binding a new receiver |
 
-### External module
+### External module (slot 1)
 
-The MT12 also has an external module bay (SMA connector). Configure a second RF module here if fitted.
+The MT12 has an external module bay (SMA connector). Configure a second RF module here if fitted.
 
 ---
 
 ## 7. Advanced View — Timers
 
-![Advanced view — Timers](screenshots/08-editor-timers.png)
+![Advanced view — Timers tab](screenshots/18-advanced-02-timers.png)
 
 The MT12 supports up to three independent timers. Each can be configured with:
 
@@ -281,7 +321,7 @@ The MT12 supports up to three independent timers. Each can be configured with:
 | Mode | Off, absolute (counts up), countdown, countdown with beep |
 | Name | Short label shown on the transmitter screen |
 | Start time | For countdown timers: the time to count down from |
-| Switch | Pause/resume the timer with this switch (leave blank to run always) |
+| Switch | Pause/resume the timer (leave blank to run always) |
 | Minute beep | Beep every minute |
 | Countdown beep | Beep in the last 30/20/10 seconds |
 | Persistent | Remember the timer value across power cycles |
@@ -292,9 +332,9 @@ Timers are useful for tracking battery run time, session duration, or enforcing 
 
 ## 8. Advanced View — Drive Modes
 
-![Advanced view — Drive Modes](screenshots/09-editor-drive-modes.png)
+![Advanced view — Drive Modes tab](screenshots/19-advanced-03-drive-modes.png)
 
-Drive modes (called *flight modes* in EdgeTX) let you switch between completely different sets of channel behaviour using a physical switch. **FM0 is always the default** and is always active when no other mode is engaged.
+Drive modes (called *flight modes* in EdgeTX) let you switch between different sets of channel behaviour using a physical switch. **FM0 is always the default** and is always active when no other mode is engaged.
 
 Each mode has:
 
@@ -305,33 +345,33 @@ Each mode has:
 | Fade in / out | How many tenths of a second to crossfade into/out of this mode |
 | Trims | Per-trim override: use own trim, use FM0's trim, or disable |
 
-KidControl uses **FM1** as its safe-mode slot. When the KidControl switch is engaged, FM1 activates and the KidControl expo and mix lines take effect.
+> **KidControl uses FM1.** When the KidControl switch is engaged, FM1 activates and the KidControl expo and mix lines take effect.
 
 ---
 
 ## 9. Advanced View — Mixes
 
-![Advanced view — Mixes](screenshots/10-editor-mixes.png)
+![Advanced view — Mixes tab](screenshots/20-advanced-04-mixes.png)
 
-Mixes define how physical inputs are processed into the output channels sent to your receiver. The view groups mix lines by output channel (CH1, CH2, etc.) and shows each line's source, weight, and a human-readable description.
+Mixes define how physical inputs are processed into the output channels sent to your receiver. Channels are grouped, and each group shows all mix lines with their source, weight, and a human-readable description.
 
-- **CH3** typically controls throttle
-- **CH4** typically controls steering
+- **CH1** typically controls steering
+- **CH2** typically controls throttle
 
 ### Adding a mix line
 
-Click **＋ Add to CHn** inside a channel group to add a new mix line on that channel.
+Click **＋ Add to CHn** inside a channel group to add a new mix line.
 
 ### Editing a mix line
 
-Click on any mix line row to open the edit form with the full set of parameters:
+Click any mix line row to open the edit form:
 
 | Parameter | Description |
 |-----------|-------------|
-| Source | The physical input (trigger, wheel, switch, pot, other channel, etc.) |
+| Source | Physical input (trigger, wheel, switch, pot, other channel, etc.) |
 | Weight | How much of the source is mixed in (positive = same direction, negative = inverted) |
-| Offset | A constant offset added to the mix output |
-| Multiply / Replace / Add | How this line combines with other lines on the same channel |
+| Offset | A constant offset added to the output |
+| Mode | Multiply / Replace / Add — how this line combines with others on the same channel |
 | Switch | Only apply this mix when this switch is active |
 | Flight modes | Which drive modes this mix is active in |
 | Speed up / down | Ramp rate in tenths of a second |
@@ -346,18 +386,16 @@ Drag a mix line by its handle to reorder it within a channel group. Order matter
 
 ## 10. Advanced View — Expos
 
-![Advanced view — Expos](screenshots/11-editor-expos.png)
+![Advanced view — Expos tab](screenshots/21-advanced-05-expos.png)
 
 Expo (exponential) and dual rate lines shape how physical inputs feel to drive, without changing the maximum output.
-
-Each line applies to one input channel (steering, throttle, etc.) and has:
 
 | Parameter | Description |
 |-----------|-------------|
 | Channel | The input to shape (steering, throttle, etc.) |
-| Mode | Both directions, positive only, negative only |
+| Mode | Both directions, positive only, or negative only |
 | Dual rate (weight) | Maximum travel as a percentage of full. 100% = no reduction. 70% = 30% reduced maximum |
-| Expo | Curve the response near centre. 0 = linear. Positive values make the centre softer |
+| Expo | Curve the response near centre. 0 = linear; positive values make the centre softer |
 | Switch | Only apply when this switch is active |
 | Flight modes | Which drive modes this line is active in |
 | Name | Optional label |
@@ -368,7 +406,7 @@ Multiple expo lines can be stacked on the same input — the active line is sele
 
 ## 11. Advanced View — Limits
 
-![Advanced view — Limits](screenshots/12-editor-limits.png)
+![Advanced view — Limits tab](screenshots/22-advanced-06-limits.png)
 
 Limits set hard caps on the servo signal sent on each output channel, regardless of what the mixer produces.
 
@@ -386,9 +424,9 @@ Use limits to prevent servo over-travel if the physical linkage cannot reach the
 
 ## 12. Advanced View — Logical Switches
 
-![Advanced view — Logical Switches](screenshots/13-editor-logical-sw.png)
+![Advanced view — Logical Switches tab](screenshots/23-advanced-07-logical-sw.png)
 
-Logical switches are virtual switches you create from conditions. They can be referenced anywhere a physical switch can be used — in mix conditions, expo lines, or special functions.
+Logical switches are virtual switches you create from conditions. They can be used anywhere a physical switch can — in mix conditions, expo lines, or special functions.
 
 ### Adding a logical switch
 
@@ -396,13 +434,13 @@ Click **＋ Add** to create a new logical switch.
 
 ### Configuring a logical switch
 
-Each row is one logical switch (L1, L2, …) with:
+Each row is one logical switch (L1, L2, …):
 
 | Column | Description |
 |--------|-------------|
 | Function | The logic type — see below |
 | Arg 1 / Arg 2 / Arg 3 | Inputs for the function |
-| AND SW | An additional gate switch — the logical switch is only active when this switch is also active |
+| AND SW | An additional gate switch — the logical switch is only active when this is also active |
 | Delay | Seconds to wait after condition becomes true before activating |
 | Duration | Seconds to stay active after condition becomes false |
 
@@ -410,7 +448,7 @@ Each row is one logical switch (L1, L2, …) with:
 
 | Function | Behaviour |
 |----------|-----------|
-| Sticky | Latches ON when triggered; stays ON until reset (great for cruise control) |
+| Sticky | Latches ON when triggered; stays ON until reset (used for cruise control) |
 | a=b / a≠b / a>b | Compares two values (channel outputs, pots, etc.) |
 | AND / OR / XOR | Combines two other switches |
 | Edge | Fires once on the rising edge of a switch |
@@ -420,16 +458,14 @@ Each row is one logical switch (L1, L2, …) with:
 
 ## 13. Advanced View — Special Functions
 
-![Advanced view — Special Functions](screenshots/14-editor-special-fn.png)
+![Advanced view — Special Functions tab](screenshots/24-advanced-08-special-fn.png)
 
 Special functions run an action when a switch is activated. They fire in real time on the transmitter.
-
-Each row has:
 
 | Column | Description |
 |--------|-------------|
 | Switch | The trigger — any physical or logical switch |
-| Function | The action to perform — see below |
+| Function | The action to perform |
 | Parameter | Function-specific parameter (filename, value, etc.) |
 | Repeat | Trigger once, or keep firing while the switch is active |
 | Active | Enable/disable this row without deleting it |
@@ -449,56 +485,57 @@ Each row has:
 
 ## 14. Advanced View — KidControl Tab
 
-![KidControl tab in advanced view](screenshots/15-editor-kidcontrol-tab.png)
+![Advanced KidControl tab — wizard (not yet configured)](screenshots/25-advanced-09-kidcontrol.png)
 
-The KidControl tab in Advanced view gives access to the same wizard and active-configuration summary as the Basic view, but within the tabbed Advanced layout.
+The KidControl tab shows the wizard directly when KidControl is not yet configured for this model. The three-step flow (vehicle type → speed class → sliders) is identical to the Basic view path — see [KidControl Wizard](#5-kidcontrol-wizard).
 
-When **KidControl is not yet configured**, it shows the three-step wizard (vehicle type → speed class → sliders).
+When **KidControl is active**, the tab shows a summary card:
 
-When **KidControl is active**, it shows a summary card with:
+![Advanced KidControl tab — active state](screenshots/48-advanced-kidcontrol-active.png)
 
-- The trigger switch currently assigned
+The summary shows:
+- The trigger switch currently assigned (e.g. FL10)
 - Throttle limit and expo settings
+- Speed-up and speed-down ramp times
 - Steering limit and expo settings
-- Throttle ramp-up and ramp-down times
-- A **Reconfigure** button to re-run the wizard with new values
-- A **Remove KidControl** button to delete the FM1 drive mode and all associated KidControl mix/expo lines
+- A **Remove KidControl** button to delete the FM1 drive mode and all associated mix/expo lines
 
 ---
 
 ## 15. Radio Settings
 
-The Radio Settings page configures transmitter-global options — audio, display, and switch/pot labelling. Access it from the **Radio Settings** button in the header.
+Access Radio Settings from the **Radio Settings** button in the header.
 
-> **Note:** Radio Settings requires an SD card to be connected. The settings are stored in `RADIO/radio.yml` on the card.
+> **Note:** Radio Settings requires an SD card (or demo) to be connected. The settings are read from and written to `RADIO/radio.yml` on the card.
 
-Two buttons appear in the top bar when an SD card is connected and radio settings are loaded:
+Two buttons appear in the top bar when radio settings are loaded:
 
-- **Backup** — writes an immediate timestamped backup of the current radio settings to `BACKUP/`. The button briefly shows "Backed up!" to confirm.
-- **History** — opens the radio backup browser (grayed out if no radio backups exist yet). From there you can preview, restore, download, or delete radio backups. Restore loads the backup into memory and marks radio settings as unsaved — click **Save** to write it back to the card.
+- **Backup** — writes a timestamped backup of the current radio settings to `BACKUP/`. Briefly shows "Backed up!" to confirm.
+- **History** — opens the radio backup browser (greyed out if no radio backups exist). Lets you preview, restore, download, or delete radio backups.
 
-![Radio Settings — top](screenshots/19-radio-settings-top.png)
+### Audio tab
 
-### Audio
+![Radio Settings — Audio tab](screenshots/36-radio-settings-audio.png)
 
-| Setting | Description |
-|---------|-------------|
-| Beep volume | Volume for key-press beeps and alerts |
-| WAV volume | Volume for audio file playback (special functions) |
-| Vario volume | Volume for variometer audio (if applicable) |
-| Background volume | Volume for background music |
-| Speaker pitch | Tone pitch for beep sounds |
+| Section | Settings |
+|---------|---------|
+| Volumes | Speaker volume, Beep volume, WAV volume, Vario volume, Background volume, Speaker pitch |
+| Beep & Haptic | Beep mode (quiet/alarms/nokey/all), Beep length, Haptic mode, Haptic strength, Haptic length |
 
-### Display
+### Display tab
+
+![Radio Settings — Display tab](screenshots/37-radio-settings-display.png)
 
 | Setting | Description |
 |---------|-------------|
 | Backlight mode | Off, Keys, Sticks, Keys+Sticks, Always on |
 | Backlight delay | How long before the backlight turns off |
 | Brightness | Screen brightness level |
-| Colour | Screen colour theme (where supported) |
+| Contrast | Display contrast |
 
-### Switches
+### Switches tab
+
+![Radio Settings — Switches tab](screenshots/38-radio-settings-switches.png)
 
 Configure the **type** and **name** of each physical switch on the MT12:
 
@@ -508,14 +545,16 @@ Configure the **type** and **name** of each physical switch on the MT12:
 | SB, SC, SD | 2-position toggle | Some may be momentary |
 | FL1, FL2 | 2-position latching | |
 
-Setting a meaningful name (e.g. "KID" for FL1 if used for KidControl) causes that name to appear on the transmitter screen and in the diagram labels.
+Setting a meaningful name (e.g. "KID" for FL1 when used for KidControl) causes that name to appear on the transmitter screen and in the diagram labels.
 
-### Pots
+### Pots tab
+
+![Radio Settings — Pots tab](screenshots/39-radio-settings-pots.png)
 
 Configure the **type** and **name** of each pot (scroll wheel/knob):
 
-| Pot | Use |
-|-----|-----|
+| Pot | Default use |
+|-----|-------------|
 | P1 | Scroll wheel — typically steering trim or auxiliary |
 | P2 | Scroll wheel with centre detent — speed limiter by default |
 | P3 | Joystick X axis (if expansion module fitted) |
@@ -523,131 +562,130 @@ Configure the **type** and **name** of each pot (scroll wheel/knob):
 
 ### MT12 Controls diagram
 
-The diagram on the right of the Radio Settings page shows the transmitter layout with your configured labels. Clicking a control in the diagram scrolls to its configuration section.
+The diagram on the right of the Radio Settings page shows the transmitter layout with your configured labels. Each control is annotated with its current name. Use **⚙ Reposition labels** to adjust label placement and **Reset** to restore defaults.
 
 ---
 
 ## 16. Vehicle Types
 
-The Vehicle Types page lets you manage the list of vehicle types that appear in the model editor's **Vehicle details** section and in the KidControl wizard.
+Access Vehicle Types from the **Vehicle Types** button in the header.
 
-![Vehicle Types page](screenshots/23-vehicle-types-page.png)
+![Vehicle Types page](screenshots/41-vehicle-types.png)
+
+The Vehicle Types page manages the list of categories that appear in the model editor's **Vehicle details** section and in the KidControl wizard.
 
 ### Built-in categories
 
 Nine categories are always available and cannot be deleted:
 
-| Category | Description | KidControl preset |
-|----------|-------------|-------------------|
-| 🐢 Crawler | Rock crawler — very low speed, maximum precision | Crawler |
-| ⛰️ Scale Trail | Scale trail truck — realistic crawling | Crawler |
-| 🏁 Short Course | Short course truck — off-road oval racing | Sport |
-| 🏎️ Buggy / Truggy | Off-road buggy or truggy — fast and agile | Rally |
-| 🚛 Monster Truck | Monster truck — big air, bashing | Sport |
-| 🏎️ Sport / Touring | On-road sport or touring car | Sport |
-| 🚗 Rally | Rally car — mixed surface, aggressive throttle | Rally |
-| ⚡ Desert Racer | High-speed desert racer — very fast | High-speed |
-| 💨 Drift | Drift car — controlled slides, rear-wheel drive | Sport |
+| Category | KidControl preset | Speed range |
+|----------|------------------|-------------|
+| 🐢 Crawler | Crawler | 3–8 mph |
+| ⛰️ Scale Trail | Crawler | 5–18 mph |
+| 🏁 Short Course | Sport | 25–55 mph |
+| 🏎️ Buggy / Truggy | Rally | 35–65 mph |
+| 🚛 Monster Truck | Sport | 20–45 mph |
+| 🏎️ Sport / Touring | Sport | 30–60 mph |
+| 🚗 Rally | Rally | 40–70 mph |
+| ⚡ Desert Racer | High-speed | 55–90 mph |
+| 💨 Drift | Sport | 20–50 mph |
 
-The **KidControl preset** column shows which set of default limits the KidControl wizard uses for that category.
+The **KidControl preset** determines which set of default throttle and steering limits the KidControl wizard uses for that category.
 
 ### Custom categories
 
-Click **＋ Add type** to create a custom vehicle category. Each category has:
+Click **＋ Add custom type** to create a custom vehicle category. Each category has:
 
 | Field | Description |
 |-------|-------------|
 | Name | Display name shown in model cards and the wizard |
 | Icon/image | An image uploaded from your computer, stored on the SD card |
-| KidControl defaults | Pre-set throttle limit, steering limit, and expo values for the KidControl wizard |
+| KidControl defaults | Pre-set throttle limit, steering limit, and expo values |
 
 Custom categories are stored in `.webconfig/vehicle-categories.json` on the SD card — they travel with the card, not with individual model files.
 
 ---
 
-## 17. App Settings
-
-Click the **⚙** icon in the header to open App Settings.
-
-![App Settings modal](screenshots/02-settings-modal.png)
-
-| Setting | Description |
-|---------|-------------|
-| Max backups per model | How many backup copies to keep per model in `BACKUP/` on the SD card. Older backups are pruned automatically when this limit is exceeded. Default: 5 |
-
-Settings are saved to `.webconfig/app-settings.json` on the SD card when one is connected, and to the browser's `localStorage` when offline.
-
----
-
-## 18. Saving & Backup
+## 17. Saving & Backup
 
 ### Saving with an SD card connected
 
-Click **Save** (the blue button in the model editor top bar) to write the current model to the SD card. Before writing, the app automatically creates a timestamped backup in the `BACKUP/` folder.
+Click **Save** (the blue button in the model editor top bar, visible when changes are unsaved) to write the current model to the SD card. Before writing, the app automatically creates a timestamped backup in the `BACKUP/` folder.
 
-Click **Save All** (in the app header, visible when any model has unsaved changes) to save every dirty model in one action.
+Click **Save all (N)** (in the app header) to save every model with unsaved changes in one action.
 
 A model with unsaved changes shows an **Unsaved** badge in the editor top bar and a dot on its card in the model list.
 
 ### Saving without an SD card
 
-If no SD card is connected, **Save** downloads the `.yml` file to your computer. You can then copy it to the card manually.
+If no SD card is connected, **Save** downloads the `.yml` file to your computer. Copy it to the SD card manually when ready.
 
 ### Unsaved changes guard
 
 If you try to navigate away from a model with unsaved changes, the app shows a confirmation dialog.
 
-![Unsaved changes dialog](screenshots/24-unsaved-changes-leave-dialog.png)
+![Unsaved changes dialog](screenshots/31-unsaved-changes-dialog.png)
 
 - **Stay** — return to the editor without losing changes
 - **Leave** — discard the unsaved changes and navigate away
 
+The same dialog appears when navigating away from Radio Settings with unsaved changes.
+
 ### Manual backup
 
-When an SD card is connected, each model card shows a **Backup** button. Clicking it immediately writes a timestamped copy of the current model to the `BACKUP/` folder — useful before making risky edits, or when you want a named checkpoint without saving. This does not affect the **Unsaved** dirty state; it captures what is currently on disk, not any in-memory changes.
+When an SD card or demo is connected, each model card shows a **Backup** button. Clicking it immediately writes a timestamped copy of the model to `BACKUP/` — useful before making risky edits. This captures what is currently on disk, not any in-memory unsaved changes.
 
 ### Backup browser
 
-Both the **History** button (per model card) and the **Restore backup** toolbar button open the same backup browser. It has two panels:
+Both the **History** button (per model card) and **Manage backups** (model list toolbar) open the backup browser.
+
+![Backup history — per model](screenshots/34-backup-history-modal.png)
+
+The browser has two panels:
 
 **Left — backup list**
 
-Lists timestamped backup files, sorted newest-first.
+Lists timestamped backup files, sorted newest-first. In the **Manage backups** view (all-models), entries are grouped by model name — click a group header to expand it.
 
-In the **Manage backups** view (opened from the model list toolbar), entries are grouped by model name. Each group is collapsed by default — click a group header to expand it and see that model's individual backups.
-
-A **Manage** button at the top of the sidebar switches into delete mode: checkboxes appear on every entry, a **Select all** checkbox at the top selects or deselects everything, and a **Delete N** button appears when entries are checked. Clicking **Delete N** asks for a single confirmation before permanently removing all selected backups. Click **Done** to exit delete mode.
+A **Manage** button switches into delete mode: checkboxes appear on every entry, **Select all** selects everything, and **Delete N** permanently removes selected backups after a single confirmation.
 
 **Right — preview and restore**
 
-When you select a backup the right panel shows:
+When you select a backup, the right panel shows:
 
 | Control | Description |
 |---------|-------------|
-| **Restore to** | Dropdown to choose the destination slot. Pick any existing model slot to overwrite it, or pick **New slot** to load the backup as a fresh model in the next available slot. |
-| **Diff** checkbox | When the target slot contains an existing model, tick this to see a line-by-line diff (green `+` lines exist only in the backup; red `−` lines exist only in the current version). Untick to view the raw YAML. |
-| **Download** | Downloads the backup file as a `.yml` file to your computer without restoring it. |
-| **Restore** | Restores the backup into the chosen slot. The current version of the target model is itself backed up first. In the per-model history view, the dialog closes after restore; in the all-models view it stays open so you can restore multiple backups. Not available for radio backups — see below. |
+| **Restore to** | Dropdown to choose the target slot. Pick an existing slot to overwrite it, or **New slot** to load as a fresh model |
+| **Diff** checkbox | When the target slot has an existing model, shows a line-by-line diff (green `+` lines only in backup; red `−` lines only in current). Untick to view raw YAML |
+| **Download** | Downloads the backup file as `.yml` without restoring |
+| **Restore** | Restores the backup into the chosen slot. The current version of the target model is itself backed up first |
 
-A summary bar below the controls shows the count of added and removed lines when diffing.
-
-> **Radio backups** — radio backups do not appear in the model backup browser. Manage them via the **History** button on the Radio Settings page.
+> **Radio backups** — radio backups are managed via the **History** button on the Radio Settings page, not through the model backup browser.
 
 ### Restoring a deleted model
 
-If a model has been deleted its card is gone, so the **History** button is no longer accessible. Use the **Manage backups** button in the model list toolbar instead. This opens the backup browser in all-models mode, showing every backup file across all models. Select the backup, confirm it looks correct in the preview or diff, choose **New slot** (or an existing slot to overwrite) in the **Restore to** dropdown, then click **Restore**. The model loads as an unsaved draft — review it and click **Save** to write it back to the card.
+If a model has been deleted its card is gone, so the **History** button is no longer accessible. Use **Manage backups** in the model list toolbar to open the all-models backup browser. Select the backup, choose **New slot** (or an existing slot) in **Restore to**, and click **Restore**. The model loads as an unsaved draft — review it and click **Save** to write it back to the card.
 
 ---
 
-## 19. Help & About
+## 18. Help & About
 
-Click the **Help** button in the header to open the About dialog.
+### Help
 
-![Help / About modal](screenshots/03-help-about-modal.png)
+Click **Help** in the header to open a modal with links to the EdgeTX documentation and the official RadioMaster MT12 user manual (PDF).
+
+![Help modal](screenshots/04-help-modal.png)
+
+### About
+
+Click **About** in the header to open the About dialog.
+
+![About modal](screenshots/03-about-modal.png)
 
 This covers:
 
 - What the app does and doesn't do
+- Demo mode usage
 - The optional MT12 expansion module (joystick/buttons) and its current level of support
 - Known limitations (no telemetry editor, no graphical curve editor, no trainer port config, etc.)
 - Planned features on the roadmap

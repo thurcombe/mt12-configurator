@@ -320,6 +320,7 @@ export interface WizardParams {
   scale: string;
   modelName: string;
   vehicleType: string;
+  power: 'battery' | 'fuel' | '';
 }
 
 // Convert an existing analysis back into wizard params so the wizard can be pre-populated.
@@ -375,6 +376,7 @@ export function analysisToWizardParams(analysis: BasicAnalysis, model?: Model): 
     scale:           '',
     modelName:       model?.header?.name ?? '',
     vehicleType:     '',
+    power:           '',
   };
 }
 
@@ -403,6 +405,7 @@ export function defaultWizardParams(): WizardParams {
     scale: '',
     modelName: '',
     vehicleType: '',
+    power: '',
   };
 }
 

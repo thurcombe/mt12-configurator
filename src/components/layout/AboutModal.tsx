@@ -21,13 +21,32 @@ export function AboutModal({ onClose }: Props) {
             <h3 className={css.sectionTitle}>What this app does</h3>
             <p>This editor reads and writes EdgeTX model files directly from your MT12's SD card using the browser File System Access API. It provides a simplified interface for common surface vehicle tasks:</p>
             <ul className={css.list}>
-              <li>Guided setup wizard for throttle, steering, radio link protocol, failsafe, and speed limiter</li>
-              <li>KidControl — a safe driving mode with reduced throttle and steering limits activated by a switch</li>
-              <li>Vehicle type management with per-type KidControl presets and default images</li>
+              <li>Guided setup wizard for throttle, steering, gyro gain, radio link protocol, failsafe, and speed limiter</li>
+              <li>KidControl — a safe driving mode with reduced throttle, steering limits, and ramp rates, activated by a switch</li>
+              <li>Steering trim and gyro gain cards in the basic view for quick in-session adjustment</li>
+              <li>Vehicle type management with per-type KidControl presets and custom images</li>
               <li>Model photos, scale, and vehicle type metadata stored alongside your models on the SD card</li>
-              <li>Visual MT12 diagram with input highlighting during configuration</li>
+              <li>Visual MT12 diagram with live input highlighting during configuration</li>
               <li>Full round-trip fidelity — only the fields this editor manages are changed; everything else is preserved exactly</li>
             </ul>
+          </section>
+
+          <section className={css.section}>
+            <h3 className={css.sectionTitle}>Model management</h3>
+            <ul className={css.list}>
+              <li>Import and export individual models as EdgeTX YAML files</li>
+              <li>Duplicate a model with a new name</li>
+              <li>Delete a model with an option to also remove its backups</li>
+              <li>Automatic timestamped backups on every save, with configurable retention count (default 5)</li>
+              <li>Per-model and all-models backup history with YAML diff view, restore to any saved point, and batch delete</li>
+            </ul>
+          </section>
+
+          <section className={css.section}>
+            <h3 className={css.sectionTitle}>Demo mode</h3>
+            <p>
+              Append <code>?demo</code> to the URL to load a virtual in-memory SD card with sample models. Changes are not persisted to disk — use the <strong>Download SD card</strong> button to export the result as a ZIP file.
+            </p>
           </section>
 
           <section className={css.section}>
@@ -46,7 +65,7 @@ export function AboutModal({ onClose }: Props) {
           <section className={css.section}>
             <h3 className={css.sectionTitle}>Other known limitations</h3>
             <ul className={css.list}>
-              <li><strong>Single flight mode:</strong> The wizard configures flight mode 0 only. KidControl uses flight mode 1 as its safe-mode slot. Multi-flight-mode setups (more than two modes) are not supported in the basic view — use Advanced view.</li>
+              <li><strong>Single drive mode:</strong> The wizard configures drive mode 0 only. KidControl uses drive mode 1 as its safe-mode slot. Multi-mode setups (more than two modes) are not supported in the basic view — use Advanced view.</li>
               <li><strong>No curve editor:</strong> Expo values can be read and written via the Advanced view, but there is no graphical curve editor.</li>
               <li><strong>No telemetry configuration:</strong> Telemetry sensor setup, alarms, and logging are not accessible — use the transmitter menu or OpenTX Companion.</li>
               <li><strong>No trainer / buddy-box:</strong> Trainer port and buddy-box configuration is not supported.</li>
@@ -60,9 +79,7 @@ export function AboutModal({ onClose }: Props) {
             <ul className={css.list}>
               <li>Expansion module input labelling and diagram highlight for joystick and button inputs</li>
               <li>Graphical expo / curve editor</li>
-              <li>Multi-flight-mode management beyond KidControl</li>
-              <li>Exporting and importing model metadata (<code>.webconfig</code>) alongside YAML</li>
-              <li>OpenTX Companion-compatible backup/restore</li>
+              <li>Multi-drive-mode management beyond KidControl</li>
             </ul>
           </section>
         </div>

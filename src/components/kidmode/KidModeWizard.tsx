@@ -97,7 +97,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey }: Props) {
   const [vehicleLabel, setVehicleLabel] = useState<string>(storedCat?.name ?? VEHICLE_LABELS[derivedKidType ?? 'crawler']);
   const [speed, setSpeed] = useState<SpeedClass>('slow');
   const [params, setParams] = useState<KidModeParams>(DEFAULTS[derivedKidType ?? 'crawler'].slow);
-  const [triggerSwitch, setTriggerSwitch] = useState('FL10');
+  const [triggerSwitch, setTriggerSwitch] = useState('SA2');
 
   const active = isKidModeActive(model);
 
@@ -290,9 +290,9 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey }: Props) {
           <div className={css.section}>
             <h4 className={css.sectionTitle}>Trigger switch</h4>
             <p className={css.switchHint}>KidControl activates when this switch is in the selected position (FM1).</p>
-            <div className={css.switchRow}>
-              <label className={css.switchLabel}>Switch</label>
-              <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} />
+            <div className={css.sliderRow}>
+              <span className={css.sliderLabel}>Switch</span>
+              <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} />
             </div>
           </div>
 

@@ -25,6 +25,8 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const createModel = useEditorStore((s) => s.createModel);
   const duplicateModel = useEditorStore((s) => s.duplicateModel);
   const deleteModel = useEditorStore((s) => s.deleteModel);
+  const listBackupsForModel = useEditorStore((s) => s.listBackups);
+  const deleteBackupEntry = useEditorStore((s) => s.deleteBackup);
   const importModelFromYaml = useEditorStore((s) => s.importModelFromYaml);
   const backupModel = useEditorStore((s) => s.backupModel);
 
@@ -32,6 +34,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const [historyFor, setHistoryFor] = useState<{ key: string; name: string } | null>(null);
   const [restoreAllOpen, setRestoreAllOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDeleteBackupsToo, setConfirmDeleteBackupsToo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -56,10 +59,18 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
     duplicateModel(sourceKey, slot);
   }
 
-  function handleDeleteConfirm() {
+  async function handleDeleteConfirm() {
     if (!confirmDelete) return;
+    if (confirmDeleteBackupsToo) {
+      const modelName = models[confirmDelete]?.header?.name ?? 'unknown';
+      const backups = await listBackupsForModel(modelName);
+      for (const backup of backups) {
+        await deleteBackupEntry(backup);
+      }
+    }
     deleteModel(confirmDelete);
     setConfirmDelete(null);
+    setConfirmDeleteBackupsToo(false);
   }
 
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -137,6 +148,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 imageUrl={modelImages[key]}
                 scale={modelMeta[key]?.scale}
                 vehicleTypeName={vehicleTypeName}
+                power={modelMeta[key]?.power}
                 vehicleTypeImageUrl={vehicleTypeImageUrl}
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}
@@ -199,8 +211,16 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             <div className={css.confirmMsg}>
               This will permanently delete <strong>{models[confirmDelete]?.header?.name || confirmDelete}</strong> from the SD card immediately. This cannot be undone.
             </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={confirmDeleteBackupsToo}
+                onChange={(e) => setConfirmDeleteBackupsToo(e.target.checked)}
+              />
+              Also delete all backups for this model
+            </label>
             <div className={css.confirmActions}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setConfirmDelete(null); setConfirmDeleteBackupsToo(false); }}>Cancel</button>
               <button className="btn btn-danger btn-sm" onClick={handleDeleteConfirm}>Delete</button>
             </div>
           </div>

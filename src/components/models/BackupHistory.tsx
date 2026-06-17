@@ -51,6 +51,8 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
   const restoreBackup = useEditorStore((s) => s.restoreBackup);
   const restoreRadioBackup = useEditorStore((s) => s.restoreRadioBackup);
   const deleteBackupEntry = useEditorStore((s) => s.deleteBackup);
+  const settings = useEditorStore((s) => s.settings);
+  const updateSettings = useEditorStore((s) => s.updateSettings);
 
   // Mode: per-model | radio-only | all-models
   const perModelMode = !!modelKey;
@@ -238,6 +240,24 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
           <span className={css.panelTitle}>{title}</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
+        {allModelsMode && (
+          <div style={{ padding: '8px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-muted)' }}>
+            <label htmlFor="bh-backup-count" style={{ flexShrink: 0 }}>Max backups per model</label>
+            <input
+              id="bh-backup-count"
+              type="number"
+              min={1}
+              max={50}
+              value={settings.backupCount}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v) && v >= 1) updateSettings({ backupCount: Math.min(50, v) });
+              }}
+              style={{ width: 56, background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 6px', fontSize: 13, fontFamily: 'var(--font)', textAlign: 'right' }}
+            />
+            <span style={{ fontSize: 12 }}>Older backups are pruned automatically on save.</span>
+          </div>
+        )}
 
         <div className={css.body}>
           {/* Sidebar */}

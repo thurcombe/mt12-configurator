@@ -1,14 +1,31 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import type { Route } from '../../App.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
-import { SettingsModal } from './SettingsModal.tsx';
 import { AboutModal } from './AboutModal.tsx';
+import { HelpModal } from './HelpModal.tsx';
 import css from './AppShell.module.css';
+import { exportToZip } from '../../fs/memoryFs.ts';
+import type { MemoryDirHandle } from '../../fs/memoryFs.ts';
 
 interface Props {
   children: ReactNode;
   route: Route;
   navigate: (r: Route) => void;
+}
+
+function isDemoMode(): boolean {
+  return new URLSearchParams(window.location.search).has('demo');
+}
+
+async function downloadDemoZip(root: unknown) {
+  const zip = await exportToZip(root as MemoryDirHandle);
+  const blob = new Blob([zip.buffer as ArrayBuffer], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mt12-sdcard.zip';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function AppShell({ children, route, navigate }: Props) {
@@ -22,13 +39,45 @@ export function AppShell({ children, route, navigate }: Props) {
   const disconnectSdCard = useEditorStore((s) => s.disconnectSdCard);
   const saveAll = useEditorStore((s) => s.saveAll);
 
-  const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
+  const demo = isDemoMode();
   const dirtyCount = dirty.size;
+
+  // Auto-connect the virtual SD card when entering demo mode.
+  useEffect(() => {
+    if (demo && !sdRoot) {
+      connectSdCard();
+    }
+  }, [demo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={css.shell}>
+      {demo && (
+        <div style={{
+          background: 'color-mix(in srgb, var(--accent) 18%, transparent)',
+          borderBottom: '1px solid var(--accent)',
+          padding: '6px 20px',
+          fontSize: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          color: 'var(--accent)',
+        }}>
+          <strong>Demo mode</strong> — changes are in-memory only and will be lost on refresh.
+          {sdRoot && (
+            <button
+              className="btn btn-sm"
+              style={{ marginLeft: 'auto', fontSize: 11, borderColor: 'var(--accent)', color: 'var(--accent)' }}
+              onClick={() => downloadDemoZip(sdRoot)}
+            >
+              Download SD card ↓
+            </button>
+          )}
+        </div>
+      )}
+
       <header className={css.header}>
         <button
           className={css.title}
@@ -56,65 +105,46 @@ export function AppShell({ children, route, navigate }: Props) {
         </button>
 
         <button
-          className="btn btn-ghost btn-sm"
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
           onClick={() => navigate({ page: 'vehicle-types' })}
           style={route.page === 'vehicle-types' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
         >
           Vehicle Types
         </button>
 
-        <a
-          href="https://manual.edgetx.org/"
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-ghost btn-sm"
-          title="EdgeTX documentation"
-          style={{ fontSize: 12 }}
-        >
-          EdgeTX docs
-        </a>
-
-        <a
-          href="https://cdn.shopify.com/s/files/1/0701/8066/7584/files/MT12_A1.4.pdf?v=1770617495"
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-ghost btn-sm"
-          title="Radiomaster MT12 user manual (PDF)"
-          style={{ fontSize: 12 }}
-        >
-          MT12 manual
-        </a>
-
         <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowAbout(true)}
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
+          onClick={() => setShowHelp(true)}
           style={{ fontSize: 12 }}
         >
           Help
         </button>
 
         <button
-          className="btn btn-ghost btn-sm"
-          title="App settings"
-          onClick={() => setShowSettings(true)}
-          style={{ padding: '4px 8px', fontSize: 16 }}
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
+          onClick={() => setShowAbout(true)}
+          style={{ fontSize: 12 }}
         >
-          ⚙
+          About
         </button>
 
         <div className={css.sdStatus}>
           <span className={`${css.dot} ${sdRoot ? css.connected : css.disconnected}`} />
           {sdRoot ? (
             <>
-              <span>SD card connected</span>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={disconnectSdCard}>
-                Disconnect
-              </button>
+              <span>{demo ? 'Demo loaded' : 'SD card connected'}</span>
+              {!demo && (
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={disconnectSdCard}>
+                  Disconnect
+                </button>
+              )}
             </>
           ) : (
-            <button className="btn btn-ghost btn-sm" onClick={connectSdCard}>
-              Connect SD card
-            </button>
+            !demo && (
+              <button className="btn btn-ghost btn-sm" onClick={connectSdCard}>
+                Connect SD card
+              </button>
+            )
           )}
         </div>
       </header>
@@ -161,8 +191,8 @@ export function AppShell({ children, route, navigate }: Props) {
 
       <main className={css.main}>{children}</main>
 
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

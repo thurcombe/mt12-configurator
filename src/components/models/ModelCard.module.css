@@ -28,6 +28,13 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.25s ease;
+}
+
+.image:hover {
+  transform: scale(1.15);
+  filter: brightness(1.08);
+  cursor: zoom-in;
 }
 
 .imageContain {

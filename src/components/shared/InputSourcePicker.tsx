@@ -92,7 +92,7 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
                   >
                     <div style={{ fontSize:13 }}>{opt.label}</div>
                     {opt.conflict && (
-                      <div style={{ fontSize:11, color: isSelected ? 'rgba(255,255,255,0.75)' : 'var(--danger)' }}>
+                      <div style={{ fontSize:11, color: isSelected ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)' }}>
                         Already used by {opt.conflict}
                       </div>
                     )}

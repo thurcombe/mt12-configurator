@@ -62,6 +62,31 @@ export async function listModelFiles(root: SdRoot): Promise<string[]> {
   return names.sort();
 }
 
+// Returns all image files in a directory as {filename, url} pairs. Returns [] if dir doesn't exist.
+export async function listImagesInDir(
+  root: SdRoot,
+  dirPath: string,
+): Promise<Array<{ filename: string; url: string }>> {
+  const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp', 'avif', 'svg', 'tiff', 'tif', 'ico', 'heic', 'heif']);
+  const result: Array<{ filename: string; url: string }> = [];
+  let dir: FileSystemDirectoryHandle;
+  try {
+    dir = await resolveDir(root, dirPath.split('/'));
+  } catch {
+    return result;
+  }
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind !== 'file') continue;
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) continue;
+    const ext = name.slice(dot + 1).toLowerCase();
+    if (!IMAGE_EXTS.has(ext)) continue;
+    const file = await (handle as FileSystemFileHandle).getFile();
+    result.push({ filename: name, url: URL.createObjectURL(file) });
+  }
+  return result.sort((a, b) => a.filename.localeCompare(b.filename));
+}
+
 // Returns all files in a directory (non-recursive). Returns [] if dir doesn't exist.
 export async function listDirFiles(root: SdRoot, dirPath: string): Promise<string[]> {
   try {
