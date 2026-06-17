@@ -25,16 +25,17 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const createModel = useEditorStore((s) => s.createModel);
   const duplicateModel = useEditorStore((s) => s.duplicateModel);
   const deleteModel = useEditorStore((s) => s.deleteModel);
+  const backupModel = useEditorStore((s) => s.backupModel);
   const listBackupsForModel = useEditorStore((s) => s.listBackups);
   const deleteBackupEntry = useEditorStore((s) => s.deleteBackup);
   const importModelFromYaml = useEditorStore((s) => s.importModelFromYaml);
-  const backupModel = useEditorStore((s) => s.backupModel);
 
   const [loading, setLoading] = useState(false);
   const [historyFor, setHistoryFor] = useState<{ key: string; name: string } | null>(null);
   const [restoreAllOpen, setRestoreAllOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmDeleteBackupsToo, setConfirmDeleteBackupsToo] = useState(false);
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -53,10 +54,10 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
     navigate({ page: 'editor', modelKey: slot });
   }
 
-  function handleDuplicate(sourceKey: string) {
+  async function handleDuplicate(sourceKey: string) {
     const slot = findFreeSlot(modelKeys);
     if (!slot) return;
-    duplicateModel(sourceKey, slot);
+    await duplicateModel(sourceKey, slot);
   }
 
   async function handleDeleteConfirm() {
@@ -67,6 +68,8 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       for (const backup of backups) {
         await deleteBackupEntry(backup);
       }
+    } else {
+      await backupModel(confirmDelete);
     }
     deleteModel(confirmDelete);
     setConfirmDelete(null);
@@ -79,9 +82,9 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
     const slot = findFreeSlot(modelKeys);
     if (!slot) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const yaml = ev.target?.result as string;
-      importModelFromYaml(slot, yaml);
+      await importModelFromYaml(slot, yaml);
       navigate({ page: 'editor', modelKey: slot });
     };
     reader.readAsText(file);
@@ -121,7 +124,12 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             </button>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => { setLoading(true); loadAllModels().finally(() => setLoading(false)); }}
+              onClick={() => {
+                const modelDirty = [...dirty].some(k => k !== 'radio');
+                if (modelDirty) { setConfirmRefresh(true); return; }
+                setLoading(true);
+                loadAllModels().finally(() => setLoading(false));
+              }}
             >
               Refresh from card
             </button>
@@ -203,6 +211,25 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       )}
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+
+      {confirmRefresh && (
+        <div className={css.confirmOverlay}>
+          <div className={css.confirmBox}>
+            <div className={css.confirmTitle}>Discard unsaved changes?</div>
+            <div className={css.confirmMsg}>
+              You have unsaved changes. Refreshing will reload all models from the card and discard them.
+            </div>
+            <div className={css.confirmActions}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmRefresh(false)}>Cancel</button>
+              <button className="btn btn-danger btn-sm" onClick={() => {
+                setConfirmRefresh(false);
+                setLoading(true);
+                loadAllModels().finally(() => setLoading(false));
+              }}>Discard and refresh</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmDelete && (
         <div className={css.confirmOverlay}>

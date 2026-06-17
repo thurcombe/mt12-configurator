@@ -37,7 +37,6 @@ export function AppShell({ children, route, navigate }: Props) {
   const clearWarnings = useEditorStore((s) => s.clearWarnings);
   const connectSdCard = useEditorStore((s) => s.connectSdCard);
   const disconnectSdCard = useEditorStore((s) => s.disconnectSdCard);
-  const saveAll = useEditorStore((s) => s.saveAll);
 
   const [showAbout, setShowAbout] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -90,13 +89,7 @@ export function AppShell({ children, route, navigate }: Props) {
 
         <div className={css.spacer} />
 
-        {sdRoot && dirtyCount > 0 && (
-          <button className="btn btn-primary btn-sm" onClick={saveAll} title={`Save all ${dirtyCount} unsaved item${dirtyCount !== 1 ? 's' : ''}`}>
-            Save all ({dirtyCount})
-          </button>
-        )}
-
-        <button
+<button
           className="btn btn-ghost btn-sm"
           onClick={() => navigate({ page: 'radio' })}
           style={route.page === 'radio' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}

@@ -39,11 +39,11 @@ export function serialiseModel(model: Model): string {
   // then strips the quotes js-yaml adds to digit-only strings).
   const out = {
     ...model,
-    mixData: model.mixData.map((line) => ({
+    mixData: (model.mixData ?? []).map((line) => ({
       ...line,
       flightModes: normaliseFlightModes(line.flightModes),
     })),
-    expoData: model.expoData.map((line) => ({
+    expoData: (model.expoData ?? []).map((line) => ({
       ...line,
       flightModes: normaliseFlightModes(line.flightModes),
     })),

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
 import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages } from '../fs/sdcard.ts';
 import { createMemoryRoot } from '../fs/memoryFs.ts';
-import { SD_TEMPLATE } from 'virtual:sd-template';
+import SD_TEMPLATE from '../data/sd-template.json';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
 import { writeBackup, listBackups, listAllBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
@@ -68,8 +68,10 @@ interface EditorState {
 
   // Model images — object URLs keyed by model slot key
   modelImages: Record<ModelKey, string>;
+  pendingModelImageFiles: Record<ModelKey, File>;
   loadModelImages: () => Promise<void>;
   uploadModelImage: (key: ModelKey, file: File) => Promise<void>;
+  revertModelImage: (key: ModelKey, prevFile: File | null, wasAlreadyDirty: boolean) => Promise<void>;
 
   // Per-model app metadata — stored in .webconfig/model-meta.json
   modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>;
@@ -107,9 +109,9 @@ interface EditorState {
   saveAllModels: () => Promise<void>;
   updateModel: (key: ModelKey, updater: (m: Model) => Model) => void;
   createModel: (key: ModelKey, name?: string) => void;
-  duplicateModel: (sourceKey: ModelKey, destKey: ModelKey) => void;
+  duplicateModel: (sourceKey: ModelKey, destKey: ModelKey) => Promise<void>;
   deleteModel: (key: ModelKey) => Promise<void>;
-  importModelFromYaml: (key: ModelKey, yaml: string) => void;
+  importModelFromYaml: (key: ModelKey, yaml: string) => Promise<void>;
 
   // Actions — radio
   loadRadio: () => Promise<void>;
@@ -158,6 +160,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   warnings: [],
   settings: DEFAULT_SETTINGS,
   modelImages: {},
+  pendingModelImageFiles: {},
   modelMeta: {},
   vehicleCategories: BUILT_IN_CATEGORIES,
   vehicleTypeImages: {},
@@ -165,52 +168,90 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setDiagramHighlight: (control) => set({ diagramHighlight: control }),
 
   loadModelImages: async () => {
-    const { sdRoot, models } = get();
+    const { sdRoot, models, pendingModelImageFiles } = get();
     if (!sdRoot) return;
     const keys = Object.keys(models);
     if (keys.length === 0) return;
     try {
       const images = await findModelImages(sdRoot, keys);
-      set({ modelImages: images });
+      // Don't overwrite object URLs for keys with pending (unsaved) image changes.
+      const filtered = Object.fromEntries(
+        Object.entries(images).filter(([k]) => !pendingModelImageFiles[k as ModelKey])
+      ) as Record<ModelKey, string>;
+      set((s) => ({ modelImages: { ...s.modelImages, ...filtered } }));
     } catch { /* ignore */ }
   },
 
   uploadModelImage: async (key, file) => {
     assertValidModelKey(key);
-    const { sdRoot, modelImages } = get();
-    const ext = safeImageExt(file.name);
-    const sdPath = `IMAGES/${key}${ext}`;
-    if (sdRoot) {
-      const buf = await file.arrayBuffer();
-      await writeBinaryFile(sdRoot, sdPath, buf);
-    }
-    if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
     const url = URL.createObjectURL(file);
-    set({ modelImages: { ...modelImages, [key]: url } });
+    set((s) => {
+      if (s.modelImages[key]) URL.revokeObjectURL(s.modelImages[key]);
+      const dirty = new Set(s.dirty);
+      dirty.add(key);
+      return {
+        pendingModelImageFiles: { ...s.pendingModelImageFiles, [key]: file },
+        modelImages: { ...s.modelImages, [key]: url },
+        dirty,
+      };
+    });
   },
 
-  setModelScale: async (key, scale) => {
-    const { sdRoot, modelMeta } = get();
-    const next = { ...modelMeta, [key]: { ...(modelMeta[key] ?? {}), scale } };
-    set({ modelMeta: next });
-    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  revertModelImage: async (key, prevFile, wasAlreadyDirty) => {
+    set((s) => {
+      const modelImages = { ...s.modelImages };
+      const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+      const dirty = new Set(s.dirty);
+      if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
+      if (prevFile) {
+        modelImages[key] = URL.createObjectURL(prevFile);
+        pendingModelImageFiles[key] = prevFile;
+      } else {
+        delete modelImages[key];
+        delete pendingModelImageFiles[key];
+        if (!wasAlreadyDirty) dirty.delete(key);
+      }
+      return { modelImages, pendingModelImageFiles, dirty };
+    });
+    if (!prevFile) {
+      const { sdRoot } = get();
+      if (sdRoot) {
+        try {
+          const images = await findModelImages(sdRoot, [key]);
+          set((s) => ({ modelImages: { ...s.modelImages, ...images } }));
+        } catch { /* ignore */ }
+      }
+    }
   },
 
-  setModelVehicleType: async (key, vehicleType) => {
-    const { sdRoot, modelMeta } = get();
-    const next = { ...modelMeta, [key]: { ...(modelMeta[key] ?? {}), vehicleType } };
-    set({ modelMeta: next });
-    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  setModelScale: (key, scale) => {
+    set((s) => {
+      const modelMeta = { ...s.modelMeta, [key]: { ...(s.modelMeta[key] ?? {}), scale } };
+      const dirty = new Set(s.dirty);
+      dirty.add(key);
+      return { modelMeta, dirty };
+    });
   },
 
-  setModelPower: async (key, power) => {
-    const { sdRoot, modelMeta } = get();
-    const entry = { ...(modelMeta[key] ?? {}) };
-    if (power) entry.power = power as 'battery' | 'fuel';
-    else delete entry.power;
-    const next = { ...modelMeta, [key]: entry };
-    set({ modelMeta: next });
-    if (sdRoot) writeWebConfig(sdRoot, 'model-meta.json', next).catch(() => {});
+  setModelVehicleType: (key, vehicleType) => {
+    set((s) => {
+      const modelMeta = { ...s.modelMeta, [key]: { ...(s.modelMeta[key] ?? {}), vehicleType } };
+      const dirty = new Set(s.dirty);
+      dirty.add(key);
+      return { modelMeta, dirty };
+    });
+  },
+
+  setModelPower: (key, power) => {
+    set((s) => {
+      const entry = { ...(s.modelMeta[key] ?? {}) };
+      if (power) entry.power = power as 'battery' | 'fuel';
+      else delete entry.power;
+      const modelMeta = { ...s.modelMeta, [key]: entry };
+      const dirty = new Set(s.dirty);
+      dirty.add(key);
+      return { modelMeta, dirty };
+    });
   },
 
   loadVehicleCategories: async () => {
@@ -293,6 +334,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       dirty: new Set(),
       freshModelKeys: new Set(),
       modelImages: {},
+      pendingModelImageFiles: {},
       modelMeta: {},
       vehicleCategories: BUILT_IN_CATEGORIES,
       vehicleTypeImages: {},
@@ -319,7 +361,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }
       }
       set((s) => {
-        // Any slot loaded from disk is no longer a fresh unsaved model.
+        // Any slot loaded from disk is no longer dirty or fresh.
         const freshModelKeys = new Set(s.freshModelKeys);
         for (const key of Object.keys(updates)) freshModelKeys.delete(key);
         // Rebuild model map from disk only, plus intentionally-created fresh models.
@@ -331,7 +373,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const newModels = { ...freshModels, ...updates };
         // Drop stale dirty flags for models that no longer exist.
         const dirty = new Set([...s.dirty].filter((k) => k === 'radio' || newModels[k as ModelKey]));
-        return { models: newModels, dirty, warnings: newWarnings, lastError: null, freshModelKeys };
+        // Clean up pending image state for models reloaded from disk.
+        const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+        const modelImages = { ...s.modelImages };
+        for (const key of Object.keys(updates)) {
+          if (pendingModelImageFiles[key as ModelKey]) {
+            if (modelImages[key as ModelKey]) URL.revokeObjectURL(modelImages[key as ModelKey]);
+            delete modelImages[key as ModelKey];
+            delete pendingModelImageFiles[key as ModelKey];
+          }
+        }
+        return { models: newModels, dirty, warnings: newWarnings, lastError: null, freshModelKeys, pendingModelImageFiles, modelImages };
       });
       get().loadModelImages();
     } catch (e) {
@@ -389,10 +441,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         await writeBackup(sdRoot, modelNameFromModel(model), currentYaml, settings.backupCount);
       }
       await writeTextFile(sdRoot, `MODELS/${key}.yml`, yaml);
+      const { modelMeta, pendingModelImageFiles } = get();
+      await writeWebConfig(sdRoot, 'model-meta.json', modelMeta).catch(() => {});
+      const pendingImageFile = pendingModelImageFiles[key];
+      if (pendingImageFile) {
+        const ext = safeImageExt(pendingImageFile.name);
+        const buf = await pendingImageFile.arrayBuffer();
+        await writeBinaryFile(sdRoot, `IMAGES/${key}${ext}`, buf);
+      }
       set((s) => {
         const dirty = new Set(s.dirty);
         dirty.delete(key);
-        return { dirty, lastError: null };
+        const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+        delete pendingModelImageFiles[key];
+        return { dirty, lastError: null, pendingModelImageFiles };
       });
     } catch (e) {
       set({ lastError: friendlyError(e, `${key}.yml`) });
@@ -427,7 +489,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  duplicateModel: (sourceKey: ModelKey, destKey: ModelKey) => {
+  duplicateModel: async (sourceKey: ModelKey, destKey: ModelKey) => {
     assertValidModelKey(sourceKey);
     assertValidModelKey(destKey);
     set((s) => {
@@ -440,11 +502,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         : 'Copy';
       const dirty = new Set(s.dirty);
       dirty.add(destKey);
+      const freshModelKeys = new Set(s.freshModelKeys);
+      freshModelKeys.add(destKey);
       return {
         models: { ...s.models, [destKey]: { ...source, header: { ...source.header, name: newName } } },
         dirty,
+        freshModelKeys,
       };
     });
+    const { sdRoot } = get();
+    if (sdRoot) await get().saveModel(destKey);
   },
 
   deleteModel: async (key: ModelKey) => {
@@ -461,7 +528,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         URL.revokeObjectURL(modelImages[key]);
         delete modelImages[key];
       }
-      return { models, dirty, freshModelKeys, modelImages };
+      const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+      delete pendingModelImageFiles[key];
+      return { models, dirty, freshModelKeys, modelImages, pendingModelImageFiles };
     });
     // Delete from SD card if connected (ignore errors — file may not exist yet).
     const { sdRoot } = get();
@@ -471,14 +540,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  importModelFromYaml: (key: ModelKey, yaml: string) => {
+  importModelFromYaml: async (key: ModelKey, yaml: string) => {
     assertValidModelKey(key);
     try {
       const model = parseModel(yaml);
-      set((s) => ({
-        models: { ...s.models, [key]: model },
-        lastError: null,
-      }));
+      set((s) => {
+        const dirty = new Set(s.dirty);
+        dirty.add(key);
+        const freshModelKeys = new Set(s.freshModelKeys);
+        freshModelKeys.add(key);
+        return { models: { ...s.models, [key]: model }, lastError: null, dirty, freshModelKeys };
+      });
+      const { sdRoot } = get();
+      if (sdRoot) {
+        await get().saveModel(key);
+      } else {
+        set((s) => {
+          const dirty = new Set(s.dirty);
+          dirty.delete(key);
+          const freshModelKeys = new Set(s.freshModelKeys);
+          freshModelKeys.delete(key);
+          return { dirty, freshModelKeys };
+        });
+      }
     } catch (e) {
       set({ lastError: friendlyError(e, key) });
     }
@@ -601,14 +685,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   restoreBackup: async (key: ModelKey, entry: BackupEntry) => {
-    const { sdRoot, models } = get();
+    const { sdRoot, models, settings } = get();
     if (!sdRoot) return;
     try {
       // Backup current version before restoring.
       const current = models[key];
       if (current) {
         const currentYaml = serialiseModel(current);
-        await writeBackup(sdRoot, modelNameFromModel(current), currentYaml);
+        await writeBackup(sdRoot, modelNameFromModel(current), currentYaml, settings.backupCount);
       }
       const backupYaml = await readBackup(sdRoot, entry);
       const model = parseModel(backupYaml);
@@ -645,7 +729,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       dirty.delete(key);
       const freshModelKeys = new Set(s.freshModelKeys);
       freshModelKeys.delete(key);
-      return { models, dirty, freshModelKeys };
+      const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+      const modelImages = { ...s.modelImages };
+      if (pendingModelImageFiles[key]) {
+        if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
+        delete modelImages[key];
+        delete pendingModelImageFiles[key];
+      }
+      return { models, dirty, freshModelKeys, pendingModelImageFiles, modelImages };
     });
   },
 
@@ -654,7 +745,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => {
       const dirty = new Set(s.dirty);
       dirty.delete(key);
-      return { dirty };
+      const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+      const modelImages = { ...s.modelImages };
+      if (pendingModelImageFiles[key]) {
+        if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
+        delete modelImages[key];
+        delete pendingModelImageFiles[key];
+      }
+      return { dirty, pendingModelImageFiles, modelImages };
     });
     // Reload from disk to restore the actual saved state.
     const { sdRoot } = get();
@@ -664,6 +762,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const model = parseModel(yaml);
       set((s) => ({ models: { ...s.models, [key]: model } }));
     } catch { /* leave in-memory model as-is; dirty already cleared */ }
+    // Revert model meta for this key from disk.
+    try {
+      const saved = await readWebConfig<Record<string, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>>(sdRoot, 'model-meta.json');
+      set((s) => {
+        const modelMeta = { ...s.modelMeta };
+        if (saved?.[key]) modelMeta[key] = saved[key];
+        else delete modelMeta[key];
+        return { modelMeta };
+      });
+    } catch { /* leave meta as-is */ }
+    // Reload image from disk for this key.
+    try {
+      const images = await findModelImages(sdRoot, [key]);
+      set((s) => ({ modelImages: { ...s.modelImages, ...images } }));
+    } catch { /* ignore */ }
   },
 
   revertRadio: async () => {

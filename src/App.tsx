@@ -25,6 +25,8 @@ export default function App() {
   const discardFreshModel = useEditorStore((s) => s.discardFreshModel);
   const revertModel = useEditorStore((s) => s.revertModel);
   const revertRadio = useEditorStore((s) => s.revertRadio);
+  const saveModel = useEditorStore((s) => s.saveModel);
+  const saveRadio = useEditorStore((s) => s.saveRadio);
 
   function navigate(next: Route) {
     if (route.page === 'editor' && dirty.has(route.modelKey)) {
@@ -36,6 +38,7 @@ export default function App() {
       return;
     }
     if (route.page === 'radio' && dirty.has('radio')) {
+      if (next.page === 'radio') return;
       setPendingNav(next);
       return;
     }
@@ -52,6 +55,17 @@ export default function App() {
       }
     } else if (route.page === 'radio') {
       revertRadio();
+    }
+    setRoute(pendingNav);
+    setPendingNav(null);
+  }
+
+  async function saveAndLeave() {
+    if (!pendingNav) return;
+    if (route.page === 'editor') {
+      await saveModel(route.modelKey);
+    } else if (route.page === 'radio') {
+      await saveRadio();
     }
     setRoute(pendingNav);
     setPendingNav(null);
@@ -88,7 +102,8 @@ export default function App() {
             <p className={css.leaveMsg}>{leaveMessage}</p>
             <div className={css.leaveActions}>
               <button className="btn btn-ghost btn-sm" onClick={cancelLeave}>Stay</button>
-              <button className="btn btn-danger btn-sm" onClick={confirmLeave}>Leave</button>
+              <button className="btn btn-primary btn-sm" onClick={saveAndLeave}>Save and leave</button>
+              <button className="btn btn-danger btn-sm" onClick={confirmLeave}>Discard and leave</button>
             </div>
           </div>
         </div>
