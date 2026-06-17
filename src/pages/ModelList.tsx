@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Toast } from '../components/shared/Toast.tsx';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
@@ -25,6 +25,8 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const createModel = useEditorStore((s) => s.createModel);
   const duplicateModel = useEditorStore((s) => s.duplicateModel);
   const deleteModel = useEditorStore((s) => s.deleteModel);
+  const listBackupsForModel = useEditorStore((s) => s.listBackups);
+  const deleteBackupEntry = useEditorStore((s) => s.deleteBackup);
   const importModelFromYaml = useEditorStore((s) => s.importModelFromYaml);
   const backupModel = useEditorStore((s) => s.backupModel);
 
@@ -32,8 +34,11 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const [historyFor, setHistoryFor] = useState<{ key: string; name: string } | null>(null);
   const [restoreAllOpen, setRestoreAllOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDeleteBackupsToo, setConfirmDeleteBackupsToo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const importRef = useRef<HTMLInputElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sdRoot) return;
@@ -56,10 +61,34 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
     duplicateModel(sourceKey, slot);
   }
 
-  function handleDeleteConfirm() {
+  async function handleDeleteConfirm() {
     if (!confirmDelete) return;
+    if (confirmDeleteBackupsToo) {
+      const modelName = models[confirmDelete]?.header?.name ?? 'unknown';
+      const backups = await listBackupsForModel(modelName);
+      for (const backup of backups) {
+        await deleteBackupEntry(backup);
+      }
+    }
     deleteModel(confirmDelete);
     setConfirmDelete(null);
+    setConfirmDeleteBackupsToo(false);
+  }
+
+  const carouselItems = [...modelKeys, 'new', 'import'];
+
+  const onCarouselScroll = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cardWidth = el.clientWidth - 44 + 12; // card width + gap
+    setCarouselIndex(Math.round(el.scrollLeft / cardWidth));
+  }, []);
+
+  function scrollCarousel(dir: -1 | 1) {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cardWidth = el.clientWidth - 44 + 12;
+    el.scrollBy({ left: dir * cardWidth, behavior: 'smooth' });
   }
 
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -121,6 +150,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       {loading ? (
         <div className={css.loading}>Loading models…</div>
       ) : (
+        <>
         <div className={css.grid}>
           {modelKeys.map((key) => {
             const vehicleTypeId = modelMeta[key]?.vehicleType;
@@ -137,6 +167,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 imageUrl={modelImages[key]}
                 scale={modelMeta[key]?.scale}
                 vehicleTypeName={vehicleTypeName}
+                power={modelMeta[key]?.power}
                 vehicleTypeImageUrl={vehicleTypeImageUrl}
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}
@@ -176,6 +207,70 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             onChange={handleImportFile}
           />
         </div>
+
+        {/* Carousel — shown on narrow screens */}
+        <div className={css.carousel}>
+          <div className={css.carouselTrack} ref={carouselRef} onScroll={onCarouselScroll}>
+            {modelKeys.map((key) => {
+              const vehicleTypeId = modelMeta[key]?.vehicleType;
+              const vehicleTypeName = vehicleTypeId
+                ? vehicleCategories.find((c) => c.id === vehicleTypeId)?.name
+                : undefined;
+              const vehicleTypeImageUrl = vehicleTypeId ? vehicleTypeImages[vehicleTypeId] : undefined;
+              return (
+                <ModelCard
+                  key={key}
+                  modelKey={key}
+                  model={models[key]}
+                  isDirty={dirty.has(key)}
+                  imageUrl={modelImages[key]}
+                  scale={modelMeta[key]?.scale}
+                  vehicleTypeName={vehicleTypeName}
+                  vehicleTypeImageUrl={vehicleTypeImageUrl}
+                  onEdit={() => navigate({ page: 'editor', modelKey: key })}
+                  onDuplicate={() => handleDuplicate(key)}
+                  onDelete={() => setConfirmDelete(key)}
+                  onBackup={sdRoot ? async () => {
+                    await backupModel(key);
+                    setToast(`Backed up: ${models[key]?.header?.name || key}`);
+                  } : undefined}
+                  onHistory={sdRoot ? () => setHistoryFor({ key, name: models[key]?.header?.name ?? key }) : undefined}
+                />
+              );
+            })}
+            {modelKeys.length < 60 && (
+              <button className={css.newModelPrompt} onClick={handleAddModel}>
+                <span className={css.newModelPlus}>＋</span>
+                <span>New model</span>
+              </button>
+            )}
+            {modelKeys.length < 60 && (
+              <button className={css.newModelPrompt} onClick={() => importRef.current?.click()}>
+                <span className={css.newModelPlus}>⬆</span>
+                <span>Import YAML</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.7 }}>from file</span>
+              </button>
+            )}
+          </div>
+          <div className={css.carouselNav}>
+            <button
+              className={css.carouselBtn}
+              onClick={() => scrollCarousel(-1)}
+              disabled={carouselIndex === 0}
+            >‹</button>
+            <div className={css.carouselDots}>
+              {carouselItems.map((_, i) => (
+                <div key={i} className={`${css.carouselDot} ${i === carouselIndex ? css.active : ''}`} />
+              ))}
+            </div>
+            <button
+              className={css.carouselBtn}
+              onClick={() => scrollCarousel(1)}
+              disabled={carouselIndex >= carouselItems.length - 1}
+            >›</button>
+          </div>
+        </div>
+        </>
       )}
 
       {historyFor && (
@@ -199,8 +294,16 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             <div className={css.confirmMsg}>
               This will permanently delete <strong>{models[confirmDelete]?.header?.name || confirmDelete}</strong> from the SD card immediately. This cannot be undone.
             </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={confirmDeleteBackupsToo}
+                onChange={(e) => setConfirmDeleteBackupsToo(e.target.checked)}
+              />
+              Also delete all backups for this model
+            </label>
             <div className={css.confirmActions}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setConfirmDelete(null); setConfirmDeleteBackupsToo(false); }}>Cancel</button>
               <button className="btn btn-danger btn-sm" onClick={handleDeleteConfirm}>Delete</button>
             </div>
           </div>
