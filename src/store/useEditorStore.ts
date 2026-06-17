@@ -322,7 +322,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         // Any slot loaded from disk is no longer a fresh unsaved model.
         const freshModelKeys = new Set(s.freshModelKeys);
         for (const key of Object.keys(updates)) freshModelKeys.delete(key);
-        return { models: { ...s.models, ...updates }, warnings: newWarnings, lastError: null, freshModelKeys };
+        // Rebuild model map from disk only, plus intentionally-created fresh models.
+        // This ensures in-memory-only models (e.g. a restore to a new slot that was never
+        // saved) are discarded when the user refreshes from card.
+        const freshModels = Object.fromEntries(
+          [...freshModelKeys].filter((k) => s.models[k]).map((k) => [k, s.models[k]!])
+        );
+        const newModels = { ...freshModels, ...updates };
+        // Drop stale dirty flags for models that no longer exist.
+        const dirty = new Set([...s.dirty].filter((k) => k === 'radio' || newModels[k as ModelKey]));
+        return { models: newModels, dirty, warnings: newWarnings, lastError: null, freshModelKeys };
       });
       get().loadModelImages();
     } catch (e) {
