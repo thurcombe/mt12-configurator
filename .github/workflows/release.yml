@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Pandoc and WeasyPrint
+        run: |
+          sudo apt-get install -y pandoc libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev
+          pip install weasyprint
+
+      - name: Build PDF manual
+        working-directory: docs
+        run: |
+          pandoc user-manual.md \
+            --pdf-engine=weasyprint \
+            --metadata title="EdgeTX MT12 Config Editor — User Manual" \
+            -V margin-top=20mm \
+            -V margin-bottom=20mm \
+            -V margin-left=20mm \
+            -V margin-right=20mm \
+            -o user-manual.pdf 2>/dev/null
+
+      - name: Create release and upload manual
+        uses: softprops/action-gh-release@v2
+        with:
+          files: docs/user-manual.pdf
+          generate_release_notes: true
