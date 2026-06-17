@@ -101,7 +101,7 @@ export function AppShell({ children, route, navigate }: Props) {
           onClick={() => navigate({ page: 'radio' })}
           style={route.page === 'radio' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
         >
-          Radio Settings
+          Transmitter Settings
         </button>
 
         <button

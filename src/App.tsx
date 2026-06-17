@@ -66,7 +66,7 @@ export default function App() {
     const name = models[route.modelKey]?.header?.name;
     leaveMessage = `Unsaved changes in "${name || route.modelKey}" will be lost. Leave anyway?`;
   } else if (pendingNav && route.page === 'radio') {
-    leaveMessage = 'Unsaved changes to Radio Settings will be lost. Leave anyway?';
+    leaveMessage = 'Unsaved changes to Transmitter Settings will be lost. Leave anyway?';
   }
 
   return (
