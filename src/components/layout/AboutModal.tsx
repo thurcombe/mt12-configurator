@@ -37,7 +37,7 @@ export function AboutModal({ onClose }: Props) {
               <li>Import and export individual models as EdgeTX YAML files</li>
               <li>Duplicate a model with a new name</li>
               <li>Delete a model with an option to also remove its backups</li>
-              <li>Automatic timestamped backups on every save, with configurable retention count (default 5)</li>
+              <li>Automatic timestamped backups on every save, with configurable retention count (default 15)</li>
               <li>Per-model and all-models backup history with YAML diff view, restore to any saved point, and batch delete</li>
             </ul>
           </section>

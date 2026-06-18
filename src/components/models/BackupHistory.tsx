@@ -79,9 +79,17 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
   // Expanded groups in all-models mode
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  const [confirmRestore, setConfirmRestore] = useState(false);
+
+  useEffect(() => {
+    if (!models[targetKey] && nextFreeSlot) {
+      setTargetKey(nextFreeSlot);
+    }
+  }, [nextFreeSlot, models, targetKey]);
+
   useEffect(() => {
     if (perModelMode) {
-      listBackups(modelName!).then(setEntries);
+      listBackups(modelName ?? modelKey!).then(setEntries);
     } else if (radioOnly) {
       listBackups('radio').then(setEntries);
     } else {
@@ -184,17 +192,28 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
 
   async function handleRestore() {
     if (!selected) return;
+    setConfirmRestore(false);
     setRestoring(true);
     setRestoredSlot(null);
     if (radioOnly) {
       await restoreRadioBackup(selected);
       setRestoredSlot('radio');
     } else {
-      await restoreBackup(targetKey, selected);
+      await restoreBackup(targetKey as any, selected);
       setRestoredSlot(targetKey);
       if (perModelMode) onClose();
     }
     setRestoring(false);
+  }
+
+  function requestRestore() {
+    if (!selected) return;
+    const isExistingSlot = !radioOnly && targetKey !== nextFreeSlot && !!models[targetKey];
+    if (isExistingSlot) {
+      setConfirmRestore(true);
+    } else {
+      handleRestore();
+    }
   }
 
   function formatTimestamp(ts: string): string {
@@ -351,7 +370,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
                         {restoredSlot ? (
                           <span className={css.restoredNote}>Restored — save to apply</span>
                         ) : (
-                          <button className="btn btn-primary btn-sm" disabled={restoring} onClick={handleRestore}>
+                          <button className="btn btn-primary btn-sm" disabled={restoring} onClick={requestRestore}>
                             {restoring ? 'Restoring…' : 'Restore'}
                           </button>
                         )}
@@ -387,7 +406,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
                         {restoredSlot ? (
                           <span className={css.restoredNote}>Restored to <strong>{restoredSlot}</strong></span>
                         ) : (
-                          <button className="btn btn-primary btn-sm" disabled={restoring || !targetKey} onClick={handleRestore}>
+                          <button className="btn btn-primary btn-sm" disabled={restoring || !targetKey} onClick={requestRestore}>
                             {restoring ? 'Restoring…' : 'Restore'}
                           </button>
                         )}
@@ -432,6 +451,21 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
           </div>
         </div>
       </div>
+
+      {confirmRestore && selected && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, borderRadius: 'inherit' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px 24px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>Overwrite model?</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              This will replace <strong style={{ color: 'var(--text)' }}>{models[targetKey]?.header?.name || targetKey}</strong> with the backup from {formatTimestamp(selected.timestamp)}. The current version will be backed up first.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmRestore(false)}>Cancel</button>
+              <button className="btn btn-danger btn-sm" onClick={handleRestore}>Overwrite</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

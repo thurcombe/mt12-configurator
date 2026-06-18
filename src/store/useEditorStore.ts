@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { SdRoot } from '../fs/sdcard.ts';
-import { pickSdCard, readTextFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages } from '../fs/sdcard.ts';
+import { pickSdCard, readTextFile, readBinaryFile, writeTextFile, listModelFiles, deleteFile, deleteModelImage, writeBinaryFile, findModelImages, findImages, readModelImageFile } from '../fs/sdcard.ts';
 import { createMemoryRoot } from '../fs/memoryFs.ts';
 import SD_TEMPLATE from '../data/sd-template.json';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
@@ -33,7 +33,7 @@ export interface AppSettings {
   backupCount: number;
 }
 
-const DEFAULT_SETTINGS: AppSettings = { backupCount: 5 };
+const DEFAULT_SETTINGS: AppSettings = { backupCount: 15 };
 const SETTINGS_WEBCONFIG = 'app-settings.json';
 
 function friendlyError(e: unknown, context?: string): string {
@@ -95,7 +95,7 @@ interface EditorState {
   lastError: string | null;
   warnings: string[];
 
-  // App settings (persisted to localStorage)
+  // App settings (persisted to .webconfig/app-settings.json on SD card)
   settings: AppSettings;
 
   // Actions — SD card
@@ -150,6 +150,18 @@ function modelNameFromModel(model: Model): string {
   return model.header?.name ?? 'unknown';
 }
 
+async function readImageForBackup(sdRoot: SdRoot, key: string): Promise<{ data: ArrayBuffer; ext: string } | undefined> {
+  try {
+    const file = await readModelImageFile(sdRoot, key);
+    if (!file) return undefined;
+    const dot = file.name.lastIndexOf('.');
+    const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '.png';
+    return { data: await file.arrayBuffer(), ext };
+  } catch {
+    return undefined;
+  }
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   sdRoot: null,
   models: {},
@@ -168,17 +180,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setDiagramHighlight: (control) => set({ diagramHighlight: control }),
 
   loadModelImages: async () => {
-    const { sdRoot, models, pendingModelImageFiles } = get();
+    const { sdRoot, models } = get();
     if (!sdRoot) return;
     const keys = Object.keys(models);
     if (keys.length === 0) return;
     try {
       const images = await findModelImages(sdRoot, keys);
-      // Don't overwrite object URLs for keys with pending (unsaved) image changes.
-      const filtered = Object.fromEntries(
-        Object.entries(images).filter(([k]) => !pendingModelImageFiles[k as ModelKey])
-      ) as Record<ModelKey, string>;
-      set((s) => ({ modelImages: { ...s.modelImages, ...filtered } }));
+      set((s) => {
+        if (!s.sdRoot) return s; // disconnected while in flight — discard stale URLs
+        // Don't overwrite object URLs for keys with pending (unsaved) image changes.
+        const filtered = Object.fromEntries(
+          Object.entries(images).filter(([k]) => !s.pendingModelImageFiles[k as ModelKey])
+        ) as Record<ModelKey, string>;
+        return { modelImages: { ...s.modelImages, ...filtered } };
+      });
     } catch { /* ignore */ }
   },
 
@@ -290,15 +305,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   uploadVehicleTypeImage: async (typeId, file) => {
-    const { sdRoot, vehicleTypeImages } = get();
+    const { sdRoot } = get();
     const ext = safeImageExt(file.name);
     const sdPath = `.webconfig/vehicle-type-images/${typeId}${ext}`;
     if (sdRoot) {
+      if (file.size > 10 * 1024 * 1024) throw new Error('Image too large (max 10 MB)');
       const buf = await file.arrayBuffer();
       await writeBinaryFile(sdRoot, sdPath, buf);
     }
-    if (vehicleTypeImages[typeId]) URL.revokeObjectURL(vehicleTypeImages[typeId]);
-    set({ vehicleTypeImages: { ...vehicleTypeImages, [typeId]: URL.createObjectURL(file) } });
+    const newUrl = URL.createObjectURL(file);
+    set((s) => {
+      if (s.vehicleTypeImages[typeId]) URL.revokeObjectURL(s.vehicleTypeImages[typeId]);
+      return { vehicleTypeImages: { ...s.vehicleTypeImages, [typeId]: newUrl } };
+    });
   },
 
   connectSdCard: async () => {
@@ -310,7 +329,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ sdRoot: root, lastError: null });
       // Load settings from SD card webconfig.
       const saved = await readWebConfig<AppSettings>(root, SETTINGS_WEBCONFIG);
-      if (saved) set({ settings: { ...DEFAULT_SETTINGS, ...saved } });
+      if (saved) set({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          ...saved,
+          backupCount: Math.max(1, Math.min(50, saved.backupCount ?? DEFAULT_SETTINGS.backupCount)),
+        },
+      });
       // Load per-model metadata (scale, vehicleType, power etc.)
       const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>>(root, 'model-meta.json');
       if (meta) set({ modelMeta: meta });
@@ -442,7 +467,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Backup first, then write.
       const currentYaml = await readTextFile(sdRoot, `MODELS/${key}.yml`).catch(() => null);
       if (currentYaml) {
-        await writeBackup(sdRoot, modelNameFromModel(model), currentYaml, settings.backupCount);
+        const image = await readImageForBackup(sdRoot, key);
+        await writeBackup(sdRoot, modelNameFromModel(model), currentYaml, settings.backupCount, image);
       }
       await writeTextFile(sdRoot, `MODELS/${key}.yml`, yaml);
       const { modelMeta, pendingModelImageFiles } = get();
@@ -450,6 +476,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const pendingImageFile = pendingModelImageFiles[key];
       if (pendingImageFile) {
         const ext = safeImageExt(pendingImageFile.name);
+        if (pendingImageFile.size > 10 * 1024 * 1024) throw new Error('Image too large (max 10 MB)');
         const buf = await pendingImageFile.arrayBuffer();
         await writeBinaryFile(sdRoot, `IMAGES/${key}${ext}`, buf);
       }
@@ -514,7 +541,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         freshModelKeys,
       };
     });
-    const { sdRoot } = get();
+    // Copy image to dest key.
+    const { sdRoot, pendingModelImageFiles, modelImages } = get();
+    const srcPending = pendingModelImageFiles[sourceKey];
+    if (srcPending) {
+      const url = URL.createObjectURL(srcPending);
+      set((s) => ({
+        pendingModelImageFiles: { ...s.pendingModelImageFiles, [destKey]: srcPending },
+        modelImages: { ...s.modelImages, [destKey]: url },
+      }));
+    } else if (sdRoot && modelImages[sourceKey]) {
+      const file = await readModelImageFile(sdRoot, sourceKey);
+      if (file) {
+        const url = URL.createObjectURL(file);
+        set((s) => ({
+          pendingModelImageFiles: { ...s.pendingModelImageFiles, [destKey]: file },
+          modelImages: { ...s.modelImages, [destKey]: url },
+        }));
+      }
+    }
     if (sdRoot) await get().saveModel(destKey);
   },
 
@@ -572,7 +617,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const radio = parseRadio(yaml);
       set({ radio, lastError: null });
     } catch (e) {
-      set({ lastError: String(e) });
+      set({ lastError: friendlyError(e, 'radio.yml') });
     }
   },
 
@@ -623,7 +668,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!model) return;
     try {
       const yaml = serialiseModel(model);
-      await writeBackup(sdRoot, modelNameFromModel(model), yaml, settings.backupCount);
+      const image = await readImageForBackup(sdRoot, key);
+      await writeBackup(sdRoot, modelNameFromModel(model), yaml, settings.backupCount, image);
     } catch (e) {
       set({ lastError: friendlyError(e, `${key}.yml`) });
     }
@@ -653,6 +699,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { sdRoot } = get();
     if (!sdRoot) return;
     try {
+      if (entry.imagePath) await deleteFile(sdRoot, entry.imagePath).catch(() => {});
       await deleteFile(sdRoot, entry.path);
     } catch (e) {
       set({ lastError: friendlyError(e, entry.filename) });
@@ -688,17 +735,37 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const current = models[key];
       if (current) {
         const currentYaml = serialiseModel(current);
-        await writeBackup(sdRoot, modelNameFromModel(current), currentYaml, settings.backupCount);
+        const image = await readImageForBackup(sdRoot, key);
+        await writeBackup(sdRoot, modelNameFromModel(current), currentYaml, settings.backupCount, image);
       }
       const backupYaml = await readBackup(sdRoot, entry);
       const model = parseModel(backupYaml);
+      const restoredImageFile = entry.imagePath
+        ? await readBinaryFile(sdRoot, entry.imagePath).catch(() => null)
+        : null;
       set((s) => {
         const dirty = new Set(s.dirty);
         dirty.add(key);
-        return { models: { ...s.models, [key]: model }, dirty, lastError: null };
+        const modelImages = { ...s.modelImages };
+        const pendingModelImageFiles = { ...s.pendingModelImageFiles };
+        if (modelImages[key]) URL.revokeObjectURL(modelImages[key]);
+        if (restoredImageFile) {
+          modelImages[key] = URL.createObjectURL(restoredImageFile);
+          pendingModelImageFiles[key] = restoredImageFile;
+        } else {
+          delete modelImages[key];
+          delete pendingModelImageFiles[key];
+        }
+        return { models: { ...s.models, [key]: model }, dirty, lastError: null, modelImages, pendingModelImageFiles };
       });
+      if (!restoredImageFile) {
+        try {
+          const images = await findModelImages(sdRoot, [key]);
+          set((s) => ({ modelImages: { ...s.modelImages, ...images } }));
+        } catch { /* ignore */ }
+      }
     } catch (e) {
-      set({ lastError: String(e) });
+      set({ lastError: friendlyError(e, entry.filename) });
     }
   },
 
@@ -710,7 +777,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateSettings: (patch: Partial<AppSettings>) => {
     set((s) => {
-      const next = { ...s.settings, ...patch };
+      const merged = { ...s.settings, ...patch };
+      const next: AppSettings = {
+        ...merged,
+        backupCount: Math.max(1, Math.min(50, merged.backupCount)),
+      };
       const { sdRoot } = get();
       if (sdRoot) writeWebConfig(sdRoot, SETTINGS_WEBCONFIG, next).catch(() => {});
       return { settings: next };

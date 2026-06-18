@@ -3,6 +3,11 @@ import type { Radio } from '../types/radio.ts';
 
 export function parseRadio(yamlText: string): Radio {
   const raw = loadYaml(yamlText) as Record<string, unknown>;
+
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('Invalid radio file: expected a YAML mapping');
+  }
+
   // Strip checksum — it's a hardware CRC we cannot compute and EdgeTX
   // ignores it when manuallyEdited is set.
   delete raw['checksum'];

@@ -4,6 +4,7 @@ import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { findFreeSlot } from '../codec/modelTemplate.ts';
 import { ModelCard } from '../components/models/ModelCard.tsx';
+import { ModelImagePicker } from '../components/models/ModelImagePicker.tsx';
 import { BackupHistory } from '../components/models/BackupHistory.tsx';
 import css from './ModelList.module.css';
 
@@ -29,8 +30,13 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const listBackupsForModel = useEditorStore((s) => s.listBackups);
   const deleteBackupEntry = useEditorStore((s) => s.deleteBackup);
   const importModelFromYaml = useEditorStore((s) => s.importModelFromYaml);
+  const saveModel = useEditorStore((s) => s.saveModel);
+  const revertModelImage = useEditorStore((s) => s.revertModelImage);
+  const pendingModelImageFiles = useEditorStore((s) => s.pendingModelImageFiles);
 
   const [loading, setLoading] = useState(false);
+  const [imagePickerFor, setImagePickerFor] = useState<{ key: string; name: string } | null>(null);
+  const imagePickerSnapshot = useRef<{ prevFile: File | null; wasAlreadyDirty: boolean } | null>(null);
   const [historyFor, setHistoryFor] = useState<{ key: string; name: string } | null>(null);
   const [restoreAllOpen, setRestoreAllOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -161,6 +167,13 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}
                 onDelete={() => setConfirmDelete(key)}
+                onChangeImage={() => {
+                  imagePickerSnapshot.current = {
+                    prevFile: pendingModelImageFiles[key] ?? null,
+                    wasAlreadyDirty: dirty.has(key),
+                  };
+                  setImagePickerFor({ key, name: models[key]?.header?.name ?? key });
+                }}
                 onBackup={sdRoot ? async () => {
                   await backupModel(key);
                   setToast(`Backed up: ${models[key]?.header?.name || key}`);
@@ -208,6 +221,26 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
 
       {restoreAllOpen && (
         <BackupHistory onClose={() => setRestoreAllOpen(false)} />
+      )}
+
+      {imagePickerFor && (
+        <div className={css.confirmOverlay}>
+          <div className={css.confirmBox} style={{ width: 480, maxWidth: '95vw' }}>
+            <div className={css.confirmTitle}>Change image — {imagePickerFor.name}</div>
+            <ModelImagePicker modelKey={imagePickerFor.key as import('../store/useEditorStore.ts').ModelKey} extraVisible={1} />
+            <div className={css.confirmActions}>
+              <button className="btn btn-ghost btn-sm" onClick={async () => {
+                const snap = imagePickerSnapshot.current;
+                if (snap) await revertModelImage(imagePickerFor.key as import('../store/useEditorStore.ts').ModelKey, snap.prevFile, snap.wasAlreadyDirty);
+                setImagePickerFor(null);
+              }}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                if (sdRoot) await saveModel(imagePickerFor.key as import('../store/useEditorStore.ts').ModelKey);
+                setImagePickerFor(null);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}

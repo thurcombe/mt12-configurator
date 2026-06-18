@@ -1,0 +1,154 @@
+FILE STRUCTURE
+==============
+
+## Entry points
+
+| File | Purpose |
+|---|---|
+| main.tsx | App entry point — mounts React into the DOM |
+| App.tsx | Root component — renders AppShell and wires top-level routing between pages |
+
+---
+
+## store/
+
+| File | Purpose |
+|---|---|
+| useEditorStore.ts | Central Zustand store — owns all app state (SD card handle, loaded models, radio config, settings, dirty flags) and all async actions (load, save, backup, delete) |
+
+---
+
+## fs/ — SD card & file I/O
+
+| File | Purpose |
+|---|---|
+| sdcard.ts | Low-level File System Access API wrapper — open SD card, read/write/delete files, list directories |
+| backup.ts | Backup logic — write timestamped YAML copies to BACKUP/, prune oldest beyond the limit |
+| webconfig.ts | Persists app settings (e.g. backupCount) to a JSON file on the SD card between sessions |
+| download.ts | Triggers a browser download of a YAML file (for export without SD card) |
+
+---
+
+## codec/ — YAML parsing & serialisation
+
+| File | Purpose |
+|---|---|
+| model-codec.ts | Parse/serialise model YAML files to/from the Model TypeScript type |
+| radio-codec.ts | Parse/serialise the radio-level radio.yml to/from the Radio type |
+| modelTemplate.ts | Generates a blank Model with sensible defaults for new model creation |
+| modelSummary.ts | Derives a human-readable summary string from a model (shown on model cards) |
+| yaml-io.ts | Shared YAML parse/stringify helpers (wraps the js-yaml library) |
+| logicalSwDef.ts | Definitions and labels for logical switch function types |
+| protocols.ts | RC protocol definitions (SBUS, CRSF, etc.) and their channel counts |
+| srcRaw.ts | Source input mappings (sticks, switches, pots) used in mixes |
+| switches.ts | Switch definitions — names, positions, and which physical switches exist on the MT12 |
+
+---
+
+## types/ — TypeScript types
+
+| File | Purpose |
+|---|---|
+| model.ts | Model type — full structure of a model config (mixes, limits, flight modes, timers, etc.) |
+| radio.ts | Radio type — radio-global settings structure |
+| fsa.d.ts | Type declarations for the File System Access API (browser API not yet in all TS libs) |
+| css-modules.d.ts | Tells TypeScript that *.module.css imports are valid |
+
+---
+
+## data/
+
+| File | Purpose |
+|---|---|
+| vehicleTypes.ts | Built-in vehicle category definitions (car, crawler, boat, etc.) with default channel assignments |
+
+---
+
+## pages/ — top-level views
+
+| File | Purpose |
+|---|---|
+| ModelList.tsx | Main screen — grid of all model cards on the SD card, new/import/delete actions |
+| ModelEditor.tsx | Model editing screen — tab bar + renders the active editor tab for a loaded model |
+| RadioSettings.tsx | Radio-global settings editor (trainer port, audio, etc.) |
+| VehicleTypesPage.tsx | Manage custom vehicle type categories |
+
+---
+
+## components/layout/ — chrome
+
+| File | Purpose |
+|---|---|
+| AppShell.tsx | Outer shell — SD card connect button, nav, modals overlay |
+| TabBar.tsx | Tab navigation within ModelEditor |
+| SettingsModal.tsx | Settings dialog (backup count, etc.) |
+| AboutModal.tsx | About/version dialog |
+
+---
+
+## components/models/ — model list UI
+
+| File | Purpose |
+|---|---|
+| ModelCard.tsx | Single card in the model grid — thumbnail, name, summary, actions |
+| ModelSummary.tsx | Renders the text summary line on a card |
+| BackupHistory.tsx | Dropdown/panel showing previous backups for a model with restore action |
+
+---
+
+## components/mixes/ — mix editor
+
+| File | Purpose |
+|---|---|
+| MixEditor.tsx | Container for all mix channels |
+| ChannelGroup.tsx | Groups mix lines by output channel |
+| MixLine.tsx | Single mix line row (source, weight, switch, etc.) |
+| MixLineModal.tsx | Full detail edit modal for a single mix line |
+| BasicMixView.tsx | Simplified "basic" view of mixes for less advanced users |
+| basicPatterns.ts | Pattern matching to detect if a mix fits a "basic" shape |
+| mixProse.ts | Generates plain-English descriptions of mix lines |
+
+---
+
+## components/ — other editors (one per model tab)
+
+| File | Purpose |
+|---|---|
+| limits/LimitsEditor.tsx | Channel limits (min/max/centre/reverse/subtrim) |
+| expos/ExpoEditor.tsx | Expo & rate curves per flight mode |
+| flightmodes/FlightModeEditor.tsx | Flight mode names and switch assignments |
+| logicalsw/LogicalSwEditor.tsx | Logical switch conditions (AND/OR/comparisons) |
+| specialfn/SpecialFnEditor.tsx | Special functions (e.g. play sound on switch) |
+| timers/TimerEditor.tsx | Model timers configuration |
+| module/ModuleEditor.tsx | RF module and receiver binding settings |
+| radio/Mt12Diagram.tsx | SVG diagram of the MT12 transmitter, highlights active controls |
+| kidmode/KidModeWizard.tsx | Wizard to generate a rate-limited model config for kids |
+| kidmode/kidGenerator.ts | Logic that builds the kid-mode model from wizard answers |
+| kidmode/kidDefaults.ts | Default values used by the kid mode generator |
+
+---
+
+## components/shared/ — reusable widgets
+
+| File | Purpose |
+|---|---|
+| SrcRawPicker.tsx | Dropdown for picking a mix source input |
+| SwitchPicker.tsx | Dropdown for picking a switch |
+| WeightSlider.tsx | Slider for mix weight / percentage values |
+| FlightModeCheckboxes.tsx | Checkbox grid for enabling something per flight mode |
+| DirtyBadge.tsx | Small indicator shown when a model has unsaved changes |
+| Tooltip.tsx | Generic tooltip wrapper |
+
+---
+
+## tests/
+
+| File | Purpose |
+|---|---|
+| codec/round-trip.test.ts | Parses fixture YAMLs and re-serialises them, asserts output matches input |
+| codec/flightModes.test.ts | Flight mode parse/serialise edge cases |
+| codec/logicalSwDef.test.ts | Logical switch definition parsing |
+| codec/destCh.test.ts | Destination channel mapping |
+| codec/subType.test.ts | Protocol sub-type handling |
+| kidmode/generator.test.ts | Kid mode generator output assertions |
+| fixtures/*.yml | Real MT12 YAML files used as test inputs |

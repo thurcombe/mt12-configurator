@@ -9,7 +9,7 @@ export function downloadYaml(filename: string, content: string): void {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export interface ZipEntry {
@@ -34,6 +34,6 @@ export function downloadZip(entries: ZipEntry[], zipName = 'edgetx-models.zip'):
     a.href = url;
     a.download = zipName;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   });
 }

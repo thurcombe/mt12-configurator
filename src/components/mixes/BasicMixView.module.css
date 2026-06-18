@@ -249,6 +249,16 @@
   font-weight: 600;
 }
 
+.crumbClickable {
+  composes: crumb;
+  cursor: pointer;
+}
+
+.crumbClickable:hover {
+  color: var(--text);
+  background: var(--surface-hi);
+}
+
 .crumbSep { color: var(--border); font-size: 11px; }
 
 .stepTitle {
