@@ -75,9 +75,9 @@ interface EditorState {
 
   // Per-model app metadata — stored in .webconfig/model-meta.json
   modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>;
-  setModelScale: (key: ModelKey, scale: string) => Promise<void>;
-  setModelVehicleType: (key: ModelKey, vehicleType: string) => Promise<void>;
-  setModelPower: (key: ModelKey, power: 'battery' | 'fuel' | '') => Promise<void>;
+  setModelScale: (key: ModelKey, scale: string) => void;
+  setModelVehicleType: (key: ModelKey, vehicleType: string) => void;
+  setModelPower: (key: ModelKey, power: 'battery' | 'fuel' | '') => void;
 
   // Vehicle categories (built-in + custom) — custom stored in .webconfig/vehicle-categories.json
   vehicleCategories: VehicleCategory[];

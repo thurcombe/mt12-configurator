@@ -30,7 +30,6 @@ async function downloadDemoZip(root: unknown) {
 
 export function AppShell({ children, route, navigate }: Props) {
   const sdRoot = useEditorStore((s) => s.sdRoot);
-  const dirty = useEditorStore((s) => s.dirty);
   const lastError = useEditorStore((s) => s.lastError);
   const warnings = useEditorStore((s) => s.warnings);
   const clearError = useEditorStore((s) => s.clearError);
@@ -42,8 +41,6 @@ export function AppShell({ children, route, navigate }: Props) {
   const [showHelp, setShowHelp] = useState(false);
 
   const demo = isDemoMode();
-  const dirtyCount = dirty.size;
-
   // Auto-connect the virtual SD card when entering demo mode.
   useEffect(() => {
     if (demo && !sdRoot) {
