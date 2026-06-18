@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Pandoc and WeasyPrint
         run: |
@@ -33,7 +33,7 @@ jobs:
             -o user-manual.pdf 2>/dev/null
 
       - name: Create release and upload manual
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: docs/user-manual.pdf
           generate_release_notes: true
