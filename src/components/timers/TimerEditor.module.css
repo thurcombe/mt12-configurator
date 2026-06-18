@@ -8,14 +8,30 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 20px;
+  overflow: hidden;
 }
 
 .panelHeader {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+
+.panelHeader:hover {
+  background: var(--hover, rgba(255,255,255,0.04));
+}
+
+.chevron {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .panelTitle {
@@ -30,11 +46,16 @@
   font-family: var(--mono);
 }
 
+.removeRow {
+  padding: 0 20px 16px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 160px 1fr;
   align-items: center;
   gap: 10px 16px;
+  padding: 4px 20px 16px;
 }
 
 .label {
