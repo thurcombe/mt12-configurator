@@ -4,6 +4,7 @@ import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { InputSourcePicker } from '../shared/InputSourcePicker.tsx';
 import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
+import { removeKidMode } from '../kidmode/kidGenerator.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import {
   analyseBasicPatterns,
@@ -61,7 +62,7 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
           onClick={() => setKidControlActive(false)}>
           ← Back to summary
         </button>
-        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} modelKey={modelKey} />
+        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} modelKey={modelKey} skipActiveCheck />
       </div>
     );
   }
@@ -95,6 +96,7 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
       onChange={onChange}
       onRunWizard={() => setWizard(true)}
       onRunKidControl={() => setKidControlActive(true)}
+      onRemoveKidControl={() => onChange((m) => removeKidMode(m))}
     />
   );
 }
@@ -128,9 +130,10 @@ interface RecognisedViewProps {
   onChange: (updater: (m: Model) => Model) => void;
   onRunWizard: () => void;
   onRunKidControl: () => void;
+  onRemoveKidControl: () => void;
 }
 
-function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRunKidControl }: RecognisedViewProps) {
+function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRunKidControl, onRemoveKidControl }: RecognisedViewProps) {
   const inputMap = useMemo(() => buildInputMap(model.expoData ?? []), [model.expoData]);
   const kidActive = !!model.flightModeData?.['1'];
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
@@ -190,7 +193,7 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
       <RadioLinkCard model={model} onChange={onChange} />
 
       {/* KidControl */}
-      <KidControlCard model={model} kidActive={kidActive} onRunKidControl={onRunKidControl} />
+      <KidControlCard model={model} kidActive={kidActive} onRunKidControl={onRunKidControl} onRemoveKidControl={onRemoveKidControl} />
 
       {/* Setup wizard card */}
       <section className={css.card}>
@@ -310,7 +313,7 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
-function KidControlCard({ model, kidActive, onRunKidControl }: { model: Model; kidActive: boolean; onRunKidControl: () => void }) {
+function KidControlCard({ model, kidActive, onRunKidControl, onRemoveKidControl }: { model: Model; kidActive: boolean; onRunKidControl: () => void; onRemoveKidControl: () => void }) {
   const fm1 = model.flightModeData?.['1'];
   const triggerSwitch = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
   const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
@@ -358,9 +361,14 @@ function KidControlCard({ model, kidActive, onRunKidControl }: { model: Model; k
               </span>
             </div>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
-            ⚙ Re-run KidControl wizard
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
+              ⚙ Re-run KidControl wizard
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={onRemoveKidControl}>
+              Remove
+            </button>
+          </div>
         </>
       ) : (
         <>

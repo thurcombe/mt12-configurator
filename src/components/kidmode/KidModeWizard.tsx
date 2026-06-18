@@ -19,6 +19,7 @@ interface Props {
   onChange: (updater: (m: Model) => Model) => void;
   onApplied?: () => void;
   modelKey: string;
+  skipActiveCheck?: boolean;
 }
 
 type Step = 'vehicle' | 'speed' | 'sliders';
@@ -84,7 +85,7 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
-export function KidModeWizard({ model, onChange, onApplied, modelKey }: Props) {
+export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActiveCheck }: Props) {
   const storedTypeId = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
@@ -128,7 +129,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey }: Props) {
     onChange((m) => removeKidMode(m));
   }
 
-  if (active) {
+  if (active && !skipActiveCheck) {
     const fm1 = model.flightModeData?.['1'];
     const trigSw = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
     const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
