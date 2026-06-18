@@ -27,7 +27,23 @@ function secondsToHMS(s: number): string {
   return `${sec}s`;
 }
 
-function TimerRow({ idx, timer, onChange }: { idx: string; timer: Timer; onChange: (t: Timer) => void }) {
+const MAX_TIMERS = 3;
+
+const DEFAULT_TIMER: Timer = {
+  name: '',
+  mode: 0,
+  swtch: 'NONE',
+  value: 0,
+  start: 0,
+  countdownBeep: 0,
+  minuteBeep: 0,
+  persistent: 0,
+  countdownStart: 5,
+  showElapsed: 0,
+  extraHaptic: 0,
+};
+
+function TimerRow({ idx, timer, onChange, onRemove }: { idx: string; timer: Timer; onChange: (t: Timer) => void; onRemove: () => void }) {
   const label = timer.name?.trim() ? `${timer.name} (T${parseInt(idx) + 1})` : `Timer ${parseInt(idx) + 1}`;
 
   return (
@@ -35,6 +51,7 @@ function TimerRow({ idx, timer, onChange }: { idx: string; timer: Timer; onChang
       <div className={css.panelHeader}>
         <h3 className={css.panelTitle}>{label}</h3>
         <span className={css.hint}>{timer.value ? secondsToHMS(timer.value) : '—'}</span>
+        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={onRemove}>Remove</button>
       </div>
 
       <div className={css.grid}>
@@ -123,21 +140,46 @@ export function TimerEditor({ model, onChange }: Props) {
     }));
   }
 
-  const entries = Object.entries(timers);
-  if (entries.length === 0) {
-    return <p style={{ color: 'var(--text-muted)', padding: 20 }}>No timers configured in this model.</p>;
+  function addTimer() {
+    const used = new Set(Object.keys(timers));
+    const nextIdx = ['0', '1', '2'].find((i) => !used.has(i));
+    if (!nextIdx) return;
+    onChange((m) => ({
+      ...m,
+      timers: { ...m.timers, [nextIdx]: { ...DEFAULT_TIMER } },
+    }));
   }
+
+  function removeTimer(idx: string) {
+    onChange((m) => {
+      const next = { ...m.timers };
+      delete next[idx];
+      return { ...m, timers: next };
+    });
+  }
+
+  const entries = Object.entries(timers).sort(([a], [b]) => parseInt(a) - parseInt(b));
+  const canAdd = entries.length < MAX_TIMERS;
 
   return (
     <div className={css.root}>
+      {entries.length === 0 && (
+        <p style={{ color: 'var(--text-muted)', padding: '12px 0' }}>No timers configured.</p>
+      )}
       {entries.map(([idx, timer]) => (
         <TimerRow
           key={idx}
           idx={idx}
           timer={timer}
           onChange={(t) => updateTimer(idx, t)}
+          onRemove={() => removeTimer(idx)}
         />
       ))}
+      {canAdd && (
+        <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={addTimer}>
+          + Add timer
+        </button>
+      )}
     </div>
   );
 }
