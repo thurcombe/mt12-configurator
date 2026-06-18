@@ -44,8 +44,8 @@ const DEFAULT_TIMER: Timer = {
   extraHaptic: 0,
 };
 
-function TimerRow({ idx, timer, onChange, onRemove }: { idx: string; timer: Timer; onChange: (t: Timer) => void; onRemove: () => void }) {
-  const [open, setOpen] = useState(false);
+function TimerRow({ idx, timer, onChange, onRemove, initialOpen }: { idx: string; timer: Timer; onChange: (t: Timer) => void; onRemove: () => void; initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen ?? false);
   const title = timer.name?.trim() || `Timer ${parseInt(idx) + 1}`;
 
   return (
@@ -142,6 +142,7 @@ function TimerRow({ idx, timer, onChange, onRemove }: { idx: string; timer: Time
 
 export function TimerEditor({ model, onChange }: Props) {
   const timers = model.timers ?? {};
+  const [newIdx, setNewIdx] = useState<string | null>(null);
 
   function updateTimer(idx: string, timer: Timer) {
     onChange((m) => ({
@@ -154,6 +155,7 @@ export function TimerEditor({ model, onChange }: Props) {
     const used = new Set(Object.keys(timers));
     const nextIdx = ['0', '1', '2'].find((i) => !used.has(i));
     if (!nextIdx) return;
+    setNewIdx(nextIdx);
     onChange((m) => ({
       ...m,
       timers: { ...m.timers, [nextIdx]: { ...DEFAULT_TIMER } },
@@ -183,6 +185,7 @@ export function TimerEditor({ model, onChange }: Props) {
           timer={timer}
           onChange={(t) => updateTimer(idx, t)}
           onRemove={() => removeTimer(idx)}
+          initialOpen={idx === newIdx}
         />
       ))}
       {canAdd && (
