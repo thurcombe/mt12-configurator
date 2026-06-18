@@ -554,14 +554,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const { sdRoot } = get();
       if (sdRoot) {
         await get().saveModel(key);
-      } else {
-        set((s) => {
-          const dirty = new Set(s.dirty);
-          dirty.delete(key);
-          const freshModelKeys = new Set(s.freshModelKeys);
-          freshModelKeys.delete(key);
-          return { dirty, freshModelKeys };
-        });
       }
     } catch (e) {
       set({ lastError: friendlyError(e, key) });
