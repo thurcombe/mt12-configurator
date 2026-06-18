@@ -14,6 +14,7 @@ import { SpecialFnEditor } from '../components/specialfn/SpecialFnEditor.tsx';
 import { KidModeWizard } from '../components/kidmode/KidModeWizard.tsx';
 import { BasicMixView } from '../components/mixes/BasicMixView.tsx';
 import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
+import { YamlViewer } from '../components/yaml/YamlViewer.tsx';
 import css from './ModelEditor.module.css';
 
 interface Props {
@@ -31,6 +32,7 @@ const ADVANCED_TABS: Tab[] = [
   { id: 'logicalsw',   label: 'Logical Sw' },
   { id: 'specialfn',   label: 'Special Fn' },
   { id: 'kidmode',     label: 'KidControl' },
+  { id: 'yaml',        label: 'YAML' },
 ];
 
 const TAB_DESCRIPTIONS: Record<string, string> = {
@@ -189,6 +191,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {tab === 'logicalsw'   && <LogicalSwEditor model={model} onChange={handleChange} />}
           {tab === 'specialfn'   && <SpecialFnEditor model={model} onChange={handleChange} />}
           {tab === 'kidmode'     && <KidModeWizard model={model} onChange={handleChange} modelKey={modelKey} />}
+          {tab === 'yaml'        && <YamlViewer model={model} modelKey={modelKey} />}
         </div>
 
         <div className={css.diagramPanel}>

@@ -1,0 +1,81 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 12px;
+  flex-wrap: wrap;
+}
+
+.toggleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.diffToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.diffToggle input[type="checkbox"]:disabled + * {
+  opacity: 0.4;
+}
+
+.noChanges {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diffStats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.added  { color: #4caf50; font-weight: 600; }
+.removed { color: #f44336; font-weight: 600; }
+.diffLabel { color: var(--text-muted); }
+.noYamlChange { font-size: 12px; color: var(--text-muted); }
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.codeWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.code {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text);
+  white-space: pre;
+  tab-size: 2;
+}
+
+.lineAdd    { color: #4caf50; display: block; }
+.lineRemove { color: #f44336; display: block; }
+.lineSame   { color: var(--text-muted); display: block; }
