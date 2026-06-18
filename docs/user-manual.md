@@ -52,7 +52,21 @@ You can use the app without an SD card. A banner at the top of the model list ex
 
 ### Demo mode
 
-Append `?demo` to the URL to load a virtual in-memory SD card pre-populated with sample models. Changes are not persisted to disk — use the **Download SD card ↓** button in the top bar to export the result as a ZIP file.
+Append `?demo` to the URL to load a virtual in-memory SD card pre-populated with sample models. Changes are not persisted to disk — use the **Download SD card ↓** button in the demo banner to export the result as a ZIP file.
+
+### Header and status indicators
+
+The header shows the current SD card connection state on the right:
+
+- **Red dot** — no SD card connected. Click **Connect SD card** to connect.
+- **Green dot + "SD card connected"** — a real SD card is active. A **Disconnect** button appears to release it without refreshing the page.
+- **Green dot + "Demo loaded"** — demo mode is active.
+
+When demo mode is active, a coloured banner appears above the header with the text "Demo mode — changes are in-memory only and will be lost on refresh." A **Download SD card ↓** button in that banner exports the current in-memory card as a ZIP file.
+
+**Error banner (red)** — appears below the header when a file operation fails. Click **Dismiss** to clear it.
+
+**Warnings banner (yellow)** — appears below the header (below any error) when model files were skipped during load (e.g. unreadable YAML). Each warning names the affected file. Click **Dismiss** to clear all warnings.
 
 ---
 
@@ -69,6 +83,7 @@ Each model card shows:
 - **Protocol badge** — the RF protocol this model uses (e.g. Traxxas TQi, RadioLink)
 - **Scale badge** — if a scale has been set (e.g. 1:18)
 - **Vehicle type badge** — if a vehicle type has been assigned
+- **Power source badge** (🔋 Electric / ⛽ Fuel) — shown when a power source has been set
 - **KidControl badge** (green) — shown when KidControl is active on the model
 - **Unsaved badge** (yellow) — shown when the model has changes not yet saved to the card
 - **Mix count** — how many active mix lines the model contains
@@ -80,12 +95,18 @@ The **Backup** button (shown only when an SD card or demo is connected) immediat
 
 The **History** button opens the backup browser for this model — see [Saving & Backup](#17-saving--backup).
 
+### Changing a model's photo from the list
+
+A pencil (✏) icon appears over the model photo on hover. Clicking it opens the image picker directly from the model list — you do not need to enter the editor. See [Setup Wizard Step 1](#step-1--vehicle) for image picker details.
+
 ### Toolbar actions
 
 When an SD card (or demo) is connected, the toolbar shows:
 
 - **Manage backups** — opens the all-models backup browser
 - **Refresh from card** — reloads all model files from the SD card, discarding in-memory changes
+
+> If any models have unsaved changes, a confirmation dialog asks whether to discard them before reloading.
 
 ### Creating a new model
 
@@ -151,9 +172,15 @@ See [KidControl Wizard](#5-kidcontrol-wizard) for setup instructions.
 
 Click **⚙ Re-run setup wizard** to re-open the full setup wizard. All steps are pre-populated with the current model's values so you only need to change what you want.
 
+### Unrecognised model
+
+If the app cannot map a model's mix structure to the expected basic patterns (throttle, steering, gyro), the left panel shows an **Unrecognised model** notice instead of the usual cards. Use **Advanced** view to inspect and edit the mixes directly.
+
 ### The MT12 Controls diagram
 
 The right panel shows a photo of the MT12 with your controls labelled. Toggle **Labels / Functions** at the bottom to switch between showing the assigned names and the EdgeTX function names (SA, SB, P1, etc.). Click **⚙ Reposition labels** to adjust label placement.
+
+> **Note:** Label repositioning requires an SD card (or demo) to be connected. The button is disabled when no card is connected.
 
 ---
 
@@ -167,7 +194,7 @@ A breadcrumb at the top shows all steps: **Vehicle › Radio link › Throttle �
 
 ![Wizard — Vehicle details step](screenshots/08-wizard-01-vehicle-step.png)
 
-Set the model name (up to 15 characters), scale, vehicle type, power source (battery/fuel), and optionally upload a photo from your device or select one from the SD card's `IMAGES/library/` folder.
+Set the model name (up to 15 characters), scale, vehicle type, power source (battery/fuel), and optionally upload a photo from your device or pick one from the **image library carousel**. The carousel shows all images found in `IMAGES/library/` on the SD card. Hover over a thumbnail to see a zoomed preview; click to select. Use the left/right arrows to scroll through the library. You can also upload a photo directly from your device using the upload button.
 
 ### Step 2 — Radio link
 
@@ -612,8 +639,6 @@ Custom categories are stored in `.webconfig/vehicle-categories.json` on the SD c
 
 Click **Save** (the blue button in the model editor top bar, visible when changes are unsaved) to write the current model to the SD card. Before writing, the app automatically creates a timestamped backup in the `BACKUP/` folder.
 
-Click **Save all (N)** (in the app header) to save every model with unsaved changes in one action.
-
 A model with unsaved changes shows an **Unsaved** badge in the editor top bar and a dot on its card in the model list.
 
 ### Saving without an SD card
@@ -622,12 +647,13 @@ If no SD card is connected, **Save** downloads the `.yml` file to your computer.
 
 ### Unsaved changes guard
 
-If you try to navigate away from a model with unsaved changes, the app shows a confirmation dialog.
+If you try to navigate away from a model with unsaved changes, the app shows a confirmation dialog:
 
 ![Unsaved changes dialog](screenshots/31-unsaved-changes-dialog.png)
 
 - **Stay** — return to the editor without losing changes
-- **Leave** — discard the unsaved changes and navigate away
+- **Save and leave** — save the model to the SD card, then navigate away
+- **Discard and leave** — discard the unsaved changes and navigate away
 
 The same dialog appears when navigating away from Transmitter Settings with unsaved changes.
 
@@ -648,6 +674,8 @@ The browser has two panels:
 Lists timestamped backup files, sorted newest-first. In the **Manage backups** view (all-models), entries are grouped by model name — click a group header to expand it.
 
 A **Manage** button switches into delete mode: checkboxes appear on every entry, **Select all** selects everything, and **Delete N** permanently removes selected backups after a single confirmation.
+
+> **Backup retention** — the **Manage backups** panel shows a **Max backups per model** field at the top. The default is 15; the range is 1–50. Older backups beyond the limit are pruned automatically each time a model is saved.
 
 **Right — preview and restore**
 
@@ -672,7 +700,7 @@ If a model has been deleted its card is gone, so the **History** button is no lo
 
 ### Help
 
-Click **Help** in the header to open a modal with links to the EdgeTX documentation and the official RadioMaster MT12 user manual (PDF).
+Click **Help** in the header to open the built-in user manual. A **Quick Links** section at the top provides links to the EdgeTX documentation and the official RadioMaster MT12 PDF manual.
 
 ![Help modal](screenshots/04-help-modal.png)
 
