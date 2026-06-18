@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { TabBar } from '../components/layout/TabBar.tsx';
@@ -74,11 +74,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
   const updateModel = useEditorStore((s) => s.updateModel);
   const saveModel = useEditorStore((s) => s.saveModel);
   const sdRoot = useEditorStore((s) => s.sdRoot);
-  const imageUrl = useEditorStore((s) => s.modelImages[modelKey]);
-  const uploadModelImage = useEditorStore((s) => s.uploadModelImage);
-  const modelScale = useEditorStore((s) => s.modelMeta[modelKey]?.scale ?? '');
-  const setModelScale = useEditorStore((s) => s.setModelScale);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   if (!model) {
     return (
@@ -102,51 +97,14 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
   // ── Basic view ─────────────────────────────────────────────────────────────
 
-  const RC_SCALES = ['1:5','1:6','1:8','1:10','1:12','1:14','1:16','1:18','1:24','1:28','1:64'];
-
-  const photoButton = (
-    <>
-      <button
-        className={css.photoBtn}
-        onClick={() => imageInputRef.current?.click()}
-        title={imageUrl ? 'Change model photo' : 'Add model photo'}
-      >
-        {imageUrl
-          ? <img src={imageUrl} alt="" className={css.photoBtnThumb} />
-          : <span className={css.photoBtnIcon}>📷</span>
-        }
-      </button>
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) uploadModelImage(modelKey, file);
-          e.target.value = '';
-        }}
-      />
-      <select
-        className={css.scaleSelect}
-        value={modelScale}
-        onChange={(e) => setModelScale(modelKey, e.target.value)}
-        title="Model scale"
-      >
-        <option value="">Scale</option>
-        {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-    </>
-  );
-
   if (viewMode === 'basic') {
     return (
+      <>
       <div className={css.root}>
         <div className={css.topBar}>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
             ← Back
           </button>
-          {!wizardActive && photoButton}
           {!wizardActive && (
             <input
               type="text"
@@ -183,6 +141,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -191,12 +150,12 @@ export function ModelEditor({ modelKey, navigate }: Props) {
   const tabDesc = TAB_DESCRIPTIONS[tab];
 
   return (
+    <>
     <div className={css.root}>
       <div className={css.topBar}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
-        {photoButton}
         <input
           type="text"
           className={css.nameInput}
@@ -243,5 +202,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }

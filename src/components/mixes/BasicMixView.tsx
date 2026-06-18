@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
@@ -25,8 +25,8 @@ import {
 import { buildInputMap } from '../../codec/modelSummary.ts';
 import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
-import { listImagesInDir } from '../../fs/sdcard.ts';
 import css from './BasicMixView.module.css';
+import { ModelImagePicker } from '../models/ModelImagePicker.tsx';
 
 const SURFACE_PROTOCOLS = MULTI_PROTOCOLS;
 
@@ -182,6 +182,10 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
             <option value="">Not specified</option>
             {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className={css.fieldLabel}>Photo</span>
+          <ModelImagePicker modelKey={modelKey} />
         </div>
       </section>
 
@@ -535,17 +539,14 @@ interface WizardProps {
 function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAdvanced, onLaunchKidControl }: WizardProps) {
   const [step, setStep] = useState<WizardStep>(STEPS[0]);
 
-  const uploadModelImage = useEditorStore(s => s.uploadModelImage);
   const setModelScale = useEditorStore(s => s.setModelScale);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
   const setModelPower = useEditorStore(s => s.setModelPower);
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
-  const existingImageUrl = useEditorStore(s => s.modelImages[modelKey]);
   const existingScale = useEditorStore(s => s.modelMeta[modelKey]?.scale ?? '');
   const existingVehicleType = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
   const existingPower = useEditorStore(s => s.modelMeta[modelKey]?.power ?? '');
   const existingModelName = useEditorStore(s => s.models[modelKey]?.header?.name ?? '');
-  const sdRoot = useEditorStore(s => s.sdRoot);
   const [params, setParams] = useState<WizardParams>({
     ...(initialParams ?? defaultWizardParams()),
     scale: existingScale,
@@ -553,30 +554,6 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
     vehicleType: initialParams?.vehicleType ?? existingVehicleType,
     power: initialParams?.power ?? existingPower,
   });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [sdImages, setSdImages] = useState<Array<{ filename: string; url: string }>>([]);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const thumbScrollRef = useRef<HTMLDivElement>(null);
-  const [needsScroll, setNeedsScroll] = useState(false);
-
-  useEffect(() => {
-    const el = thumbScrollRef.current;
-    if (!el) return;
-    const check = () => setNeedsScroll(el.scrollWidth > el.clientWidth);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [sdImages]);
-
-  function scrollThumbs(dir: -1 | 1) {
-    thumbScrollRef.current?.scrollBy({ left: dir * 180, behavior: 'smooth' });
-  }
-
-  useEffect(() => {
-    if (!sdRoot || step !== 'details') return;
-    listImagesInDir(sdRoot, 'IMAGES/library').then(setSdImages);
-  }, [sdRoot, step]);
 
   function patch(p: Partial<WizardParams>) { setParams(prev => ({ ...prev, ...p })); }
   function back() { setStep(STEPS[STEPS.indexOf(step) - 1]); }
@@ -753,73 +730,9 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 <option value="fuel">⛽ Fuel (nitro/petrol)</option>
               </select>
             </div>
-            <div className={css.fieldRow} style={{ alignItems: 'flex-start' }}>
-              <span className={css.fieldLabel} style={{ paddingTop: 6 }}>Photo</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {(imagePreview || existingImageUrl) && (
-                    <img
-                      src={imagePreview ?? existingImageUrl}
-                      alt="Model preview"
-                      style={{ width: 54, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border)' }}
-                    />
-                  )}
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      uploadModelImage(modelKey, file);
-                      setImagePreview(URL.createObjectURL(file));
-                      e.target.value = '';
-                    }}
-                  />
-                  <button className="btn btn-ghost btn-sm" onClick={() => imageInputRef.current?.click()}>
-                    Upload from device
-                  </button>
-                </div>
-                {sdImages.length > 0 && (
-                  <div className={css.thumbCarousel}>
-                    {needsScroll && <button className={css.thumbNavBtn} onClick={() => scrollThumbs(-1)}>‹</button>}
-                    <div className={css.thumbScroll} ref={thumbScrollRef}>
-                      {sdImages.map(img => {
-                        const selected = (imagePreview ?? existingImageUrl) === img.url;
-                        return (
-                          <button
-                            key={img.filename}
-                            className={css.thumb}
-                            title={img.filename}
-                            onClick={async () => {
-                              const resp = await fetch(img.url);
-                              const blob = await resp.blob();
-                              const file = new File([blob], img.filename, { type: blob.type });
-                              uploadModelImage(modelKey, file);
-                              setImagePreview(img.url);
-                            }}
-                            style={{
-                              padding: 0,
-                              border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                              borderRadius: 4,
-                              overflow: 'hidden',
-                              flexShrink: 0,
-                              cursor: 'pointer',
-                              background: 'none',
-                              width: 90,
-                              height: 60,
-                            }}
-                          >
-                            <img src={img.url} alt={img.filename} style={{ width: 90, height: 60, objectFit: 'cover', display: 'block' }} />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {needsScroll && <button className={css.thumbNavBtn} onClick={() => scrollThumbs(1)}>›</button>}
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className={css.fieldLabel}>Photo</span>
+              <ModelImagePicker modelKey={modelKey} />
             </div>
           </div>
           <div className={css.wizardActions}>

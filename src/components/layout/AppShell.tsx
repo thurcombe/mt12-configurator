@@ -30,21 +30,17 @@ async function downloadDemoZip(root: unknown) {
 
 export function AppShell({ children, route, navigate }: Props) {
   const sdRoot = useEditorStore((s) => s.sdRoot);
-  const dirty = useEditorStore((s) => s.dirty);
   const lastError = useEditorStore((s) => s.lastError);
   const warnings = useEditorStore((s) => s.warnings);
   const clearError = useEditorStore((s) => s.clearError);
   const clearWarnings = useEditorStore((s) => s.clearWarnings);
   const connectSdCard = useEditorStore((s) => s.connectSdCard);
   const disconnectSdCard = useEditorStore((s) => s.disconnectSdCard);
-  const saveAll = useEditorStore((s) => s.saveAll);
 
   const [showAbout, setShowAbout] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const demo = isDemoMode();
-  const dirtyCount = dirty.size;
-
   // Auto-connect the virtual SD card when entering demo mode.
   useEffect(() => {
     if (demo && !sdRoot) {
@@ -90,13 +86,7 @@ export function AppShell({ children, route, navigate }: Props) {
 
         <div className={css.spacer} />
 
-        {sdRoot && dirtyCount > 0 && (
-          <button className="btn btn-primary btn-sm" onClick={saveAll} title={`Save all ${dirtyCount} unsaved item${dirtyCount !== 1 ? 's' : ''}`}>
-            Save all ({dirtyCount})
-          </button>
-        )}
-
-        <button
+<button
           className="btn btn-ghost btn-sm"
           onClick={() => navigate({ page: 'radio' })}
           style={route.page === 'radio' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}

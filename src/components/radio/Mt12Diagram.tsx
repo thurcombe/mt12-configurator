@@ -376,7 +376,7 @@ interface Props {
 export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Props) {
   const externalHighlight = useEditorStore(s => s.diagramHighlight);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [showFunctions, setShowFunctions] = useState(false);
+  const [showFunctions, setShowFunctions] = useState(() => localStorage.getItem('mt12-show-functions') === 'true');
   const functionMap = useMemo(() => model ? buildFunctionMap(model) : undefined, [model]);
   const [enlarged, setEnlarged] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -534,7 +534,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
 
       {/* Labels / Functions toggle — shown when model data is available */}
       {model && (
-        <div className={css.viewToggle} onClick={() => setShowFunctions(v => !v)}>
+        <div className={css.viewToggle} onClick={() => setShowFunctions(v => { const next = !v; localStorage.setItem('mt12-show-functions', String(next)); return next; })}>
           <span className={`${css.viewToggleLabel} ${!showFunctions ? css.viewToggleLabelActive : ''}`}>
             Labels
           </span>

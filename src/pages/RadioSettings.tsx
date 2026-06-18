@@ -393,7 +393,7 @@ export function RadioSettings({ navigate }: Props) {
   async function handleBackup() {
     await backupRadio();
     setHasRadioBackups(true);
-    setToast('Radio settings backed up');
+    setToast('Transmitter settings backed up');
   }
 
   // When a diagram control is clicked, switch to the relevant settings tab.
