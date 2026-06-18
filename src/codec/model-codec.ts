@@ -9,13 +9,23 @@ function normaliseFlightModes(val: unknown): string {
   if (typeof val === 'number') {
     // Should not happen from file parse (pre-processing handles it),
     // but cover programmatic construction.
-    return val.toString(10).padStart(9, '0');
+    return val.toString(10).slice(-9).padStart(9, '0');
   }
   return '000000000';
 }
 
 export function parseModel(yamlText: string): Model {
   const raw = loadYaml(yamlText) as Record<string, unknown>;
+
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('Invalid model file: expected a YAML mapping');
+  }
+  if (Array.isArray(raw.mixData) && raw.mixData.length > 512) {
+    throw new Error('Invalid model file: mixData exceeds maximum allowed entries');
+  }
+  if (Array.isArray(raw.expoData) && raw.expoData.length > 512) {
+    throw new Error('Invalid model file: expoData exceeds maximum allowed entries');
+  }
 
   if (Array.isArray(raw.mixData)) {
     raw.mixData = (raw.mixData as MixLine[]).map((line) => ({

@@ -247,9 +247,11 @@ function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; s
   // Load hidden-pots preference from SD card webconfig.
   useEffect(() => {
     if (!sdRoot) return;
+    let cancelled = false;
     readWebConfig<string[]>(sdRoot, 'hidden-inputs.json').then(data => {
-      if (data) setHiddenPots(new Set(data));
+      if (!cancelled && data) setHiddenPots(new Set(data));
     });
+    return () => { cancelled = true; };
   }, [sdRoot]);
 
   if (!radio) return null;
@@ -414,6 +416,9 @@ export function RadioSettings({ navigate }: Props) {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
+        {isDirty && (
+          <button className="btn btn-primary btn-sm" onClick={saveRadio}>Save</button>
+        )}
         <span className={css.title}>Transmitter Settings</span>
         {radio && <span className={css.board}>{radio.board}</span>}
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
@@ -429,9 +434,6 @@ export function RadioSettings({ navigate }: Props) {
               History
             </button>
           </>
-        )}
-        {isDirty && (
-          <button className="btn btn-primary btn-sm" onClick={saveRadio}>Save</button>
         )}
       </div>
 

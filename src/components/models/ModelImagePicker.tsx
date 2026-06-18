@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import type { ModelKey } from '../../store/useEditorStore.ts';
 import { listImagesInDir } from '../../fs/sdcard.ts';
@@ -6,13 +6,16 @@ import css from './ModelImagePicker.module.css';
 
 interface Props {
   modelKey: ModelKey;
+  label?: string;
+  hoverScale?: number;
+  extraVisible?: number;
 }
 
 const ITEM_WIDTH = 95;  // 90px thumb + 5px gap
-const VERT_EXPAND = 30; // extra px above/below for 2× scale of 60px thumb
+const VERT_EXPAND = 60; // extra px below for 2× scale of 60px thumb (scale anchored to top)
 const NAV_SPACE = 56;   // 2 × (24px button + 4px gap), always reserved
 
-export function ModelImagePicker({ modelKey }: Props) {
+export function ModelImagePicker({ modelKey, label = 'Photo', hoverScale = 2, extraVisible = 0 }: Props) {
   const uploadModelImage = useEditorStore((s) => s.uploadModelImage);
   const imageUrl = useEditorStore((s) => s.modelImages[modelKey]);
   const sdRoot = useEditorStore((s) => s.sdRoot);
@@ -24,7 +27,17 @@ export function ModelImagePicker({ modelKey }: Props) {
 
   useEffect(() => {
     if (!sdRoot) return;
-    listImagesInDir(sdRoot, 'IMAGES/library').then(setSdImages);
+    let cancelled = false;
+    let urls: string[] = [];
+    listImagesInDir(sdRoot, 'IMAGES/library').then((imgs) => {
+      if (cancelled) { imgs.forEach((i) => URL.revokeObjectURL(i.url)); return; }
+      urls = imgs.map((i) => i.url);
+      setSdImages(imgs);
+    });
+    return () => {
+      cancelled = true;
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
   }, [sdRoot]);
 
   useEffect(() => { setScrollIdx(0); }, [sdImages]);
@@ -42,19 +55,21 @@ export function ModelImagePicker({ modelKey }: Props) {
     return () => ro.disconnect();
   }, [sdImages.length]);
 
-  const maxScrollIdx = Math.max(0, sdImages.length - visibleCount);
+  const effectiveVisible = visibleCount + extraVisible;
+  const maxScrollIdx = Math.max(0, sdImages.length - effectiveVisible);
   const clampedIdx = Math.min(scrollIdx, maxScrollIdx);
-  const shownCount = Math.min(visibleCount, sdImages.length);
+  const shownCount = Math.min(effectiveVisible, sdImages.length);
   const trackWidth = shownCount * ITEM_WIDTH - 5;
-  const lastVisible = Math.min(clampedIdx + visibleCount - 1, sdImages.length - 1);
+  const lastVisible = Math.min(clampedIdx + effectiveVisible - 1, sdImages.length - 1);
 
   function scrollThumbs(dir: -1 | 1) {
     setScrollIdx((prev) => Math.max(0, Math.min(prev + dir, maxScrollIdx)));
   }
 
   return (
-    <div className={css.picker}>
+    <div className={css.picker} style={{ '--thumb-hover-scale': hoverScale } as React.CSSProperties}>
       <div className={css.uploadRow}>
+        <span className={css.rowLabel}>{label}</span>
         {imageUrl && <img src={imageUrl} alt="Model" className={css.previewThumb} />}
         <input
           ref={imageInputRef}
@@ -90,8 +105,8 @@ export function ModelImagePicker({ modelKey }: Props) {
           <div style={{
             width: trackWidth,
             overflow: 'hidden',
-            padding: `${VERT_EXPAND}px 0`,
-            margin: `-${VERT_EXPAND}px 0`,
+            paddingBottom: VERT_EXPAND,
+            marginBottom: -VERT_EXPAND,
             boxSizing: 'content-box',
           }}>
             <div
@@ -101,10 +116,10 @@ export function ModelImagePicker({ modelKey }: Props) {
               {sdImages.map((img, i) => {
                 const selected = imageUrl === img.url;
                 const origin =
-                  i === clampedIdx && i === lastVisible ? 'center center'
-                  : i === clampedIdx   ? 'left center'
-                  : i === lastVisible  ? 'right center'
-                  : 'center center';
+                  i === clampedIdx && i === lastVisible ? 'center top'
+                  : i === clampedIdx   ? 'left top'
+                  : i === lastVisible  ? 'right top'
+                  : 'center top';
                 return (
                   <button
                     key={img.filename}
