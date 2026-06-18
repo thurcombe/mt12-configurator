@@ -1,0 +1,137 @@
+.prose {
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.prose h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.prose h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 32px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.prose h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 24px 0 8px;
+  color: var(--text);
+}
+
+.prose p {
+  margin: 0 0 12px;
+}
+
+.prose ul, .prose ol {
+  margin: 0 0 12px 20px;
+}
+
+.prose li {
+  margin-bottom: 4px;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 20px;
+  font-size: 13px;
+}
+
+.prose th {
+  text-align: left;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.prose td {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.prose tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface) 40%, transparent);
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface-hi);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--accent);
+}
+
+.prose pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-muted);
+  border-radius: 0 4px 4px 0;
+}
+
+.prose blockquote p {
+  margin: 0;
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prose img {
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin: 12px 0;
+  display: block;
+  cursor: zoom-in;
+  transition: opacity 0.15s;
+}
+
+.prose img:hover {
+  opacity: 0.85;
+}
