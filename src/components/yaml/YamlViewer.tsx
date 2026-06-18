@@ -91,9 +91,15 @@ export function YamlViewer({ model, modelKey }: Props) {
 
         {showDiff && isDirty && diffResult && (
           <div className={css.diffStats}>
-            <span className={css.added}>+{addCount}</span>
-            <span className={css.removed}>−{removeCount}</span>
-            <span className={css.diffLabel}>lines changed</span>
+            {addCount === 0 && removeCount === 0 ? (
+              <span className={css.noYamlChange}>No YAML changes (metadata or image differs)</span>
+            ) : (
+              <>
+                <span className={css.added}>+{addCount}</span>
+                <span className={css.removed}>−{removeCount}</span>
+                <span className={css.diffLabel}>lines changed</span>
+              </>
+            )}
           </div>
         )}
 
@@ -113,7 +119,7 @@ export function YamlViewer({ model, modelKey }: Props) {
       <div className={css.codeWrap}>
         {loadingDiff ? (
           <pre className={css.code}>Loading…</pre>
-        ) : diffResult ? (
+        ) : diffResult && (addCount > 0 || removeCount > 0) ? (
           <pre className={css.code}>
             {diffResult.map((l, i) => (
               <span

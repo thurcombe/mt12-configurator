@@ -49,6 +49,7 @@
 .added  { color: #4caf50; font-weight: 600; }
 .removed { color: #f44336; font-weight: 600; }
 .diffLabel { color: var(--text-muted); }
+.noYamlChange { font-size: 12px; color: var(--text-muted); }
 
 .actions {
   margin-left: auto;
