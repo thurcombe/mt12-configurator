@@ -105,6 +105,9 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
             ← Back
           </button>
+          {isDirty && (
+            <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
+          )}
           {!wizardActive && (
             <input
               type="text"
@@ -117,9 +120,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           )}
           {isDirty && <span className="badge badge-warning">Unsaved</span>}
           <div style={{ flex: 1 }} />
-          {isDirty && (
-            <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
-          )}
           <div className={css.toggleGroup}>
             <button className={css.toggleActive}>Basic</button>
             <button className={css.toggle} onClick={switchToAdvanced}>Advanced</button>
@@ -156,6 +156,9 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
           ← Back
         </button>
+        {isDirty && (
+          <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
+        )}
         <input
           type="text"
           className={css.nameInput}
@@ -166,9 +169,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         />
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
-        {isDirty && (
-          <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
-        )}
         <div className={css.toggleGroup}>
           <button className={css.toggle} onClick={() => setViewMode('basic')}>Basic</button>
           <button className={css.toggleActive}>Advanced</button>

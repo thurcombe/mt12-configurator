@@ -39,6 +39,15 @@ export async function readTextFile(root: SdRoot, relativePath: string): Promise<
   return file.text();
 }
 
+export async function readBinaryFile(root: SdRoot, relativePath: string): Promise<File> {
+  const parts = relativePath.split('/');
+  const filename = parts.pop()!;
+  assertSafeSegments([...parts, filename]);
+  const dir = parts.length ? await resolveDir(root, parts) : root;
+  const fh = await dir.getFileHandle(filename);
+  return fh.getFile();
+}
+
 export async function writeTextFile(root: SdRoot, relativePath: string, content: string): Promise<void> {
   const parts = relativePath.split('/');
   const filename = parts.pop()!;
@@ -192,4 +201,24 @@ export async function findModelImages(root: SdRoot, modelKeys: string[]): Promis
     result[key] = URL.createObjectURL(file);
   }
   return result;
+}
+
+export async function readModelImageFile(root: SdRoot, modelKey: string): Promise<File | null> {
+  const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp']);
+  let dir: FileSystemDirectoryHandle;
+  try {
+    dir = await resolveDir(root, ['IMAGES']);
+  } catch {
+    return null;
+  }
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind !== 'file') continue;
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) continue;
+    const base = name.slice(0, dot).toLowerCase();
+    const ext = name.slice(dot + 1).toLowerCase();
+    if (base !== modelKey.toLowerCase() || !IMAGE_EXTS.has(ext)) continue;
+    return (handle as FileSystemFileHandle).getFile();
+  }
+  return null;
 }

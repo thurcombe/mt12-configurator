@@ -11,6 +11,13 @@
   gap: 8px;
 }
 
+.rowLabel {
+  font-size: 12px;
+  color: var(--text-muted, var(--text));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .previewThumb {
   width: 54px;
   height: 36px;
@@ -50,7 +57,7 @@
 }
 
 .thumb:hover {
-  transform: scale(2);
+  transform: scale(var(--thumb-hover-scale, 2));
   z-index: 10;
   border-color: var(--accent);
 }

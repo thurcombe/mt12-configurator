@@ -16,6 +16,7 @@ interface Props {
   onDelete: () => void;
   onBackup?: () => void;
   onHistory?: () => void;
+  onChangeImage?: () => void;
 }
 
 function protocolBadge(model: Model): string {
@@ -29,7 +30,7 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, onEdit, onDuplicate, onDelete, onBackup, onHistory }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
@@ -37,12 +38,31 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
 
   return (
     <div className={`${css.card} ${isDirty ? css.dirty : ''}`}>
-      <div className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}>
+      <div
+        className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}
+        onClick={onEdit}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onEdit()}
+      >
         <img
           src={displayImageUrl ?? '/model-default.png'}
           alt={name || modelKey}
           className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`}
         />
+        {onChangeImage && (
+          <button
+            className={css.editImageBtn}
+            onClick={(e) => { e.stopPropagation(); onChangeImage(); }}
+            title="Change image"
+            aria-label="Change model image"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round"/>
+              <path d="M8 3L11 6" stroke="white" strokeWidth="1.4"/>
+            </svg>
+          </button>
+        )}
       </div>
       <div className={css.header}>
         <span className={`${css.name} ${!name ? css.empty : ''}`}>

@@ -183,10 +183,7 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
             {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className={css.fieldLabel}>Photo</span>
-          <ModelImagePicker modelKey={modelKey} />
-        </div>
+        <ModelImagePicker modelKey={modelKey} hoverScale={1.5} />
       </section>
 
       {/* Radio link */}
@@ -601,31 +598,41 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
     setStep(STEPS[STEPS.indexOf(step) + 1]);
   }
 
-  function finish() {
-    const generated = generateBasicModel(params);
+  function finish(p: WizardParams = params) {
+    const generated = generateBasicModel(p);
     onChange((m) => ({
       ...m,
-      header: params.modelName ? { ...m.header, name: params.modelName } : m.header,
+      header: p.modelName ? { ...m.header, name: p.modelName } : m.header,
       mixData: generated.mixData,
       expoData: [...(m.expoData ?? []).filter(() => false), ...generated.expoData],
       logicalSw: { ...(m.logicalSw ?? {}), ...generated.logicalSw },
       inputNames: { ...(m.inputNames ?? {}), ...generated.inputNames },
       moduleData: generated.moduleData,
     }));
-    if (params.scale !== existingScale) {
-      setModelScale(modelKey, params.scale);
-    }
-    if (params.vehicleType !== existingVehicleType) {
-      setModelVehicleType(modelKey, params.vehicleType);
-    }
-    if (params.power !== existingPower) {
-      setModelPower(modelKey, params.power);
-    }
-    if (params.wantKidControl) {
+    if (p.scale !== existingScale) setModelScale(modelKey, p.scale);
+    if (p.vehicleType !== existingVehicleType) setModelVehicleType(modelKey, p.vehicleType);
+    if (p.power !== existingPower) setModelPower(modelKey, p.power);
+    if (p.wantKidControl) {
       onLaunchKidControl();
     } else {
       onCancel?.();
     }
+  }
+
+  function finishEarly() {
+    // Apply conflict resolutions for the current step, then finish.
+    const updates: Partial<WizardParams> = {};
+    if (step === 'drate') {
+      if (potConflict) updates.wantGyroGain = false;
+      if (swConflict)  updates.wantCruise = false;
+    }
+    if (step === 'cruise' && swConflict) updates.dRateMode = 'none';
+    if (step === 'gyro'  && potConflict) updates.dRateMode = 'none';
+    if (step === 'steering') {
+      if (strimDRateConflict) updates.dRateMode = 'none';
+      if (strimGyroConflict)  updates.wantGyroGain = false;
+    }
+    finish(Object.keys(updates).length ? { ...params, ...updates } : params);
   }
 
   function chOptions(selfCh: number) {
@@ -673,7 +680,11 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
         {STEPS.map((s, i) => (
           <span key={s} style={{ display:'flex', alignItems:'center', gap:4 }}>
             {i > 0 && <span className={css.crumbSep}>›</span>}
-            <span className={s === step ? css.crumbActive : css.crumb}>{STEP_LABELS[s]}</span>
+            {initialParams && s !== step ? (
+              <button className={css.crumbClickable} onClick={() => setStep(s)}>{STEP_LABELS[s]}</button>
+            ) : (
+              <span className={s === step ? css.crumbActive : css.crumb}>{STEP_LABELS[s]}</span>
+            )}
           </span>
         ))}
       </div>
@@ -730,14 +741,12 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 <option value="fuel">⛽ Fuel (nitro/petrol)</option>
               </select>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span className={css.fieldLabel}>Photo</span>
-              <ModelImagePicker modelKey={modelKey} />
-            </div>
+            <ModelImagePicker modelKey={modelKey} />
           </div>
           <div className={css.wizardActions}>
             {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -774,6 +783,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -799,6 +809,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -842,6 +853,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -916,6 +928,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -983,6 +996,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}
               disabled={params.wantSteering && !params.strimSrc}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -1042,6 +1056,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}
               disabled={params.wantGyroGain && !params.gyroGainPot}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -1063,6 +1078,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             <button className="btn btn-primary btn-sm" onClick={nextStep}>Next →</button>
+            {initialParams && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={finishEarly}>Finish ✓</button>}
           </div>
         </>
       )}
@@ -1115,7 +1131,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           <div className={css.wizardActions}>
             <button className="btn btn-ghost btn-sm" onClick={back}>← Back</button>
             {onCancel && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
-            <button className="btn btn-primary btn-sm" onClick={finish}>
+            <button className="btn btn-primary btn-sm" onClick={() => finish()}>
               {params.wantKidControl ? 'Create & launch KidControl →' : (initialParams ? 'Apply configuration' : 'Create configuration')}
             </button>
           </div>
