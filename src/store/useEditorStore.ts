@@ -371,8 +371,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           [...freshModelKeys].filter((k) => s.models[k]).map((k) => [k, s.models[k]!])
         );
         const newModels = { ...freshModels, ...updates };
-        // Drop stale dirty flags for models that no longer exist.
-        const dirty = new Set([...s.dirty].filter((k) => k === 'radio' || newModels[k as ModelKey]));
+        // Clear dirty for reloaded models; drop stale flags for models that no longer exist.
+        const dirty = new Set([...s.dirty].filter((k) => {
+          if (updates[k as ModelKey]) return false;
+          if (k === 'radio') return true;
+          return !!newModels[k as ModelKey];
+        }));
         // Clean up pending image state for models reloaded from disk.
         const pendingModelImageFiles = { ...s.pendingModelImageFiles };
         const modelImages = { ...s.modelImages };

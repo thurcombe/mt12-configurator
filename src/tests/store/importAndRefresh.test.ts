@@ -90,20 +90,21 @@ describe('loadAllModels', () => {
     expect(useEditorStore.getState().dirty.has('model00')).toBe(false);
   });
 
-  it('does not clear dirty flag for models not on the card', async () => {
+  it('discards dirty models not on the card and not fresh', async () => {
     const yaml = fixtureYaml('model00.yml');
     const sdRoot = createMemoryRoot({ 'MODELS/model00.yml': yaml }) as any;
     useEditorStore.setState({ sdRoot, dirty: new Set(['model01']) });
 
     await useEditorStore.getState().loadAllModels();
 
-    expect(useEditorStore.getState().dirty.has('model01')).toBe(true);
+    // model01 is not on card and not in freshModelKeys — discarded on refresh.
+    expect(useEditorStore.getState().dirty.has('model01')).toBe(false);
   });
 
-  it('preserves in-memory-only models not present on card', async () => {
+  it('preserves fresh (unsaved) models not present on card', async () => {
     const yaml = fixtureYaml('model00.yml');
     const sdRoot = createMemoryRoot({ 'MODELS/model00.yml': yaml }) as any;
-    useEditorStore.setState({ sdRoot, models: { model01: {} as any }, dirty: new Set(['model01']) });
+    useEditorStore.setState({ sdRoot, models: { model01: {} as any }, freshModelKeys: new Set(['model01']), dirty: new Set(['model01']) });
 
     await useEditorStore.getState().loadAllModels();
 
