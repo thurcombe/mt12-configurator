@@ -140,6 +140,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
   const addCount = diffResult?.filter(l => l.type === 'add').length ?? 0;
   const removeCount = diffResult?.filter(l => l.type === 'remove').length ?? 0;
   const hasDiff = addCount > 0 || removeCount > 0;
+  const isIdentical = previewContent !== null && targetCurrentYaml !== null && previewContent === targetCurrentYaml;
 
   function handleItemClick(entry: BackupEntry) {
     if (manageMode) {
@@ -370,7 +371,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
                         {restoredSlot ? (
                           <span className={css.restoredNote}>Restored — save to apply</span>
                         ) : (
-                          <button className="btn btn-primary btn-sm" disabled={restoring} onClick={requestRestore}>
+                          <button className="btn btn-primary btn-sm" disabled={restoring || isIdentical} onClick={requestRestore}>
                             {restoring ? 'Restoring…' : 'Restore'}
                           </button>
                         )}
@@ -406,7 +407,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
                         {restoredSlot ? (
                           <span className={css.restoredNote}>Restored to <strong>{restoredSlot}</strong></span>
                         ) : (
-                          <button className="btn btn-primary btn-sm" disabled={restoring || !targetKey} onClick={requestRestore}>
+                          <button className="btn btn-primary btn-sm" disabled={restoring || !targetKey || isIdentical} onClick={requestRestore}>
                             {restoring ? 'Restoring…' : 'Restore'}
                           </button>
                         )}
