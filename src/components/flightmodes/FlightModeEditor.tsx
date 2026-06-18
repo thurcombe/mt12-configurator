@@ -30,15 +30,28 @@ function fmLabel(idx: string, fm: FlightModeData) {
   return name ? `FM${n} — ${name}` : `FM${n}`;
 }
 
+const MAX_FM = 9;
+
+const DEFAULT_FM: FlightModeData = {
+  name: '',
+  swtch: 'NONE',
+  fadeIn: 0,
+  fadeOut: 0,
+  trim: {},
+  gvars: {},
+};
+
 interface FmPanelProps {
   idx: string;
   fm: FlightModeData;
   isDefault: boolean;
   onChange: (fm: FlightModeData) => void;
+  onRemove?: () => void;
+  initialOpen?: boolean;
 }
 
-function FmPanel({ idx, fm, isDefault, onChange }: FmPanelProps) {
-  const [open, setOpen] = useState(idx === '0');
+function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen }: FmPanelProps) {
+  const [open, setOpen] = useState(initialOpen ?? idx === '0');
   const trimEntries = Object.entries(fm.trim ?? {});
   const gvarEntries = Object.entries(fm.gvars ?? {});
 
@@ -167,6 +180,12 @@ function FmPanel({ idx, fm, isDefault, onChange }: FmPanelProps) {
               </div>
             </>
           )}
+
+          {!isDefault && onRemove && (
+            <div className={css.removeRow}>
+              <button className="btn btn-danger btn-sm" onClick={onRemove}>Remove drive mode</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -175,7 +194,9 @@ function FmPanel({ idx, fm, isDefault, onChange }: FmPanelProps) {
 
 export function FlightModeEditor({ model, onChange }: Props) {
   const fms = model.flightModeData ?? {};
+  const [newIdx, setNewIdx] = useState<string | null>(null);
   const entries = Object.entries(fms).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+  const canAdd = entries.length < MAX_FM;
 
   function updateFm(idx: string, fm: FlightModeData) {
     onChange((m) => ({
@@ -184,12 +205,35 @@ export function FlightModeEditor({ model, onChange }: Props) {
     }));
   }
 
-  if (entries.length === 0) {
-    return <p style={{ color: 'var(--text-muted)', padding: 20 }}>No flight mode data in this model.</p>;
+  function addFm() {
+    const used = new Set(Object.keys(fms));
+    const nextIdx = Array.from({ length: MAX_FM }, (_, i) => String(i)).find((i) => !used.has(i));
+    if (!nextIdx) return;
+    const fm0 = fms['0'];
+    const trim: FlightModeData['trim'] = {};
+    for (const key of Object.keys(fm0?.trim ?? {})) {
+      trim[key] = { value: 0, mode: 1 };
+    }
+    setNewIdx(nextIdx);
+    onChange((m) => ({
+      ...m,
+      flightModeData: { ...m.flightModeData, [nextIdx]: { ...DEFAULT_FM, trim } },
+    }));
+  }
+
+  function removeFm(idx: string) {
+    onChange((m) => {
+      const next = { ...m.flightModeData };
+      delete next[idx];
+      return { ...m, flightModeData: next };
+    });
   }
 
   return (
     <div className={css.root}>
+      {entries.length === 0 && (
+        <p style={{ color: 'var(--text-muted)', padding: '4px 0' }}>No drive modes configured.</p>
+      )}
       {entries.map(([idx, fm]) => (
         <FmPanel
           key={idx}
@@ -197,8 +241,15 @@ export function FlightModeEditor({ model, onChange }: Props) {
           fm={fm}
           isDefault={idx === '0'}
           onChange={(f) => updateFm(idx, f)}
+          onRemove={idx !== '0' ? () => removeFm(idx) : undefined}
+          initialOpen={idx === newIdx}
         />
       ))}
+      {canAdd && (
+        <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={addFm}>
+          + Add drive mode
+        </button>
+      )}
     </div>
   );
 }
