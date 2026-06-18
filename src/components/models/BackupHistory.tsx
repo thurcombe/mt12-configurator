@@ -415,7 +415,7 @@ export function BackupHistory({ modelKey, modelName, radioOnly, onClose }: Props
                     )}
                   </div>
 
-                  {diffResult && !showRaw && (
+                  {(isIdentical || (diffResult && !showRaw)) && (
                     <div className={css.diffSummary}>
                       {hasDiff ? (
                         <>
