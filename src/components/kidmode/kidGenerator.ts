@@ -117,8 +117,8 @@ export function applyKidMode(model: Model, params: KidModeParams, triggerSwitch:
       ...model.flightModeData,
       '1': fm1,
     },
-    expoData: [...model.expoData, kidThrExpo, kidStrExpo],
-    mixData: [...model.mixData, kidSpMix, kidStMix],
+    expoData: [...model.expoData.filter((l) => !l.name.startsWith('KID-')), kidThrExpo, kidStrExpo],
+    mixData: [...model.mixData.filter((l) => !l.name.startsWith('KID-')), kidSpMix, kidStMix],
   };
 }
 
