@@ -65,6 +65,8 @@ interface EditorState {
   dirty: Set<string>;
   // Keys created fresh this session (never saved to disk) — cleaned up on confirm-leave
   freshModelKeys: Set<string>;
+  // Last-known on-disk YAML per model — used to auto-clear dirty when edits are undone back to saved state
+  savedModelYaml: Record<string, string>;
 
   // Model images — object URLs keyed by model slot key
   modelImages: Record<ModelKey, string>;
@@ -168,6 +170,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   radio: null,
   dirty: new Set(),
   freshModelKeys: new Set(),
+  savedModelYaml: {},
   lastError: null,
   warnings: [],
   settings: DEFAULT_SETTINGS,
@@ -375,11 +378,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const files = await listModelFiles(sdRoot);
       const updates: Record<ModelKey, Model> = {};
+      const loadedYamls: Record<string, string> = {};
       for (const filename of files) {
         const key = filename.replace('.yml', '');
         try {
           const yaml = await readTextFile(sdRoot, `MODELS/${filename}`);
           updates[key] = parseModel(yaml);
+          loadedYamls[key] = yaml;
         } catch (e) {
           const msg = friendlyError(e, filename);
           if (msg) newWarnings.push(`Skipped ${filename}: ${msg}`);
@@ -412,7 +417,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             delete pendingModelImageFiles[key as ModelKey];
           }
         }
-        return { models: newModels, dirty, warnings: newWarnings, lastError: null, freshModelKeys, pendingModelImageFiles, modelImages };
+        const savedModelYaml = { ...s.savedModelYaml, ...loadedYamls };
+        return { models: newModels, dirty, warnings: newWarnings, lastError: null, freshModelKeys, pendingModelImageFiles, modelImages, savedModelYaml };
       });
       get().loadModelImages();
     } catch (e) {
@@ -428,6 +434,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const model = parseModel(yaml);
       set((s) => ({
         models: { ...s.models, [key]: model },
+        savedModelYaml: { ...s.savedModelYaml, [key]: yaml },
         lastError: null,
       }));
     } catch (e) {
@@ -458,7 +465,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((s) => {
         const dirty = new Set(s.dirty);
         dirty.delete(key);
-        return { dirty, lastError: null };
+        return { dirty, lastError: null, savedModelYaml: { ...s.savedModelYaml, [key]: yaml } };
       });
       return;
     }
@@ -485,7 +492,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         dirty.delete(key);
         const pendingModelImageFiles = { ...s.pendingModelImageFiles };
         delete pendingModelImageFiles[key];
-        return { dirty, lastError: null, pendingModelImageFiles };
+        return { dirty, lastError: null, pendingModelImageFiles, savedModelYaml: { ...s.savedModelYaml, [key]: yaml } };
       });
     } catch (e) {
       set({ lastError: friendlyError(e, `${key}.yml`) });
@@ -503,9 +510,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => {
       const model = s.models[key];
       if (!model) return s;
+      const updated = updater(model);
       const dirty = new Set(s.dirty);
-      dirty.add(key);
-      return { models: { ...s.models, [key]: updater(model) }, dirty };
+      // Only mark dirty if the YAML actually differs from what's on disk.
+      // Fresh models (never saved) have no snapshot and are always dirty.
+      const snapshot = s.savedModelYaml[key];
+      if (snapshot !== undefined) {
+        try {
+          const newYaml = serialiseModel(updated);
+          if (newYaml === snapshot) {
+            dirty.delete(key);
+          } else {
+            dirty.add(key);
+          }
+        } catch {
+          dirty.add(key);
+        }
+      } else {
+        dirty.add(key);
+      }
+      return { models: { ...s.models, [key]: updated }, dirty };
     });
   },
 
@@ -827,7 +851,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const yaml = await readTextFile(sdRoot, `MODELS/${key}.yml`);
       const model = parseModel(yaml);
-      set((s) => ({ models: { ...s.models, [key]: model } }));
+      set((s) => ({ models: { ...s.models, [key]: model }, savedModelYaml: { ...s.savedModelYaml, [key]: yaml } }));
     } catch { /* leave in-memory model as-is; dirty already cleared */ }
     // Revert model meta for this key from disk.
     try {
