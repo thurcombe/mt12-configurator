@@ -613,6 +613,12 @@ The MT12 has one expansion slot. Choose the fitted module from the **Installed m
 
 Selecting a module automatically sets the appropriate EdgeTX input types in `radio.yml`. The inputs table below the selector shows only the user-facing controls for the chosen module: FL1/FL2 for switch modules, P3/P4 for the joystick. Set a custom name for each if desired.
 
+#### Module change warnings
+
+If you change the installed module and any existing models reference controls that the new module does not provide, a **⚠ Model conflict** warning appears immediately below the module selector. It lists the affected models and which controls they depend on. The models are not modified — mixes and switch conditions that reference the missing controls remain in the YAML and will be inactive until either the original module is reinstalled or the models are updated.
+
+The same warning is surfaced on the Model List page: affected model cards show a yellow **⚠** badge on their image and a detail badge such as **⚠ FL1, FL2**. Hover the badge to see the full conflict description. This mirrors the KidControl stale detection pattern — the flag is always visible so you know which models need attention before driving.
+
 ### MT12 Controls diagram
 
 The diagram panel on the right shows the transmitter layout with your configured labels. Use **⚙ Place control labels** to drag labels to their physical positions, and **Reset** to restore defaults.
@@ -742,7 +748,7 @@ This covers:
 
 - What the app does and doesn't do
 - Demo mode usage
-- The optional MT12 expansion module (joystick/buttons) and its current level of support
+- Supported expansion modules (switch variants and joystick) and how they integrate
 - Known limitations (no telemetry editor, no graphical curve editor, no trainer port config, etc.)
 - Planned features on the roadmap
 

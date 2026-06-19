@@ -8,6 +8,7 @@ import type { Tab } from '../components/layout/TabBar.tsx';
 import { TabBar } from '../components/layout/TabBar.tsx';
 import { BASE_SWITCHES, EXPANSION_MODULES, TRIMS } from '../hardware/mt12.ts';
 import type { ExpansionModuleType } from '../hardware/mt12.ts';
+import { getExpansionConflict } from '../components/models/expansionConflict.ts';
 import css from './RadioSettings.module.css';
 
 interface Props {
@@ -374,12 +375,29 @@ function ExpansionTab() {
   const radio = useEditorStore((s) => s.radio);
   const updateRadio = useEditorStore((s) => s.updateRadio);
   const expansionModule = useEditorStore((s) => s.expansionModule);
+  const models = useEditorStore((s) => s.models);
+  const [moduleChangeWarning, setModuleChangeWarning] = useState<string | null>(null);
 
   if (!radio) return null;
 
   const currentModule = expansionModule();
 
   function applyModule(moduleType: ExpansionModuleType) {
+    // Warn if any loaded models reference controls the new module won't provide
+    const affected: string[] = [];
+    for (const [key, model] of Object.entries(models)) {
+      if (!model) continue;
+      const conflict = getExpansionConflict(model, moduleType);
+      if (conflict) {
+        const name = model.header?.name || key;
+        affected.push(`${name} (uses ${conflict.controls.join(', ')})`);
+      }
+    }
+    setModuleChangeWarning(
+      affected.length > 0
+        ? `${affected.length} model${affected.length > 1 ? 's use' : ' uses'} controls that won't be available with this module: ${affected.join('; ')}`
+        : null
+    );
     const potCfg = MODULE_POT_CONFIG[moduleType];
     const flCfg = MODULE_FL_CONFIG[moduleType];
     updateRadio((r) => {
@@ -417,6 +435,12 @@ function ExpansionTab() {
           ))}
         </select>
       </div>
+
+      {moduleChangeWarning && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'color-mix(in srgb, #f59e0b 12%, transparent)', border: '1px solid #f59e0b', borderRadius: 7, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+          <strong>⚠ Model conflict</strong> — {moduleChangeWarning}. Those models will still load and save correctly but any mix or switch conditions referencing these controls will be inactive until updated.
+        </div>
+      )}
 
       {currentModule !== 'none' && (
         <>

@@ -1,5 +1,7 @@
 import type { Model } from '../../types/model.ts';
 import { parseSubType, protocolName } from '../../codec/protocols.ts';
+import type { ExpansionConflict } from './expansionConflict.ts';
+import { expansionConflictLabel } from './expansionConflict.ts';
 import css from './ModelCard.module.css';
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
   power?: 'battery' | 'fuel';
   kidPresetName?: string;
   kidStale?: boolean;
+  expansionConflict?: ExpansionConflict | null;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -32,7 +35,7 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, kidPresetName, kidStale, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, kidPresetName, kidStale, expansionConflict, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
@@ -40,7 +43,7 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
   const kidActive = !!model.flightModeData?.['1'];
 
   return (
-    <div className={`${css.card} ${isDirty ? css.dirty : ''} ${kidStale ? css.stale : ''}`}>
+    <div className={`${css.card} ${isDirty ? css.dirty : ''} ${kidStale || expansionConflict ? css.stale : ''}`}>
       <div
         className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}
         onClick={onEdit}
@@ -53,8 +56,8 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
           alt={name || modelKey}
           className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`}
         />
-        {kidStale && (
-          <div className={css.staleIndicator} title="KidControl settings need review">⚠</div>
+        {(kidStale || expansionConflict) && (
+          <div className={css.staleIndicator} title={expansionConflict ? expansionConflictLabel(expansionConflict) : 'KidControl settings need review'}>⚠</div>
         )}
         {onChangeImage && (
           <button
@@ -89,6 +92,11 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
             title={kidStale ? 'KidControl settings need review — vehicle properties have changed' : 'KidControl is active on this model'}
           >
             {kidStale && '⚠ '}KidControl{kidPresetName ? ` · ${kidPresetName}` : ''}
+          </span>
+        )}
+        {expansionConflict && (
+          <span className="badge badge-warning" title={expansionConflictLabel(expansionConflict)}>
+            ⚠ {expansionConflict.controls.join(', ')}
           </span>
         )}
         {isDirty && <span className="badge badge-warning" title="This model has unsaved changes">unsaved</span>}

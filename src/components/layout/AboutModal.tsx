@@ -26,7 +26,8 @@ export function AboutModal({ onClose }: Props) {
               <li>Steering trim and gyro gain cards in the basic view for quick in-session adjustment</li>
               <li>Vehicle type management with per-type KidControl presets and custom images</li>
               <li>Model photos, scale, and vehicle type metadata stored alongside your models on the SD card</li>
-              <li>Visual MT12 diagram with live input highlighting during configuration</li>
+              <li>Visual MT12 diagram with live input highlighting during configuration, plus annotated expansion module diagram</li>
+              <li>Expansion module support — switch variants (FL1/FL2) and joystick (P3/P4) with full integration into all pickers</li>
               <li>Full round-trip fidelity — only the fields this editor manages are changed; everything else is preserved exactly</li>
             </ul>
           </section>
@@ -50,15 +51,18 @@ export function AboutModal({ onClose }: Props) {
           </section>
 
           <section className={css.section}>
-            <h3 className={css.sectionTitle}>MT12 expansion module (optional joystick / buttons)</h3>
+            <h3 className={css.sectionTitle}>MT12 expansion module</h3>
             <p>
-              The MT12 can be fitted with an optional expansion module that adds a thumbstick (joystick) and/or additional push-buttons to the top of the transmitter. In EdgeTX these appear as additional analog inputs (typically <strong>J1x / J1y</strong> for the joystick axes) and digital switch inputs.
+              The MT12 has one expansion slot that accepts optional add-on modules. Four modules are supported:
             </p>
+            <ul className={css.list}>
+              <li><strong>Dual 3-pos switch module</strong> — adds FL1 and FL2 as 3-position switches</li>
+              <li><strong>3+2-pos switch module</strong> — adds FL1 (3-position) and FL2 (2-position)</li>
+              <li><strong>Dual 2-pos switch module</strong> — adds FL1 and FL2 as 2-position switches</li>
+              <li><strong>Joystick module</strong> — adds P3 (X axis) and P4 (Y axis) analog inputs</li>
+            </ul>
             <p>
-              <strong>Current support:</strong> Models that use joystick or button inputs will load, save, and round-trip correctly — no data is lost. However, the <em>Basic view</em> setup wizard only handles the standard MT12 controls (trigger and steering wheel). To assign or mix joystick/button inputs you need to use the <strong>Advanced view</strong>, which gives direct access to all mix and expo lines.
-            </p>
-            <p>
-              The diagram view does not currently highlight the expansion module inputs on hover.
+              Select the fitted module in <strong>Transmitter Settings → Input Hardware</strong>. The app configures the correct EdgeTX input types automatically and shows an annotated photo of the module with drag-to-place label positioning. Expansion inputs (FL1/FL2 or P3/P4) are available throughout the app wherever a switch or source can be assigned — including the setup wizard, KidControl trigger, mix sources, and expo lines.
             </p>
           </section>
 
@@ -77,7 +81,6 @@ export function AboutModal({ onClose }: Props) {
           <section className={css.section}>
             <h3 className={css.sectionTitle}>Planned / roadmap</h3>
             <ul className={css.list}>
-              <li>Expansion module input labelling and diagram highlight for joystick and button inputs</li>
               <li>Graphical expo / curve editor</li>
               <li>Multi-drive-mode management beyond KidControl</li>
             </ul>
@@ -85,6 +88,7 @@ export function AboutModal({ onClose }: Props) {
         </div>
 
         <div className={css.footer}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{__APP_VERSION__}</span>
           <button className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
         </div>
       </div>
