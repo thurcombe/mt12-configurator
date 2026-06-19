@@ -4,7 +4,8 @@ import { readFileSync } from 'fs';
 import { execSync } from 'child_process';
 
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'));
-const commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+let commitHash = 'dev';
+try { commitHash = execSync('git rev-parse --short HEAD').toString().trim(); } catch { /* no git in Docker build context */ }
 
 export default defineConfig({
   plugins: [react()],
