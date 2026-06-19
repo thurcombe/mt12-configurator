@@ -13,6 +13,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(
       process.env.NODE_ENV === 'production' ? version : commitHash
     ),
+    __REPO_URL__: JSON.stringify('https://github.com/thurcombe/mt12-configurator'),
   },
   test: {
     environment: 'node',

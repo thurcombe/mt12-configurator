@@ -13,7 +13,20 @@ export function AboutModal({ onClose }: Props) {
             <h2 className={css.title}>EdgeTX MT12 Config Editor</h2>
             <p className={css.subtitle}>A browser-based model configuration tool for the RadioMaster MT12</p>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ fontSize: 18, padding: '2px 8px' }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexShrink: 0 }}>
+            <a
+              href={/^\d+\.\d+\.\d+/.test(__APP_VERSION__)
+                ? `${__REPO_URL__}/releases/tag/v${__APP_VERSION__}`
+                : `${__REPO_URL__}/commit/${__APP_VERSION__}`}
+              target="_blank"
+              rel="noreferrer"
+              className={`badge ${/^\d+\.\d+\.\d+/.test(__APP_VERSION__) ? 'badge-green' : 'badge-warning'}`}
+              style={{ textDecoration: 'none' }}
+            >
+              v{__APP_VERSION__}
+            </a>
+            <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ fontSize: 18, padding: '2px 8px' }}>✕</button>
+          </div>
         </div>
 
         <div className={css.body}>
@@ -88,7 +101,6 @@ export function AboutModal({ onClose }: Props) {
         </div>
 
         <div className={css.footer}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{__APP_VERSION__}</span>
           <button className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
         </div>
       </div>
