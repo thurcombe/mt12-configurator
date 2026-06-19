@@ -3,6 +3,7 @@ import { Toast } from '../components/shared/Toast.tsx';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { findFreeSlot } from '../codec/modelTemplate.ts';
+import { BUILT_IN_CATEGORIES } from '../data/vehicleTypes.ts';
 import { ModelCard } from '../components/models/ModelCard.tsx';
 import { ModelImagePicker } from '../components/models/ModelImagePicker.tsx';
 import { BackupHistory } from '../components/models/BackupHistory.tsx';
@@ -21,6 +22,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const modelMeta = useEditorStore((s) => s.modelMeta);
   const vehicleCategories = useEditorStore((s) => s.vehicleCategories);
   const vehicleTypeImages = useEditorStore((s) => s.vehicleTypeImages);
+  const kidPresets = useEditorStore((s) => s.kidPresets);
   const dirty = useEditorStore((s) => s.dirty);
   const loadAllModels = useEditorStore((s) => s.loadAllModels);
   const createModel = useEditorStore((s) => s.createModel);
@@ -148,11 +150,27 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
       ) : (
         <div className={css.grid}>
           {modelKeys.map((key) => {
-            const vehicleTypeId = modelMeta[key]?.vehicleType;
-            const vehicleTypeName = vehicleTypeId
-              ? vehicleCategories.find((c) => c.id === vehicleTypeId)?.name
-              : undefined;
+            const meta = modelMeta[key];
+            const vehicleTypeId = meta?.vehicleType;
+            const currentCat = vehicleTypeId ? vehicleCategories.find((c) => c.id === vehicleTypeId) : undefined;
+            const vehicleTypeName = currentCat?.name;
             const vehicleTypeImageUrl = vehicleTypeId ? vehicleTypeImages[vehicleTypeId] : undefined;
+            const snap = meta?.kidSnapshot;
+            const kidPresetName = snap ? kidPresets.find(p => p.id === snap.presetId)?.name : undefined;
+            const kidActive = !!models[key]?.flightModeData?.['1'];
+            let kidStale = false;
+            if (kidActive && currentCat) {
+              if (snap) {
+                kidStale = currentCat.steeringCharacter !== snap.steeringCharacter ||
+                           currentCat.powerDelivery     !== snap.powerDelivery;
+              } else {
+                const defaultCat = BUILT_IN_CATEGORIES.find(c => c.id === vehicleTypeId);
+                if (defaultCat) {
+                  kidStale = currentCat.steeringCharacter !== defaultCat.steeringCharacter ||
+                             currentCat.powerDelivery     !== defaultCat.powerDelivery;
+                }
+              }
+            }
             return (
               <ModelCard
                 key={key}
@@ -160,9 +178,11 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 model={models[key]}
                 isDirty={dirty.has(key)}
                 imageUrl={modelImages[key]}
-                scale={modelMeta[key]?.scale}
+                scale={meta?.scale}
                 vehicleTypeName={vehicleTypeName}
-                power={modelMeta[key]?.power}
+                power={meta?.power}
+                kidPresetName={kidPresetName}
+                kidStale={kidStale}
                 vehicleTypeImageUrl={vehicleTypeImageUrl}
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}

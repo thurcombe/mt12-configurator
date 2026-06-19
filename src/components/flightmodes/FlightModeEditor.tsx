@@ -60,9 +60,9 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen }: FmPane
       <button className={css.panelHeader} onClick={() => setOpen((o) => !o)}>
         <span className={css.caret}>{open ? '▾' : '▸'}</span>
         <span className={css.panelTitle}>{fmLabel(idx, fm)}</span>
-        {isDefault && <span className="badge">default</span>}
+        {isDefault && <span className="badge" title="This flight mode is always active when no other is triggered">default</span>}
         {!isDefault && fm.swtch && fm.swtch !== 'NONE' && (
-          <span className="badge badge-accent">{fm.swtch}</span>
+          <span className="badge badge-accent" title="Switch that activates this flight mode">{fm.swtch}</span>
         )}
         {(fm.fadeIn || fm.fadeOut) ? (
           <span className={css.fadeHint}>fade {fm.fadeIn * FADE_STEP}s / {fm.fadeOut * FADE_STEP}s</span>

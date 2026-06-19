@@ -1,17 +1,12 @@
 import { useState } from 'react';
 import type { Model } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
-import {
-  DEFAULTS,
-  VEHICLE_LABELS,
-  SPEED_LABELS,
-  type VehicleType,
-  type SpeedClass,
-  type KidModeParams,
-} from './kidDefaults.ts';
+import type { KidModeParams } from './kidDefaults.ts';
+import { calculateKidParams } from './kidCalculator.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
-import type { VehicleCategory } from '../../data/vehicleTypes.ts';
+import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../../data/vehicleTypes.ts';
+import type { KidPreset } from '../../types/kidPreset.ts';
 import css from './KidModeWizard.module.css';
 
 interface Props {
@@ -22,15 +17,7 @@ interface Props {
   skipActiveCheck?: boolean;
 }
 
-type Step = 'vehicle' | 'speed' | 'sliders';
-
-const SPEED_CLASSES: SpeedClass[] = ['slow', 'medium', 'fast'];
-
-const SPEED_DESCRIPTIONS: Record<SpeedClass, string> = {
-  slow: 'Very conservative — for young or first-time drivers',
-  medium: 'Balanced — comfortable limits for most kids',
-  fast: 'Light limits — for older or experienced kids',
-};
+type Step = 'vehicle' | 'preset' | 'sliders';
 
 interface SliderRowProps {
   label: string;
@@ -85,20 +72,62 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
+function restrictionBar(level: number) {
+  const filled = Math.round(level / 10);
+  return (
+    <div className={css.restrictionBar} title={`Restriction level: ${level}%`}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <div key={i} className={i < filled ? css.restrictionFilled : css.restrictionEmpty} />
+      ))}
+    </div>
+  );
+}
+
+function extractActiveParams(model: Model): KidModeParams | null {
+  const kidExpos = (model.expoData ?? []).filter(l => l.name?.startsWith('KID-'));
+  const thExpo = kidExpos.find(l => l.name === 'KID-TH');
+  const stExpo = kidExpos.find(l => l.name === 'KID-ST');
+  const spMix = (model.mixData ?? []).find(l => l.name === 'KID-SP');
+  if (!thExpo || !stExpo || !spMix) return null;
+  return {
+    thrRate: thExpo.weight,
+    thrExpo: thExpo.curve?.value ?? 0,
+    speedUp: spMix.speedUp,
+    speedDown: spMix.speedDown,
+    strRate: stExpo.weight,
+    strExpo: stExpo.curve?.value ?? 0,
+  };
+}
+
+function paramsHaveDrifted(applied: KidModeParams, expected: KidModeParams): boolean {
+  return (
+    Math.abs(applied.thrRate  - expected.thrRate)  > 2 ||
+    Math.abs(applied.thrExpo  - expected.thrExpo)  > 2 ||
+    Math.abs(applied.speedUp  - expected.speedUp)  > 2 ||
+    Math.abs(applied.strRate  - expected.strRate)  > 2 ||
+    Math.abs(applied.strExpo  - expected.strExpo)  > 2
+  );
+}
+
 export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActiveCheck }: Props) {
   const storedTypeId = useEditorStore(s => s.modelMeta[modelKey]?.vehicleType ?? '');
+  const kidSnapshot  = useEditorStore(s => s.modelMeta[modelKey]?.kidSnapshot);
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
+  const kidPresets = useEditorStore(s => s.kidPresets);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+  const recordKidControlApplied = useEditorStore(s => s.recordKidControlApplied);
+  const clearKidControlSnapshot = useEditorStore(s => s.clearKidControlSnapshot);
 
   const storedCat = vehicleCategories.find(c => c.id === storedTypeId);
-  const derivedKidType = storedCat?.kidType;
 
-  const [step, setStep] = useState<Step>(derivedKidType ? 'speed' : 'vehicle');
-  const [vehicle, setVehicle] = useState<VehicleType>(derivedKidType ?? 'crawler');
-  const [vehicleLabel, setVehicleLabel] = useState<string>(storedCat?.name ?? VEHICLE_LABELS[derivedKidType ?? 'crawler']);
-  const [speed, setSpeed] = useState<SpeedClass>('slow');
-  const [params, setParams] = useState<KidModeParams>(DEFAULTS[derivedKidType ?? 'crawler'].slow);
+  const [step, setStep] = useState<Step>(storedCat ? 'preset' : 'vehicle');
+  const [selectedCat, setSelectedCat] = useState<VehicleCategory>(storedCat ?? vehicleCategories[0]);
+  const [selectedPreset, setSelectedPreset] = useState<KidPreset>(kidPresets[0]);
+  const [params, setParams] = useState<KidModeParams>(() =>
+    storedCat ? calculateKidParams(storedCat, kidPresets[0]) : calculateKidParams(vehicleCategories[0], kidPresets[0])
+  );
   const [triggerSwitch, setTriggerSwitch] = useState('SA2');
+  const [editingActive, setEditingActive] = useState(false);
 
   const active = isKidModeActive(model);
 
@@ -108,36 +137,140 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
 
   function handleSelectCategory(cat: VehicleCategory) {
     setModelVehicleType(modelKey, cat.id);
-    setVehicle(cat.kidType);
-    setVehicleLabel(cat.name);
-    setStep('speed');
-    setParams(DEFAULTS[cat.kidType][speed]);
+    setSelectedCat(cat);
+    setStep('preset');
   }
 
-  function handleSelectSpeed(s: SpeedClass) {
-    setSpeed(s);
-    setParams(DEFAULTS[vehicle][s]);
+  function handleSelectPreset(preset: KidPreset) {
+    setSelectedPreset(preset);
+    setParams(calculateKidParams(selectedCat, preset));
     setStep('sliders');
   }
 
   function handleApply() {
     onChange((m) => applyKidMode(m, params, triggerSwitch));
+    recordKidControlApplied(modelKey, selectedPreset.id, selectedCat.steeringCharacter, selectedCat.powerDelivery);
+    setEditingActive(false);
     onApplied?.();
   }
 
   function handleRemove() {
     onChange((m) => removeKidMode(m));
+    clearKidControlSnapshot(modelKey);
   }
 
+  function handleEditLimits() {
+    const current = extractActiveParams(model);
+    if (current) setParams(current);
+    setEditingActive(true);
+  }
+
+  function handleRecalculate(vehicle: VehicleCategory, preset?: KidPreset) {
+    setSelectedCat(vehicle);
+    if (preset) {
+      setSelectedPreset(preset);
+      setParams(calculateKidParams(vehicle, preset));
+      setEditingActive(true);
+    } else {
+      // No known preset — take user back to preset selection
+      setStep('preset');
+    }
+  }
+
+  // ── Edit mode overlay (sliders over the active card) ──────────────────────
+  if (active && editingActive) {
+    return (
+      <div className={css.root}>
+        <div className={css.section}>
+          <h4 className={css.sectionTitle}>Throttle</h4>
+          <SliderRow label="Max rate" value={params.thrRate} min={10} max={100} onChange={(v) => param('thrRate', v)} />
+          <SliderRow label="Expo" value={params.thrExpo} min={0} max={100} onChange={(v) => param('thrExpo', v)} />
+          <SliderRow label="Speed up (×0.1s)" value={params.speedUp} min={0} max={25} unit="" onChange={(v) => param('speedUp', v)} />
+          <SliderRow label="Speed down (×0.1s)" value={params.speedDown} min={0} max={25} unit="" onChange={(v) => param('speedDown', v)} />
+        </div>
+        <div className={css.section}>
+          <h4 className={css.sectionTitle}>Steering</h4>
+          <SliderRow label="Max rate" value={params.strRate} min={10} max={100} onChange={(v) => param('strRate', v)} />
+          <SliderRow label="Expo" value={params.strExpo} min={0} max={100} onChange={(v) => param('strExpo', v)} />
+        </div>
+        <div className={css.section}>
+          <h4 className={css.sectionTitle}>Trigger switch</h4>
+          <p className={css.switchHint}>KidControl activates when this switch is in the selected position (FM1).</p>
+          <div className={css.sliderRow}>
+            <span className={css.sliderLabel}>Switch</span>
+            <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} />
+          </div>
+        </div>
+        <div className={css.previewBox}>
+          <span className={css.previewTitle}>Effective in KidControl (FM1)</span>
+          <div className={css.previewGrid}>
+            <span>Throttle</span><span>{params.thrRate}% max, expo {params.thrExpo}, accel {(params.speedUp * 0.1).toFixed(1)}s / decel {(params.speedDown * 0.1).toFixed(1)}s</span>
+            <span>Steering</span><span>{params.strRate}% max, expo {params.strExpo}</span>
+            <span>Trigger</span><span>{triggerSwitch}</span>
+          </div>
+        </div>
+        <div className={css.actions}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setEditingActive(false)}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleApply}>Apply changes</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active summary card ────────────────────────────────────────────────────
   if (active && !skipActiveCheck) {
     const fm1 = model.flightModeData?.['1'];
     const trigSw = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
-    const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
-    const thExpo = kidExpos.find(l => l.name === 'KID-TH');
-    const stExpo = kidExpos.find(l => l.name === 'KID-ST');
-    const spMix = (model.mixData ?? []).find(l => l.name === 'KID-SP');
+    const appliedParams = extractActiveParams(model);
+
+    // Detect staleness: vehicle type properties have changed since KidControl was applied.
+    // Primary path: snapshot was recorded at apply time — compare exactly.
+    // Fallback path: no snapshot (pre-existing KidControl) — compare current vehicle
+    //   properties against the hardcoded built-in defaults to detect edits.
+    let stale = false;
+    let stalePreset: KidPreset | undefined;
+    let staleCat: VehicleCategory | undefined;
+
+    if (appliedParams && storedTypeId) {
+      staleCat = vehicleCategories.find(c => c.id === storedTypeId);
+      if (staleCat) {
+        if (kidSnapshot) {
+          stalePreset = kidPresets.find(p => p.id === kidSnapshot.presetId);
+          const vehicleChanged =
+            staleCat.steeringCharacter !== kidSnapshot.steeringCharacter ||
+            staleCat.powerDelivery     !== kidSnapshot.powerDelivery;
+          if (vehicleChanged && stalePreset) {
+            stale = paramsHaveDrifted(appliedParams, calculateKidParams(staleCat, stalePreset));
+          }
+        } else {
+          // No snapshot — check if the built-in has been edited from its shipped defaults
+          const defaultCat = BUILT_IN_CATEGORIES.find(c => c.id === storedTypeId);
+          if (defaultCat) {
+            stale =
+              staleCat.steeringCharacter !== defaultCat.steeringCharacter ||
+              staleCat.powerDelivery     !== defaultCat.powerDelivery;
+          }
+        }
+      }
+    }
+
     return (
       <div className={css.root}>
+        {stale && staleCat && stalePreset && (
+          <div className={css.staleWarning}>
+            <span className={css.staleIcon}>⚠</span>
+            <div className={css.staleText}>
+              <strong>Vehicle properties have changed</strong>
+              <span>The {staleCat.name}'s steering or power character has been updated since KidControl was set up. The current limits may no longer suit your vehicle.</span>
+            </div>
+            <button
+              className="btn btn-warning btn-sm"
+              onClick={() => handleRecalculate(staleCat!, stalePreset!)}
+            >
+              Recalculate
+            </button>
+          </div>
+        )}
         <div className={css.activeCard}>
           <div className={css.activeHeader}>
             <span className={css.activeBadge}>KidControl active</span>
@@ -151,53 +284,55 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
               <span className={css.activeValue}>{trigSw}</span>
             </div>
           )}
-          {thExpo && (
-            <div className={css.activeRow}>
-              <span className={css.activeLabel}>Throttle limit</span>
-              <span className={css.activeValue}>
-                {thExpo.weight}% max{thExpo.curve?.value ? ` — ${expoFeel(thExpo.curve.value)} response (${thExpo.curve.value}% expo)` : ''}
-              </span>
-            </div>
+          {appliedParams && (
+            <>
+              <div className={css.activeRow}>
+                <span className={css.activeLabel}>Throttle limit</span>
+                <span className={css.activeValue}>
+                  {appliedParams.thrRate}% max — {expoFeel(appliedParams.thrExpo)} response ({appliedParams.thrExpo}% expo)
+                </span>
+              </div>
+              {(appliedParams.speedUp > 0 || appliedParams.speedDown > 0) && (
+                <div className={css.activeRow}>
+                  <span className={css.activeLabel}>Speed ramp</span>
+                  <span className={css.activeValue}>{rampDesc(appliedParams.speedUp, appliedParams.speedDown)}</span>
+                </div>
+              )}
+              <div className={css.activeRow}>
+                <span className={css.activeLabel}>Steering limit</span>
+                <span className={css.activeValue}>
+                  {appliedParams.strRate}% max — {expoFeel(appliedParams.strExpo)} response ({appliedParams.strExpo}% expo)
+                </span>
+              </div>
+            </>
           )}
-          {spMix && (spMix.speedUp > 0 || spMix.speedDown > 0) && (
-            <div className={css.activeRow}>
-              <span className={css.activeLabel}>Speed ramp</span>
-              <span className={css.activeValue}>{rampDesc(spMix.speedUp, spMix.speedDown)}</span>
-            </div>
-          )}
-          {stExpo && (
-            <div className={css.activeRow}>
-              <span className={css.activeLabel}>Steering limit</span>
-              <span className={css.activeValue}>
-                {stExpo.weight}% max{stExpo.curve?.value ? ` — ${expoFeel(stExpo.curve.value)} response (${stExpo.curve.value}% expo)` : ''}
-              </span>
-            </div>
-          )}
-          <button className="btn btn-danger btn-sm" style={{ marginTop: 8 }} onClick={handleRemove}>
-            Remove KidControl
-          </button>
+          <div className={css.activeActions}>
+            <button className="btn btn-ghost btn-sm" onClick={handleEditLimits}>
+              Edit limits
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={handleRemove}>
+              Remove KidControl
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Wizard steps ───────────────────────────────────────────────────────────
   return (
     <div className={css.root}>
-      {/* Breadcrumb */}
       <div className={css.breadcrumb}>
-        <button
-          className={step === 'vehicle' ? css.crumbActive : css.crumb}
-          onClick={() => setStep('vehicle')}
-        >
+        <button className={step === 'vehicle' ? css.crumbActive : css.crumb} onClick={() => setStep('vehicle')}>
           1. Vehicle
         </button>
         <span className={css.crumbSep}>›</span>
         <button
-          className={step === 'speed' ? css.crumbActive : css.crumb}
-          onClick={() => step !== 'vehicle' && setStep('speed')}
+          className={step === 'preset' ? css.crumbActive : css.crumb}
+          onClick={() => step !== 'vehicle' && setStep('preset')}
           disabled={step === 'vehicle'}
         >
-          2. Speed
+          2. Driver
         </button>
         <span className={css.crumbSep}>›</span>
         <button
@@ -209,7 +344,6 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
         </button>
       </div>
 
-      {/* Step 1 — Vehicle type */}
       {step === 'vehicle' && (
         <div>
           <h3 className={css.stepTitle}>What type of vehicle?</h3>
@@ -225,24 +359,16 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
         </div>
       )}
 
-      {/* Step 2 — Speed class */}
-      {step === 'speed' && (
+      {step === 'preset' && (
         <div>
-          <h3 className={css.stepTitle}>How fast is the driver?</h3>
-          <p className={css.stepSub}>Vehicle: <strong>{vehicleLabel}</strong></p>
+          <h3 className={css.stepTitle}>Who is driving?</h3>
+          <p className={css.stepSub}>Vehicle: <strong>{selectedCat.name}</strong></p>
           <div className={css.speedGrid}>
-            {SPEED_CLASSES.map((s) => (
-              <button
-                key={s}
-                className={css.speedCard}
-                onClick={() => handleSelectSpeed(s)}
-              >
-                <span className={css.speedLabel}>{SPEED_LABELS[s]}</span>
-                <span className={css.speedDesc}>{SPEED_DESCRIPTIONS[s]}</span>
-                <div className={css.speedPreview}>
-                  <span>Thr: {DEFAULTS[vehicle][s].thrRate}%</span>
-                  <span>Str: {DEFAULTS[vehicle][s].strRate}%</span>
-                </div>
+            {kidPresets.map((preset) => (
+              <button key={preset.id} className={css.speedCard} onClick={() => handleSelectPreset(preset)}>
+                <span className={css.speedLabel}>{preset.name}</span>
+                <span className={css.speedDesc}>{preset.description}</span>
+                {restrictionBar(preset.restrictionLevel)}
               </button>
             ))}
           </div>
@@ -252,34 +378,17 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
         </div>
       )}
 
-      {/* Step 3 — Sliders */}
       {step === 'sliders' && (
         <div>
           <h3 className={css.stepTitle}>Adjust limits</h3>
-          <p className={css.stepSub}>
-            {vehicleLabel} · {SPEED_LABELS[speed]} — tweak before applying
-          </p>
+          <p className={css.stepSub}>{selectedCat.name} — tweak before applying</p>
 
           <div className={css.section}>
             <h4 className={css.sectionTitle}>Throttle</h4>
             <SliderRow label="Max rate" value={params.thrRate} min={10} max={100} onChange={(v) => param('thrRate', v)} />
             <SliderRow label="Expo" value={params.thrExpo} min={0} max={100} onChange={(v) => param('thrExpo', v)} />
-            <SliderRow
-              label="Speed up (×0.1s)"
-              value={params.speedUp}
-              min={0}
-              max={25}
-              unit=""
-              onChange={(v) => param('speedUp', v)}
-            />
-            <SliderRow
-              label="Speed down (×0.1s)"
-              value={params.speedDown}
-              min={0}
-              max={25}
-              unit=""
-              onChange={(v) => param('speedDown', v)}
-            />
+            <SliderRow label="Speed up (×0.1s)" value={params.speedUp} min={0} max={25} unit="" onChange={(v) => param('speedUp', v)} />
+            <SliderRow label="Speed down (×0.1s)" value={params.speedDown} min={0} max={25} unit="" onChange={(v) => param('speedDown', v)} />
           </div>
 
           <div className={css.section}>
@@ -300,19 +409,15 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
           <div className={css.previewBox}>
             <span className={css.previewTitle}>Effective in KidControl (FM1)</span>
             <div className={css.previewGrid}>
-              <span>Throttle</span><span>{params.thrRate}% max, expo {params.thrExpo}, accel {params.speedUp * 0.1}s / decel {params.speedDown * 0.1}s</span>
+              <span>Throttle</span><span>{params.thrRate}% max, expo {params.thrExpo}, accel {(params.speedUp * 0.1).toFixed(1)}s / decel {(params.speedDown * 0.1).toFixed(1)}s</span>
               <span>Steering</span><span>{params.strRate}% max, expo {params.strExpo}</span>
               <span>Trigger</span><span>{triggerSwitch}</span>
             </div>
           </div>
 
           <div className={css.actions}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setStep('speed')}>
-              ← Back
-            </button>
-            <button className="btn btn-primary" onClick={handleApply}>
-              Apply KidControl
-            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setStep('preset')}>← Back</button>
+            <button className="btn btn-primary" onClick={handleApply}>Apply KidControl</button>
           </div>
         </div>
       )}

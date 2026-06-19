@@ -11,6 +11,8 @@ interface Props {
   vehicleTypeName?: string;
   vehicleTypeImageUrl?: string;
   power?: 'battery' | 'fuel';
+  kidPresetName?: string;
+  kidStale?: boolean;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -30,14 +32,15 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, kidPresetName, kidStale, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
   const isPlaceholder = !displayImageUrl;
+  const kidActive = !!model.flightModeData?.['1'];
 
   return (
-    <div className={`${css.card} ${isDirty ? css.dirty : ''}`}>
+    <div className={`${css.card} ${isDirty ? css.dirty : ''} ${kidStale ? css.stale : ''}`}>
       <div
         className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}
         onClick={onEdit}
@@ -50,6 +53,9 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
           alt={name || modelKey}
           className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`}
         />
+        {kidStale && (
+          <div className={css.staleIndicator} title="KidControl settings need review">⚠</div>
+        )}
         {onChangeImage && (
           <button
             className={css.editImageBtn}
@@ -72,15 +78,22 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
       </div>
 
       <div className={css.meta}>
-        <span className="badge badge-accent">{protocolBadge(model)}</span>
-        {scale && <span className="badge">{scale}</span>}
-        {vehicleTypeName && <span className="badge">{vehicleTypeName}</span>}
-        {power === 'battery' && <span className="badge">🔋 Electric</span>}
-        {power === 'fuel' && <span className="badge">⛽ Fuel</span>}
-        {model.flightModeData?.['1'] && <span className="badge badge-green">KidControl</span>}
-        {isDirty && <span className="badge badge-warning">unsaved</span>}
+        <span className="badge badge-accent" title="RF protocol / module type">{protocolBadge(model)}</span>
+        {scale && <span className="badge" title="Scale">{scale}</span>}
+        {vehicleTypeName && <span className="badge" title="Vehicle type">{vehicleTypeName}</span>}
+        {power === 'battery' && <span className="badge" title="Power source">🔋 Electric</span>}
+        {power === 'fuel' && <span className="badge" title="Power source">⛽ Fuel</span>}
+        {kidActive && (
+          <span
+            className={`badge ${kidStale ? 'badge-warning' : 'badge-green'}`}
+            title={kidStale ? 'KidControl settings need review — vehicle properties have changed' : 'KidControl is active on this model'}
+          >
+            {kidStale && '⚠ '}KidControl{kidPresetName ? ` · ${kidPresetName}` : ''}
+          </span>
+        )}
+        {isDirty && <span className="badge badge-warning" title="This model has unsaved changes">unsaved</span>}
         {model.mixData?.length > 0 && (
-          <span className="badge">{model.mixData.length} mix{model.mixData.length !== 1 ? 'es' : ''}</span>
+          <span className="badge" title="Number of mix lines configured">{model.mixData.length} mix{model.mixData.length !== 1 ? 'es' : ''}</span>
         )}
       </div>
 

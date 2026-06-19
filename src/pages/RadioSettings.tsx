@@ -3,11 +3,11 @@ import type { Route } from '../App.tsx';
 import { BackupHistory } from '../components/models/BackupHistory.tsx';
 import { Toast } from '../components/shared/Toast.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
-import type { SdRoot } from '../fs/sdcard.ts';
-import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
-import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
+import { Mt12Diagram, BUILTIN_PLACED_CONTROLS } from '../components/radio/Mt12Diagram.tsx';
 import type { Tab } from '../components/layout/TabBar.tsx';
 import { TabBar } from '../components/layout/TabBar.tsx';
+import { BASE_SWITCHES, EXPANSION_MODULES, TRIMS } from '../hardware/mt12.ts';
+import type { ExpansionModuleType } from '../hardware/mt12.ts';
 import css from './RadioSettings.module.css';
 
 interface Props {
@@ -17,24 +17,21 @@ interface Props {
 const TABS: Tab[] = [
   { id: 'audio', label: 'Audio' },
   { id: 'display', label: 'Display' },
-  { id: 'switches', label: 'Switches' },
-  { id: 'pots', label: 'Pots' },
+  { id: 'hardware', label: 'Input Hardware' },
 ];
 
 const BACKLIGHT_MODES = ['off', 'keys', 'sticks', 'both', 'on'];
 const BEEP_MODES = ['quiet', 'alarms', 'nokey', 'all'];
 const HAPTIC_MODES = ['off', 'alarms', 'nokey', 'all'];
-const SWITCH_TYPES = ['NONE', '2POS', '3POS', 'TOGGLE', 'MULTIPOS'];
-const POT_TYPES = ['NONE', 'POT', 'SLIDER', 'MULTIPOS_SWITCH', 'axis_x', 'axis_y'];
+const SWITCH_TYPES = ['2POS', '3POS', 'TOGGLE', 'MULTIPOS'];
+const POT_TYPES = ['with_detent', 'without_detent', 'SLIDER', 'MULTIPOS_SWITCH', 'axis_x', 'axis_y'];
 const POT_TYPE_LABEL: Record<string, string> = {
-  NONE: 'Not installed',
-  POT: 'Pot (no detent)',
+  with_detent: 'Pot (with detent)',
+  without_detent: 'Pot (no detent)',
   SLIDER: 'Slider',
   MULTIPOS_SWITCH: 'Multi-position',
   axis_x: 'Joystick X axis',
   axis_y: 'Joystick Y axis',
-  with_detent: 'Pot (with detent)',
-  without_detent: 'Pot (no detent)',
 };
 
 // ── Audio tab ──────────────────────────────────────────────────────────────
@@ -177,8 +174,6 @@ function DisplayTab() {
 }
 
 // ── Switches tab ───────────────────────────────────────────────────────────
-const MT12_SWITCHES = ['SA', 'SB', 'SC', 'SD', 'FL1', 'FL2'];
-
 function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
   const radio = useEditorStore((s) => s.radio);
   const updateRadio = useEditorStore((s) => s.updateRadio);
@@ -208,16 +203,24 @@ function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
           </tr>
         </thead>
         <tbody>
-          {MT12_SWITCHES.map((sw) => {
-            const swCfg = cfg[sw] ?? { type: 'NONE', name: '' };
+          {BASE_SWITCHES.map((s) => {
+            const swCfg = cfg[s.key] ?? { type: s.type, name: '' };
+            const unplaced = !BUILTIN_PLACED_CONTROLS.has(s.key);
             return (
-              <tr key={sw} className={css.tableRow}
-                onMouseEnter={() => onHover(sw)}
-                onMouseLeave={() => onHover(null)}>
-                <td className={css.swLabel}>{sw}</td>
+              <tr key={s.key} className={css.tableRow}
+                onMouseEnter={() => onHover(s.key)}
+                onMouseLeave={() => onHover(null)}
+                title={unplaced ? 'Not positioned on the diagram — use ⚙ Place control labels to add it' : undefined}
+                style={unplaced ? { borderLeft: '3px solid #f59e0b' } : undefined}>
+                <td className={css.swLabel}>
+                  {s.key}
+                  {unplaced && (
+                    <span style={{ marginLeft: 6, color: '#f59e0b', fontSize: 22, verticalAlign: 'middle' }}>⚠</span>
+                  )}
+                </td>
                 <td>
                   <select className={css.selectSm} value={swCfg.type}
-                    onChange={(e) => updateSwitch(sw, 'type', e.target.value)}>
+                    onChange={(e) => updateSwitch(s.key, 'type', e.target.value)}>
                     {SWITCH_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                     {!SWITCH_TYPES.includes(swCfg.type) && <option value={swCfg.type}>{swCfg.type}</option>}
                   </select>
@@ -225,7 +228,7 @@ function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
                 <td>
                   <input type="text" className={css.nameInput}
                     value={swCfg.name ?? ''} maxLength={10} placeholder="—"
-                    onChange={(e) => updateSwitch(sw, 'name', e.target.value)} />
+                    onChange={(e) => updateSwitch(s.key, 'name', e.target.value)} />
                 </td>
               </tr>
             );
@@ -237,35 +240,13 @@ function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
 }
 
 // ── Pots tab ───────────────────────────────────────────────────────────────
-const MT12_POTS = ['P1', 'P2', 'P3', 'P4'];
 
-function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; sdRoot: SdRoot | null }) {
+function PotsTab({ onHover }: { onHover: (pot: string | null) => void }) {
   const radio = useEditorStore((s) => s.radio);
   const updateRadio = useEditorStore((s) => s.updateRadio);
-  const [hiddenPots, setHiddenPots] = useState<Set<string>>(new Set());
-
-  // Load hidden-pots preference from SD card webconfig.
-  useEffect(() => {
-    if (!sdRoot) return;
-    let cancelled = false;
-    readWebConfig<string[]>(sdRoot, 'hidden-inputs.json').then(data => {
-      if (!cancelled && data) setHiddenPots(new Set(data));
-    });
-    return () => { cancelled = true; };
-  }, [sdRoot]);
-
   if (!radio) return null;
 
   const cfg = radio.potsConfig ?? {};
-
-  async function hide(pot: string) {
-    const next = new Set(hiddenPots); next.add(pot); setHiddenPots(next);
-    if (sdRoot) await writeWebConfig(sdRoot, 'hidden-inputs.json', [...next]);
-  }
-  async function show(pot: string) {
-    const next = new Set(hiddenPots); next.delete(pot); setHiddenPots(next);
-    if (sdRoot) await writeWebConfig(sdRoot, 'hidden-inputs.json', [...next]);
-  }
 
   function updatePot(key: string, field: 'type' | 'name', value: string) {
     updateRadio((r) => ({
@@ -289,12 +270,9 @@ function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; s
 
   function potTypeLabel(type: string) { return POT_TYPE_LABEL[type] ?? type; }
 
-  const visible = MT12_POTS.filter(p => !hiddenPots.has(p));
-  const hidden  = MT12_POTS.filter(p =>  hiddenPots.has(p));
-
   return (
     <div className={css.section}>
-      <p className={css.hint}>Hover a row to highlight the pot on the diagram.</p>
+      <p className={css.hint}>Scroll dials — built-in hardware. Hover a row to highlight on the diagram.</p>
       <table className={css.table}>
         <thead>
           <tr>
@@ -302,11 +280,10 @@ function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; s
             <th>Type</th>
             <th>Inverted</th>
             <th>Custom name</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
-          {visible.map((pot) => {
+          {(['P1', 'P2'] as const).map((pot) => {
             const potCfg = cfg[pot] ?? { type: 'NONE', inv: 0, name: '' };
             return (
               <tr key={pot} className={css.tableRow}
@@ -331,37 +308,166 @@ function PotsTab({ onHover, sdRoot }: { onHover: (pot: string | null) => void; s
                     value={potCfg.name ?? ''} maxLength={10} placeholder="—"
                     onChange={(e) => updatePot(pot, 'name', e.target.value)} />
                 </td>
-                <td>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }}
-                    title="Hide this pot — it won't affect the transmitter"
-                    onClick={() => hide(pot)}>
-                    Hide
-                  </button>
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
 
-      {hidden.length > 0 && (
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Hidden (not installed): {hidden.join(', ')}
-          </span>
-          {hidden.map(pot => (
-            <button key={pot} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
-              onClick={() => show(pot)}>
-              Show {pot}
-            </button>
+// ── Trims section ──────────────────────────────────────────────────────────
+
+const TRIM_DESCS: Record<string, string> = {
+  T1: 'Left throttle trim',
+  T2: 'Right throttle trim',
+  T3: 'Right steering trim',
+  T4: 'Left steering trim',
+  T5: 'Centre button trim',
+};
+
+function TrimsSection({ onHover }: { onHover: (trim: string | null) => void }) {
+  return (
+    <div className={css.section}>
+      <p className={css.hint}>Trim levers — built-in hardware, reference only. Hover to highlight on the diagram.</p>
+      <table className={css.table}>
+        <thead>
+          <tr>
+            <th>Trim</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TRIMS.map((t) => (
+            <tr key={t} className={css.tableRow}
+              onMouseEnter={() => onHover(t)}
+              onMouseLeave={() => onHover(null)}>
+              <td className={css.swLabel}>{t}</td>
+              <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{TRIM_DESCS[t] ?? t}</td>
+            </tr>
           ))}
-        </div>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Expansion tab ─────────────────────────────────────────────────────────
+const MODULE_POT_CONFIG: Record<ExpansionModuleType, { P3: string; P4: string }> = {
+  none:         { P3: 'none', P4: 'none' },
+  joystick:     { P3: 'with_detent', P4: 'with_detent' },
+  switch_dual3: { P3: 'switch', P4: 'switch' },
+  switch_3and2: { P3: 'switch', P4: 'switch' },
+  switch_dual2: { P3: 'switch', P4: 'switch' },
+};
+
+const MODULE_FL_CONFIG: Record<ExpansionModuleType, { FL1: string; FL2: string }> = {
+  none:         { FL1: 'none', FL2: 'none' },
+  joystick:     { FL1: 'none', FL2: 'none' },
+  switch_dual3: { FL1: '3pos', FL2: '3pos' },
+  switch_3and2: { FL1: '3pos', FL2: '2pos' },
+  switch_dual2: { FL1: '2pos', FL2: '2pos' },
+};
+
+function ExpansionTab() {
+  const radio = useEditorStore((s) => s.radio);
+  const updateRadio = useEditorStore((s) => s.updateRadio);
+  const expansionModule = useEditorStore((s) => s.expansionModule);
+
+  if (!radio) return null;
+
+  const currentModule = expansionModule();
+
+  function applyModule(moduleType: ExpansionModuleType) {
+    const potCfg = MODULE_POT_CONFIG[moduleType];
+    const flCfg = MODULE_FL_CONFIG[moduleType];
+    updateRadio((r) => {
+      const potsConfig = {
+        ...r.potsConfig,
+        P3: { ...(r.potsConfig?.['P3'] ?? { inv: 0, name: '' }), type: potCfg.P3 },
+        P4: { ...(r.potsConfig?.['P4'] ?? { inv: 0, name: '' }), type: potCfg.P4 },
+      };
+      const switchConfig = {
+        ...r.switchConfig,
+        FL1: { ...(r.switchConfig?.['FL1'] ?? { name: '' }), type: flCfg.FL1 },
+        FL2: { ...(r.switchConfig?.['FL2'] ?? { name: '' }), type: flCfg.FL2 },
+      };
+      const switchesFlex = moduleType === 'none' || moduleType === 'joystick'
+        ? undefined
+        : { FL1: { channel: 'P3' }, FL2: { channel: 'P4' } };
+      return { ...r, potsConfig, switchConfig, switchesFlex };
+    });
+  }
+
+  const p3Cfg = radio.potsConfig?.['P3'];
+  const p4Cfg = radio.potsConfig?.['P4'];
+  const fl1Cfg = radio.switchConfig?.['FL1'];
+  const fl2Cfg = radio.switchConfig?.['FL2'];
+
+  return (
+    <div className={css.section}>
+      <h3 className={css.sectionTitle}>Expansion Module</h3>
+      <div className={css.grid}>
+        <label className={css.label}>Installed module</label>
+        <select className={css.select} value={currentModule}
+          onChange={(e) => applyModule(e.target.value as ExpansionModuleType)}>
+          {(Object.entries(EXPANSION_MODULES) as [ExpansionModuleType, { label: string }][]).map(([key, mod]) => (
+            <option key={key} value={key}>{mod.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {currentModule !== 'none' && (
+        <>
+          <h3 className={css.sectionTitle} style={{ marginTop: 20 }}>Expansion inputs</h3>
+          <table className={css.table}>
+            <thead>
+              <tr><th>Input</th><th>Type</th><th>Custom name</th></tr>
+            </thead>
+            <tbody>
+              {currentModule === 'joystick' && (
+                <>
+                  <tr className={css.tableRow}>
+                    <td className={css.swLabel}>P3</td>
+                    <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p3Cfg?.type ?? '—'}</span></td>
+                    <td><input type="text" className={css.nameInput} value={p3Cfg?.name ?? ''} maxLength={10} placeholder="—"
+                      onChange={(e) => updateRadio((r) => ({ ...r, potsConfig: { ...r.potsConfig, P3: { ...(r.potsConfig?.['P3'] ?? { type: 'none', inv: 0 }), name: e.target.value } } }))} /></td>
+                  </tr>
+                  <tr className={css.tableRow}>
+                    <td className={css.swLabel}>P4</td>
+                    <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p4Cfg?.type ?? '—'}</span></td>
+                    <td><input type="text" className={css.nameInput} value={p4Cfg?.name ?? ''} maxLength={10} placeholder="—"
+                      onChange={(e) => updateRadio((r) => ({ ...r, potsConfig: { ...r.potsConfig, P4: { ...(r.potsConfig?.['P4'] ?? { type: 'none', inv: 0 }), name: e.target.value } } }))} /></td>
+                  </tr>
+                </>
+              )}
+              {(currentModule === 'switch_dual3' || currentModule === 'switch_3and2' || currentModule === 'switch_dual2') && (
+                <>
+                  <tr className={css.tableRow}>
+                    <td className={css.swLabel}>FL1</td>
+                    <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{fl1Cfg?.type ?? '—'}</span></td>
+                    <td><input type="text" className={css.nameInput} value={fl1Cfg?.name ?? ''} maxLength={10} placeholder="—"
+                      onChange={(e) => updateRadio((r) => ({ ...r, switchConfig: { ...r.switchConfig, FL1: { ...(r.switchConfig?.['FL1'] ?? { type: '2pos' }), name: e.target.value } } }))} /></td>
+                  </tr>
+                  <tr className={css.tableRow}>
+                    <td className={css.swLabel}>FL2</td>
+                    <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{fl2Cfg?.type ?? '—'}</span></td>
+                    <td><input type="text" className={css.nameInput} value={fl2Cfg?.name ?? ''} maxLength={10} placeholder="—"
+                      onChange={(e) => updateRadio((r) => ({ ...r, switchConfig: { ...r.switchConfig, FL2: { ...(r.switchConfig?.['FL2'] ?? { type: '2pos' }), name: e.target.value } } }))} /></td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </>
       )}
 
-      <p className={css.hint} style={{ marginTop: 12 }}>
-        P1 &amp; P2 are the knobs on the transmitter body. P3 &amp; P4 are the optional 4-way joystick expansion module (bottom slot).
-        Hiding a pot here only affects this app — it does not change anything on your transmitter.
-      </p>
+      {currentModule === 'none' && (
+        <p className={css.hint} style={{ marginTop: 12 }}>
+          Select a module to configure expansion inputs (P3, P4, FL1, FL2).
+        </p>
+      )}
     </div>
   );
 }
@@ -398,11 +504,12 @@ export function RadioSettings({ navigate }: Props) {
     setToast('Transmitter settings backed up');
   }
 
-  // When a diagram control is clicked, switch to the relevant settings tab.
+  // When a diagram control is clicked, switch to the hardware tab.
   function handleDiagramSelect(control: string) {
     setDiagramSelected(control);
-    if (['SA', 'SB', 'SC', 'SD', 'FL1', 'FL2'].includes(control)) setTab('switches');
-    if (['P1', 'P2', 'P3', 'P4'].includes(control)) setTab('pots');
+    if (['SA', 'SB', 'SC', 'SD', 'FL1', 'FL2', 'P1', 'P2', 'P3', 'P4', 'T1', 'T2', 'T3', 'T4', 'T5'].includes(control)) {
+      setTab('hardware');
+    }
   }
 
   function handleHover(control: string | null) {
@@ -441,7 +548,7 @@ export function RadioSettings({ navigate }: Props) {
 
       <div className={css.body}>
         {/* Left: tabbed settings — only when radio is loaded */}
-        <div className={css.settingsPane}>
+        <div className={`${css.settingsPane} card-panel`}>
           {!radio ? (
             <div className={css.empty}>
               {sdRoot
@@ -453,14 +560,23 @@ export function RadioSettings({ navigate }: Props) {
             <div className={css.tabContent}>
               {tab === 'audio' && <AudioTab />}
               {tab === 'display' && <DisplayTab />}
-              {tab === 'switches' && <SwitchesTab onHover={handleHover} />}
-              {tab === 'pots' && <PotsTab onHover={handleHover} sdRoot={sdRoot} />}
+              {tab === 'hardware' && (
+                <>
+                  <SwitchesTab onHover={handleHover} />
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+                  <PotsTab onHover={handleHover} />
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+                  <TrimsSection onHover={handleHover} />
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+                  <ExpansionTab />
+                </>
+              )}
             </div>
           )}
         </div>
 
         {/* Right: MT12 diagram — always visible */}
-        <div className={css.diagramPane}>
+        <div className={`${css.diagramPane} card-panel`}>
           <p className={css.diagramLabel}>MT12 controls</p>
           <Mt12Diagram
             sdRoot={sdRoot}

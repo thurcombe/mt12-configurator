@@ -119,6 +119,8 @@
   flex: 1;
   display: flex;
   justify-content: center;
+  gap: 16px;
+  padding: 20px;
   overflow: hidden;
 }
 
@@ -126,21 +128,17 @@
   flex: 1;
   max-width: 1050px;
   overflow-y: auto;
-  padding: 24px 20px;
+  padding: 0 20px 20px;
 }
 
-/* Diagram sidebar — always visible on right */
+/* Diagram sidebar — card styling via shared .card-panel class */
 .diagramPanel {
   width: 420px;
   flex-shrink: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   padding: 14px 12px;
-  background: var(--surface);
-  margin: 20px 20px 20px 0;
 }
 
 @media (max-width: 900px) {

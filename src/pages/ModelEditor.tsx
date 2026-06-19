@@ -132,7 +132,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           <div className={css.content}>
             <BasicMixView model={model} modelKey={modelKey} onChange={handleChange} onWizardActiveChange={setWizardActive} />
           </div>
-          <div className={css.diagramPanel}>
+          <div className={`${css.diagramPanel} card-panel`}>
             <div className={css.diagramTitle}>MT12 controls</div>
             <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} />
             {diagramSelected && (

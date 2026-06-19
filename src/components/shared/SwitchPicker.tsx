@@ -5,43 +5,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 
-const MT12_SWITCHES = [
-  { sw: 'SA', positions: 3, label: 'SA (3-pos)' },
-  { sw: 'SB', positions: 2, label: 'SB (2-pos)' },
-  { sw: 'SC', positions: 2, label: 'SC (2-pos)' },
-  { sw: 'SD', positions: 2, label: 'SD (2-pos)' },
-  { sw: 'FL1', positions: 2, label: 'FL1 (latch)' },
-  { sw: 'FL2', positions: 2, label: 'FL2 (latch)' },
-];
-
 const POS_LABEL: Record<number, string> = { 0: '↑', 1: '—', 2: '↓' };
 
 interface SwitchOption {
   value: string;
   label: string;
   group: string;
-  control: string | null;  // physical control to highlight, e.g. "SC"
+  control: string | null;
 }
 
-function buildOptions(): SwitchOption[] {
+function buildOptions(switches: { key: string; name: string; type: string }[]): SwitchOption[] {
   const opts: SwitchOption[] = [
     { value: 'NONE', label: 'None',       group: '',    control: null },
     { value: 'ON',   label: 'Always ON',  group: '',    control: null },
   ];
-  for (const s of MT12_SWITCHES) {
-    for (let p = 0; p < s.positions; p++) {
+  for (const s of switches) {
+    const positions = s.type === '3POS' ? 3 : 2;
+    const displayLabel = `${s.name !== s.key ? `${s.key} (${s.name})` : s.key} (${s.type === '3POS' ? '3-pos' : '2-pos'})`;
+    for (let p = 0; p < positions; p++) {
       opts.push({
-        value: `${s.sw}${p}`,
-        label: `${s.label} ${POS_LABEL[p] ?? p}`,
-        group: s.label,
-        control: s.sw,
+        value: `${s.key}${p}`,
+        label: `${displayLabel} ${POS_LABEL[p] ?? p}`,
+        group: displayLabel,
+        control: s.key,
       });
     }
   }
   return opts;
 }
-
-const OPTIONS = buildOptions();
 
 // Strip position digit to get physical control name: "SC2" → "SC"
 function switchToControl(sw: string): string | null {
@@ -60,7 +51,11 @@ interface Props {
 export function SwitchPicker({ value, onChange, id, style }: Props) {
   const [open, setOpen] = useState(false);
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
+  const availableSwitches = useEditorStore(s => s.availableSwitches);
   const ref = useRef<HTMLDivElement>(null);
+
+  const options = buildOptions(availableSwitches());
+  const groups = ['', ...Array.from(new Set(options.filter(o => o.group).map(o => o.group)))];
 
   useEffect(() => {
     if (!open) return;
@@ -75,9 +70,7 @@ export function SwitchPicker({ value, onChange, id, style }: Props) {
     if (!open) setHighlight(null);
   }, [open, setHighlight]);
 
-  const selected = OPTIONS.find(o => o.value === value) ?? (value ? { value, label: value, group: '', control: switchToControl(value) } : null);
-
-  const groups = ['', ...Array.from(new Set(OPTIONS.filter(o => o.group).map(o => o.group)))];
+  const selected = options.find(o => o.value === value) ?? (value ? { value, label: value, group: '', control: switchToControl(value) } : null);
 
   return (
     <div ref={ref} id={id} style={{ position: 'relative', display: 'inline-block', minWidth: 160, ...style }}>
@@ -104,7 +97,7 @@ export function SwitchPicker({ value, onChange, id, style }: Props) {
           boxShadow: '0 4px 12px rgba(0,0,0,0.4)', minWidth: '100%', overflow: 'hidden',
         }}>
           {groups.map((group, gi) => {
-            const opts = OPTIONS.filter(o => o.group === group);
+            const opts = options.filter(o => o.group === group);
             if (!opts.length) return null;
             return (
               <div key={group || '__special__'}>

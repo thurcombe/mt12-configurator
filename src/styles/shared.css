@@ -1,0 +1,7 @@
+/* Shared visual utility classes */
+
+.card-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}

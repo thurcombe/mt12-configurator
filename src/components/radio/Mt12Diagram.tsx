@@ -8,10 +8,10 @@ import type { Model } from '../../types/model.ts';
 import { readWebConfig, writeWebConfig } from '../../fs/webconfig.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { buildInputMap } from '../../codec/modelSummary.ts';
+import type { ExpansionModuleType } from '../../hardware/mt12.ts';
 import css from './Mt12Diagram.module.css';
 
 // ── Function map ───────────────────────────────────────────────────────────────
-// Derives what each physical control is used for in the current model.
 
 type FunctionMap = Record<string, string[]>;
 
@@ -24,13 +24,10 @@ function buildFunctionMap(model: Model): FunctionMap {
     if (!result[ctrl].includes(fn)) result[ctrl].push(fn);
   }
 
-  // Strip position digit to get physical control: "SC2" → "SC"
   function ctrl(sw: string) { return sw.replace(/^!/, '').replace(/\d+$/, ''); }
 
-  // TH is always throttle trigger
   add('TH', 'Throttle trigger');
 
-  // Pots: find which input channel each pot maps to, then look at mix names using that channel
   const inputMap = buildInputMap(model.expoData ?? []);
   const chnToPot: Record<number, string> = {};
   for (const line of model.expoData ?? []) {
@@ -47,23 +44,19 @@ function buildFunctionMap(model: Model): FunctionMap {
       else if (name === 'GYRO-GAIN' || name === 'GYROGAIN' || name === 'GYRO') add(pot, 'Gyro gain');
       else add(pot, (inputMap[parseInt(inputM![1])] ?? name) || 'Input');
     } else if (!inputM && line.srcRaw && line.srcRaw !== 'NONE') {
-      // Direct physical source (trim lever, switch) — map by name
       if (name === 'S-TRIM' || name === 'STRIM') add(line.srcRaw, 'Steering trim');
       else if (name === 'D-RATE' || name === 'DRATE') add(line.srcRaw, 'Speed limiter');
       else if (name === 'GYRO-GAIN' || name === 'GYROGAIN' || name === 'GYRO') add(line.srcRaw, 'Gyro gain');
     }
-    // Condition switches on mix lines
     if (line.swtch && line.swtch !== 'NONE' && line.swtch !== 'ON') {
       const sw = ctrl(line.swtch);
       if (name === 'CRUISE') add(sw, 'Cruise control');
     }
   }
 
-  // Logical switches → underlying physical switches
   for (const ls of Object.values(model.logicalSw ?? {})) {
     const args = ls.def?.split(',') ?? [];
     const physSwitches = [...new Set(args.map(a => ctrl(a)).filter(s => s && s !== 'NONE' && /^[A-Z]/.test(s)))];
-    // Find what uses this LS (crude: check mix and customFn)
     let lsFn = 'Logical switch';
     if (ls.func === 'FUNC_STICKY') lsFn = 'Cruise toggle';
     else if (ls.func === 'FUNC_AND') lsFn = 'Combined switch';
@@ -71,7 +64,6 @@ function buildFunctionMap(model: Model): FunctionMap {
     for (const sw of physSwitches) add(sw, lsFn);
   }
 
-  // Flight mode switches
   for (const [key, fm] of Object.entries(model.flightModeData ?? {})) {
     if (key === '0' || !fm.swtch || fm.swtch === 'NONE') continue;
     const sw = ctrl(fm.swtch);
@@ -79,8 +71,6 @@ function buildFunctionMap(model: Model): FunctionMap {
     add(sw, label);
   }
 
-
-  // Special functions
   for (const fn of Object.values(model.customFn ?? {})) {
     if (!fn.swtch || fn.swtch === 'NONE') continue;
     const sw = ctrl(fn.swtch);
@@ -92,32 +82,41 @@ function buildFunctionMap(model: Model): FunctionMap {
   return result;
 }
 
+// ── Types & constants ──────────────────────────────────────────────────────────
+
 interface CtrlDef {
   name: string;
   desc: string;
   inert?: boolean;
 }
 
+interface DotPos {
+  dx: number; dy: number;
+  lx?: number; ly?: number;
+}
+
+interface DragState {
+  dotX: number; dotY: number;
+  curX: number; curY: number;
+}
+
+type Positions = Record<string, DotPos>;
+
 const CONTROLS: CtrlDef[] = [
   { name:'P1',  desc:'Scroll dial (top right)'        },
   { name:'P2',  desc:'Scroll dial (left of wheel)'    },
   { name:'SC',  desc:'2-position switch'              },
   { name:'SA',  desc:'3-position switch'              },
+  { name:'SB',  desc:'2-position switch (top right)'  },
   { name:'TH',  desc:'Throttle trigger'               },
   { name:'SD',  desc:'Grip button (thumb)'            },
   { name:'T1',  desc:'Trim lever', inert:true },
   { name:'T2',  desc:'Trim lever', inert:true },
-  { name:'T3',  desc:'Trim lever',          inert:true },
-  { name:'T4',  desc:'Trim lever',          inert:true },
-  { name:'T5',  desc:'Trim lever',          inert:true },
+  { name:'T3',  desc:'Trim lever', inert:true },
+  { name:'T4',  desc:'Trim lever', inert:true },
+  { name:'T5',  desc:'Trim lever', inert:true },
 ];
 
-const WEBCONFIG_FILE = 'diagram-labels.json';
-// Legacy localStorage key — migrated to SD card on first connection.
-const LEGACY_KEY = 'mt12-dot-positions';
-
-// Built-in label positions — used when no SD card is connected or before the user has placed labels.
-// SD card data takes precedence when available.
 const BUILTIN_POSITIONS: Positions = {
   P1: { dx:77.9, dy:25.6, lx:88.6, ly:13.6 },
   P2: { dx:38.7, dy:26.1, lx:17.2, ly:13.9 },
@@ -132,17 +131,34 @@ const BUILTIN_POSITIONS: Positions = {
   T5: { dx:46.4, dy:36.2, lx:11.9, ly:51.2 },
 };
 
-interface DotPos {
-  dx: number; dy: number;
-  lx?: number; ly?: number;
-}
+// Controls that have built-in label positions on the TX diagram.
+// Used by RadioSettings to warn when a configured control has no diagram placement.
+export const BUILTIN_PLACED_CONTROLS = new Set(Object.keys(BUILTIN_POSITIONS) as string[]);
 
-interface DragState {
-  dotX: number; dotY: number;
-  curX: number; curY: number;
-}
+// ── Module constants ───────────────────────────────────────────────────────────
 
-type Positions = Record<string, DotPos>;
+const MODULE_IMAGE: Partial<Record<ExpansionModuleType, string>> = {
+  switch_dual3: '/module-switch.jpg',
+  switch_3and2: '/module-switch.jpg',
+  switch_dual2: '/module-switch.jpg',
+  joystick:     '/module-joystick.jpg',
+};
+
+const MODULE_CONTROLS: Partial<Record<ExpansionModuleType, CtrlDef[]>> = {
+  switch_dual3: [{ name:'FL1', desc:'Left toggle (3-pos)' }, { name:'FL2', desc:'Right toggle (3-pos)' }],
+  switch_3and2: [{ name:'FL1', desc:'Left toggle (3-pos)' }, { name:'FL2', desc:'Right toggle (2-pos)' }],
+  switch_dual2: [{ name:'FL1', desc:'Left toggle (2-pos)' }, { name:'FL2', desc:'Right toggle (2-pos)' }],
+  joystick:     [{ name:'P3', desc:'Joystick X axis' }, { name:'P4', desc:'Joystick Y axis' }],
+};
+
+const SWITCH_MODULE_BUILTIN: Positions = { FL1:{ dx:44, dy:38.5, lx:38.7, ly:11.7 }, FL2:{ dx:63.8, dy:27.1, lx:79.6, ly:10.8 } };
+
+const MODULE_BUILTIN_POSITIONS: Partial<Record<ExpansionModuleType, Positions>> = {
+  switch_dual3: SWITCH_MODULE_BUILTIN,
+  switch_3and2: SWITCH_MODULE_BUILTIN,
+  switch_dual2: SWITCH_MODULE_BUILTIN,
+  joystick:     { P3:{ dx:45, dy:55, lx:18,  ly:72 }, P4:{ dx:55, dy:45, lx:82, ly:28 } },
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -183,9 +199,11 @@ function getLabelPos(pos: DotPos): { lx: number; ly: number; anchor: 'start'|'mi
   return autoLabel(pos.dx, pos.dy);
 }
 
-// ── Annotated photo ────────────────────────────────────────────────────────────
+// ── AnnotatedPhoto ─────────────────────────────────────────────────────────────
 
 interface PhotoProps {
+  imageSrc: string;
+  controls: CtrlDef[];
   positions: Positions;
   selected?: string;
   hovered?: string | null;
@@ -200,8 +218,8 @@ interface PhotoProps {
   showFunctions?: boolean;
 }
 
-function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSelect, onHover,
-  placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
+function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, externalHighlight,
+  onSelect, onHover, placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
 
   function active(name: string) {
     return selected === name || hovered === name || externalHighlight === name;
@@ -212,8 +230,8 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
   return (
     <div style={{ position:'relative', lineHeight:0 }}>
       <img
-        src="/mt12-view2.jpg"
-        alt="MT12 right-side view"
+        src={imageSrc}
+        alt="MT12 diagram"
         style={{ display:'block', width:'100%', height:'auto' }}
         draggable={false}
       />
@@ -223,7 +241,7 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
         preserveAspectRatio="none"
         style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents: placing ? 'none' : 'auto' }}
       >
-        {CONTROLS.map((c) => {
+        {controls.map((c) => {
           const pos = positions[c.name];
           if (!pos) return null;
           const on = active(c.name);
@@ -276,7 +294,7 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
         })()}
       </svg>
 
-      {CONTROLS.map((c) => {
+      {controls.map((c) => {
         const pos = positions[c.name];
         if (!pos) return null;
         const on = active(c.name);
@@ -314,7 +332,6 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
                     padding:'1px 5px', borderRadius:3,
                     whiteSpace:'nowrap',
                   }}>{labelText}</span>
-                  {/* Show additional functions as extra pills */}
                   {showFunctions && fns.slice(1).map((fn, i) => (
                     <span key={i} style={{
                       display:'block', marginTop:2, fontSize: fontSize * 0.82,
@@ -363,52 +380,58 @@ function AnnotatedPhoto({ positions, selected, hovered, externalHighlight, onSel
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── AnnotatedDiagram ───────────────────────────────────────────────────────────
+// Self-contained diagram panel with SD card persistence, zoom, and drag-to-place labels.
 
-interface Props {
+interface DiagramProps {
+  imageSrc: string;
+  controls: CtrlDef[];
+  builtinPositions: Positions;
+  webConfigKey: string;
   sdRoot: SdRoot | null;
-  model?: Model;
   selected?: string;
   onSelect?: (name: string) => void;
-  className?: string;
+  externalHighlight?: string | null;
+  diagramLabel?: string;
+  functionMap?: FunctionMap;
+  showFunctions?: boolean;
+  legacyLocalStorageKey?: string;
 }
 
-export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Props) {
-  const externalHighlight = useEditorStore(s => s.diagramHighlight);
+function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, sdRoot,
+  selected, onSelect, externalHighlight, diagramLabel, functionMap, showFunctions,
+  legacyLocalStorageKey }: DiagramProps) {
+
   const [hovered, setHovered] = useState<string | null>(null);
-  const [showFunctions, setShowFunctions] = useState(() => localStorage.getItem('mt12-show-functions') === 'true');
-  const functionMap = useMemo(() => model ? buildFunctionMap(model) : undefined, [model]);
   const [enlarged, setEnlarged] = useState(false);
   const [placing, setPlacing] = useState(false);
-  const [activeControl, setActiveControl] = useState<string>(CONTROLS[0].name);
-  const [positions, setPositions] = useState<Positions>(BUILTIN_POSITIONS);
+  const [activeControl, setActiveControl] = useState<string>(controls[0]?.name ?? '');
+  const [positions, setPositions] = useState<Positions>(builtinPositions);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load positions from SD card. Migrate and remove any legacy localStorage data.
   useEffect(() => {
-    if (!sdRoot) return;
+    if (!sdRoot) { setPositions(builtinPositions); return; }
     (async () => {
-      let saved = await readWebConfig<Positions>(sdRoot, WEBCONFIG_FILE);
-      if (!saved) {
-        // One-time migration from localStorage to SD card.
+      let saved = await readWebConfig<Positions>(sdRoot, webConfigKey);
+      if (!saved && legacyLocalStorageKey) {
         try {
-          const legacy = localStorage.getItem(LEGACY_KEY);
+          const legacy = localStorage.getItem(legacyLocalStorageKey);
           if (legacy) {
             saved = JSON.parse(legacy);
-            await writeWebConfig(sdRoot, WEBCONFIG_FILE, saved);
-            localStorage.removeItem(LEGACY_KEY);
+            await writeWebConfig(sdRoot, webConfigKey, saved);
+            localStorage.removeItem(legacyLocalStorageKey);
           }
         } catch (e) {
-          setSaveError(`Could not save label positions to SD card: ${e instanceof Error ? e.message : String(e)}`);
+          setSaveError(`Could not save label positions: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
       if (saved) setPositions(saved);
     })();
-  }, [sdRoot]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sdRoot, webConfigKey]);
 
-  // Escape closes the modal.
   useEffect(() => {
     if (!enlarged) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -419,17 +442,17 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [enlarged]);
 
-  const placed = CONTROLS.filter(c => positions[c.name]);
-  const allPlaced = placed.length === CONTROLS.length;
+  const placed = controls.filter(c => positions[c.name]);
+  const allPlaced = placed.length === controls.length;
 
   async function savePositions(next: Positions) {
     setPositions(next);
     if (sdRoot) {
       try {
-        await writeWebConfig(sdRoot, WEBCONFIG_FILE, next);
+        await writeWebConfig(sdRoot, webConfigKey, next);
         setSaveError(null);
       } catch (e) {
-        setSaveError(`Could not save label positions to SD card: ${e instanceof Error ? e.message : String(e)}`);
+        setSaveError(`Could not save label positions: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }
@@ -458,68 +481,70 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
   async function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragState) return;
     const { x, y } = pctFromPointer(e);
-    const wasAllPlaced = CONTROLS.every(c => positions[c.name]);
+    const wasAllPlaced = controls.every(c => positions[c.name]);
     const next: Positions = {
       ...positions,
       [activeControl]: { dx: dragState.dotX, dy: dragState.dotY, lx: x, ly: y },
     };
     await savePositions(next);
     setDragState(null);
-    const idx = CONTROLS.findIndex(c => c.name === activeControl);
-    const nextCtrl = CONTROLS.slice(idx + 1).find(c => !next[c.name])
-                  ?? CONTROLS.find(c => !next[c.name]);
+    const idx = controls.findIndex(c => c.name === activeControl);
+    const nextCtrl = controls.slice(idx + 1).find(c => !next[c.name])
+                  ?? controls.find(c => !next[c.name]);
     if (nextCtrl) setActiveControl(nextCtrl.name);
     else if (!wasAllPlaced) setPlacing(false);
   }
 
   return (
-    <div className={`${css.root} ${className ?? ''}`}>
-
+    <div>
       {saveError && (
         <div style={{ fontSize: 11, color: 'var(--danger)', background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 4, padding: '4px 8px', marginBottom: 4 }}>
           {saveError}
         </div>
       )}
 
-      {/* Toolbar — only shown when SD card connected */}
+      {/* Toolbar */}
       {sdRoot ? (
         <div className={css.placeBar}>
+          {diagramLabel && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font)', marginRight: 8 }}>
+              {diagramLabel}
+            </span>
+          )}
           <button className={css.placeBtn} onClick={() => { setPlacing(true); setEnlarged(true); }}>
             {allPlaced ? '⚙ Reposition labels' : '⚙ Place control labels'}
           </button>
           {!confirmingClear && (
-            <button className={css.placeBtn} onClick={() => setConfirmingClear(true)}>
-              Reset
-            </button>
+            <button className={css.placeBtn} onClick={() => setConfirmingClear(true)}>Reset</button>
           )}
           {confirmingClear && (
             <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
-              <span style={{ color:'var(--text)' }}>Reset label positions to default?</span>
-              <button className="btn btn-danger btn-sm" onClick={() => { savePositions(BUILTIN_POSITIONS); setConfirmingClear(false); }}>
+              <span style={{ color:'var(--text)' }}>Reset to defaults?</span>
+              <button className="btn btn-danger btn-sm" onClick={() => { savePositions(builtinPositions); setConfirmingClear(false); }}>
                 Reset
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmingClear(false)}>
-                Cancel
-              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmingClear(false)}>Cancel</button>
             </span>
           )}
           {!allPlaced && Object.keys(positions).length > 0 && (
-            <span className={css.placeHint}>{placed.length}/{CONTROLS.length} placed</span>
+            <span className={css.placeHint}>{placed.length}/{controls.length} placed</span>
           )}
         </div>
       ) : (
         <p className={css.hint} style={{ marginBottom: 4 }}>
-          Connect your SD card to reposition labels.
+          {diagramLabel ? `${diagramLabel} — ` : ''}Connect your SD card to reposition labels.
         </p>
       )}
 
-      {/* Photo */}
+      {/* Photo — click to zoom */}
       <div
         className={css.photoWrap}
         style={{ cursor: 'zoom-in', position: 'relative' }}
         onClick={() => setEnlarged(true)}
       >
         <AnnotatedPhoto
+          imageSrc={imageSrc}
+          controls={controls}
           positions={positions}
           selected={selected}
           hovered={hovered}
@@ -529,27 +554,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
           functionMap={functionMap}
           showFunctions={showFunctions}
         />
-
       </div>
-
-      {/* Labels / Functions toggle — shown when model data is available */}
-      {model && (
-        <div className={css.viewToggle} onClick={() => setShowFunctions(v => { const next = !v; localStorage.setItem('mt12-show-functions', String(next)); return next; })}>
-          <span className={`${css.viewToggleLabel} ${!showFunctions ? css.viewToggleLabelActive : ''}`}>
-            Labels
-          </span>
-          <div className={css.toggleTrack}>
-            <div className={`${css.toggleThumb} ${showFunctions ? css.toggleThumbRight : ''}`} />
-          </div>
-          <span className={`${css.viewToggleLabel} ${showFunctions ? css.viewToggleLabelActive : ''}`}>
-            Functions
-          </span>
-        </div>
-      )}
-
-      {!placing && sdRoot && (
-        <p className={css.hint}>Blue = switches &amp; knobs · Grey = trim levers (reference only)</p>
-      )}
 
       {/* Enlarged modal */}
       {enlarged && (
@@ -578,7 +583,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
                 value={activeControl}
                 onChange={(e) => setActiveControl(e.target.value)}
               >
-                {CONTROLS.map((c) => (
+                {controls.map((c) => (
                   <option key={c.name} value={c.name}>
                     {positions[c.name] ? '✓' : '○'} {c.name} — {c.desc}
                   </option>
@@ -612,6 +617,8 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
               }}>✕ Close</button>
             )}
             <AnnotatedPhoto
+              imageSrc={imageSrc}
+              controls={controls}
               positions={positions}
               selected={selected}
               hovered={hovered}
@@ -626,19 +633,78 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
               large
             />
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-          {model && !placing && (
-            <div
-              style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, userSelect:'none', cursor:'pointer' }}
-              onClick={(e) => { e.stopPropagation(); setShowFunctions(v => !v); }}
-            >
-              <span style={{ color: !showFunctions ? '#fff' : 'rgba(255,255,255,0.45)', fontWeight: !showFunctions ? 600 : 400 }}>Labels</span>
-              <div style={{ position:'relative', width:36, height:20, background:'var(--accent)', borderRadius:10, flexShrink:0 }}>
-                <div style={{ position:'absolute', top:3, left:3, width:14, height:14, background:'#fff', borderRadius:'50%', transition:'transform 0.15s', transform: showFunctions ? 'translateX(16px)' : 'none' }} />
-              </div>
-              <span style={{ color: showFunctions ? '#fff' : 'rgba(255,255,255,0.45)', fontWeight: showFunctions ? 600 : 400 }}>Functions</span>
-            </div>
-          )}
+// ── Main export ────────────────────────────────────────────────────────────────
+
+interface Props {
+  sdRoot: SdRoot | null;
+  model?: Model;
+  selected?: string;
+  onSelect?: (name: string) => void;
+  className?: string;
+}
+
+export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Props) {
+  const externalHighlight = useEditorStore(s => s.diagramHighlight);
+  const expansionModule = useEditorStore(s => s.expansionModule);
+  const moduleType = expansionModule();
+  const [showFunctions, setShowFunctions] = useState(() => localStorage.getItem('mt12-show-functions') === 'true');
+  const functionMap = useMemo(() => model ? buildFunctionMap(model) : undefined, [model]);
+
+  const moduleImg = MODULE_IMAGE[moduleType];
+  const moduleControls = MODULE_CONTROLS[moduleType];
+  const moduleBuiltin = MODULE_BUILTIN_POSITIONS[moduleType] ?? {};
+
+  return (
+    <div className={`${css.root} ${className ?? ''}`}>
+
+      {/* TX diagram */}
+      <AnnotatedDiagram
+        imageSrc="/mt12-view2.jpg"
+        controls={CONTROLS}
+        builtinPositions={BUILTIN_POSITIONS}
+        webConfigKey="diagram-labels.json"
+        legacyLocalStorageKey="mt12-dot-positions"
+        sdRoot={sdRoot}
+        selected={selected}
+        onSelect={onSelect}
+        externalHighlight={externalHighlight}
+        functionMap={functionMap}
+        showFunctions={showFunctions}
+      />
+
+      {/* Labels / Functions toggle — only when model data available */}
+      {model && (
+        <div className={css.viewToggle} onClick={() => setShowFunctions(v => { const next = !v; localStorage.setItem('mt12-show-functions', String(next)); return next; })}>
+          <span className={`${css.viewToggleLabel} ${!showFunctions ? css.viewToggleLabelActive : ''}`}>Labels</span>
+          <div className={css.toggleTrack}>
+            <div className={`${css.toggleThumb} ${showFunctions ? css.toggleThumbRight : ''}`} />
+          </div>
+          <span className={`${css.viewToggleLabel} ${showFunctions ? css.viewToggleLabelActive : ''}`}>Functions</span>
+        </div>
+      )}
+
+      {!sdRoot && (
+        <p className={css.hint}>Blue = switches &amp; knobs · Grey = trim levers (reference only)</p>
+      )}
+
+      {/* Expansion module diagram — only when a module is configured and has an image */}
+      {moduleType !== 'none' && moduleImg && moduleControls && (
+        <div style={{ marginTop: 12 }}>
+          <AnnotatedDiagram
+            imageSrc={moduleImg}
+            controls={moduleControls}
+            builtinPositions={moduleBuiltin}
+            webConfigKey={`diagram-module-${moduleType}-labels.json`}
+            sdRoot={sdRoot}
+            externalHighlight={externalHighlight}
+            diagramLabel="Expansion module"
+          />
         </div>
       )}
     </div>

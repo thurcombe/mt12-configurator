@@ -108,3 +108,24 @@
   flex-wrap: wrap;
   padding: 10px 16px 14px;
 }
+
+.stale {
+  border-color: var(--warning, #f59e0b);
+}
+
+.staleIndicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--warning, #f59e0b);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}

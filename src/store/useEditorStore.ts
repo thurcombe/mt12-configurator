@@ -4,6 +4,8 @@ import { pickSdCard, readTextFile, readBinaryFile, writeTextFile, listModelFiles
 import { createMemoryRoot } from '../fs/memoryFs.ts';
 import SD_TEMPLATE from '../data/sd-template.json';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
+import { BUILTIN_KID_PRESETS } from '../data/kidPresets.ts';
+import type { KidPreset } from '../types/kidPreset.ts';
 import { writeBackup, listBackups, listAllBackups, readBackup } from '../fs/backup.ts';
 import type { BackupEntry } from '../fs/backup.ts';
 import { readWebConfig, writeWebConfig } from '../fs/webconfig.ts';
@@ -13,6 +15,8 @@ import { createBlankModel } from '../codec/modelTemplate.ts';
 import { downloadYaml } from '../fs/download.ts';
 import type { Model } from '../types/model.ts';
 import type { Radio } from '../types/radio.ts';
+import { BASE_SWITCHES, BASE_POTS, EXPANSION_POTS, FLEX_SWITCHES } from '../hardware/mt12.ts';
+import type { ExpansionModuleType } from '../hardware/mt12.ts';
 
 // Model slot key: 'model00', 'model01', etc. (no .yml extension).
 export type ModelKey = string;
@@ -76,18 +80,32 @@ interface EditorState {
   revertModelImage: (key: ModelKey, prevFile: File | null, wasAlreadyDirty: boolean) => Promise<void>;
 
   // Per-model app metadata — stored in .webconfig/model-meta.json
-  modelMeta: Record<ModelKey, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>;
+  modelMeta: Record<ModelKey, {
+    scale?: string;
+    vehicleType?: string;
+    power?: 'battery' | 'fuel';
+    kidSnapshot?: { presetId: string; steeringCharacter: number; powerDelivery: number };
+  }>;
   setModelScale: (key: ModelKey, scale: string) => void;
   setModelVehicleType: (key: ModelKey, vehicleType: string) => void;
   setModelPower: (key: ModelKey, power: 'battery' | 'fuel' | '') => void;
+  recordKidControlApplied: (key: ModelKey, presetId: string, steeringCharacter: number, powerDelivery: number) => void;
+  clearKidControlSnapshot: (key: ModelKey) => void;
 
-  // Vehicle categories (built-in + custom) — custom stored in .webconfig/vehicle-categories.json
+  // Vehicle categories — all stored in .webconfig/vehicle-categories.json (built-in overrides + custom)
   vehicleCategories: VehicleCategory[];
   vehicleTypeImages: Record<string, string>;  // category id → object URL
   loadVehicleCategories: () => Promise<void>;
-  saveCustomVehicleCategory: (cat: VehicleCategory) => Promise<void>;
+  saveVehicleCategory: (cat: VehicleCategory) => Promise<void>;
+  resetVehicleCategoryToDefault: (id: string) => Promise<void>;
   deleteCustomVehicleCategory: (id: string) => Promise<void>;
   uploadVehicleTypeImage: (typeId: string, file: File) => Promise<void>;
+
+  // KidControl presets — built-ins + user presets stored in .webconfig/kid-presets.json
+  kidPresets: KidPreset[];
+  loadKidPresets: () => Promise<void>;
+  saveUserKidPreset: (preset: KidPreset) => Promise<void>;
+  deleteUserKidPreset: (id: string) => Promise<void>;
 
   // Diagram highlight — any component can set this to highlight a control on the MT12 diagram
   diagramHighlight: string | null;
@@ -142,6 +160,11 @@ interface EditorState {
   revertModel: (key: ModelKey) => Promise<void>;
   revertRadio: () => Promise<void>;
 
+  // Hardware selectors — derived from radio.yml
+  availableSwitches: () => { key: string; name: string; type: string }[];
+  availablePots: () => { key: string; name: string; type: string }[];
+  expansionModule: () => ExpansionModuleType;
+
   // Helpers
   isDirty: (key: string) => boolean;
   clearError: () => void;
@@ -179,6 +202,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   modelMeta: {},
   vehicleCategories: BUILT_IN_CATEGORIES,
   vehicleTypeImages: {},
+  kidPresets: BUILTIN_KID_PRESETS,
   diagramHighlight: null,
   setDiagramHighlight: (control) => set({ diagramHighlight: control }),
 
@@ -272,14 +296,39 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
+  recordKidControlApplied: (key, presetId, steeringCharacter, powerDelivery) => {
+    set((s) => {
+      const modelMeta = {
+        ...s.modelMeta,
+        [key]: { ...(s.modelMeta[key] ?? {}), kidSnapshot: { presetId, steeringCharacter, powerDelivery } },
+      };
+      const dirty = new Set(s.dirty);
+      dirty.add(key);
+      return { modelMeta, dirty };
+    });
+  },
+
+  clearKidControlSnapshot: (key) => {
+    set((s) => {
+      const entry = { ...(s.modelMeta[key] ?? {}) };
+      delete entry.kidSnapshot;
+      return { modelMeta: { ...s.modelMeta, [key]: entry } };
+    });
+  },
+
   loadVehicleCategories: async () => {
     const { sdRoot } = get();
-    const custom = sdRoot
+    // JSON stores built-in overrides and custom types. Built-ins absent from the JSON
+    // fall back to the hardcoded defaults.
+    const stored = sdRoot
       ? await readWebConfig<VehicleCategory[]>(sdRoot, 'vehicle-categories.json').catch(() => null)
       : null;
-    const categories = [...BUILT_IN_CATEGORIES, ...(custom ?? []).map((c) => ({ ...c, custom: true }))];
+    const storedMap = new Map((stored ?? []).map((c) => [c.id, c]));
+    const builtInIds = new Set(BUILT_IN_CATEGORIES.map((c) => c.id));
+    const builtIns = BUILT_IN_CATEGORIES.map((c) => storedMap.get(c.id) ?? c);
+    const custom = (stored ?? []).filter((c) => !builtInIds.has(c.id));
+    const categories = [...builtIns, ...custom];
     set({ vehicleCategories: categories });
-    // Load type images
     if (sdRoot) {
       const ids = categories.map((c) => c.id);
       const images = await findImages(sdRoot, '.webconfig/vehicle-type-images', ids).catch(() => ({}));
@@ -287,24 +336,79 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  saveCustomVehicleCategory: async (cat) => {
+  saveVehicleCategory: async (cat) => {
     const { sdRoot, vehicleCategories } = get();
-    const existing = vehicleCategories.filter((c) => c.custom);
-    const idx = existing.findIndex((c) => c.id === cat.id);
-    const next = idx >= 0
-      ? existing.map((c) => c.id === cat.id ? cat : c)
-      : [...existing, cat];
-    const updated = [...BUILT_IN_CATEGORIES, ...next.map((c) => ({ ...c, custom: true }))];
+    const builtInIds = new Set(BUILT_IN_CATEGORIES.map((c) => c.id));
+    const isBuiltIn = builtInIds.has(cat.id);
+    const updated = vehicleCategories.some((c) => c.id === cat.id)
+      ? vehicleCategories.map((c) => c.id === cat.id ? cat : c)
+      : [...vehicleCategories, cat];
     set({ vehicleCategories: updated });
-    if (sdRoot) writeWebConfig(sdRoot, 'vehicle-categories.json', next).catch(() => {});
+    if (sdRoot) {
+      // Persist only: built-in overrides (i.e. built-ins that differ from defaults) + custom types.
+      // Un-overridden built-ins are derived from hardcoded defaults on load.
+      const defaultMap = new Map(BUILT_IN_CATEGORIES.map((c) => [c.id, c]));
+      const toStore = updated.filter((c) => {
+        if (!isBuiltIn && !builtInIds.has(c.id)) return true;  // custom
+        const def = defaultMap.get(c.id);
+        return def && JSON.stringify(c) !== JSON.stringify(def);  // built-in override
+      });
+      // Always include the just-saved category if it's a built-in override
+      if (isBuiltIn && !toStore.some((c) => c.id === cat.id)) toStore.push(cat);
+      writeWebConfig(sdRoot, 'vehicle-categories.json', toStore).catch(() => {});
+    }
+  },
+
+  resetVehicleCategoryToDefault: async (id) => {
+    const { sdRoot, vehicleCategories } = get();
+    const def = BUILT_IN_CATEGORIES.find((c) => c.id === id);
+    if (!def) return;
+    const updated = vehicleCategories.map((c) => c.id === id ? def : c);
+    set({ vehicleCategories: updated });
+    if (sdRoot) {
+      const stored = await readWebConfig<VehicleCategory[]>(sdRoot, 'vehicle-categories.json').catch(() => null);
+      const next = (stored ?? []).filter((c) => c.id !== id);
+      writeWebConfig(sdRoot, 'vehicle-categories.json', next).catch(() => {});
+    }
   },
 
   deleteCustomVehicleCategory: async (id) => {
     const { sdRoot, vehicleCategories } = get();
-    const updated = vehicleCategories.filter((c) => c.id !== id || !c.custom);
+    const builtInIds = new Set(BUILT_IN_CATEGORIES.map((c) => c.id));
+    const updated = vehicleCategories.filter((c) => c.id !== id || builtInIds.has(c.id));
     set({ vehicleCategories: updated });
-    const custom = updated.filter((c) => c.custom);
-    if (sdRoot) writeWebConfig(sdRoot, 'vehicle-categories.json', custom).catch(() => {});
+    if (sdRoot) {
+      const stored = await readWebConfig<VehicleCategory[]>(sdRoot, 'vehicle-categories.json').catch(() => null);
+      const next = (stored ?? []).filter((c) => c.id !== id);
+      writeWebConfig(sdRoot, 'vehicle-categories.json', next).catch(() => {});
+    }
+  },
+
+  loadKidPresets: async () => {
+    const { sdRoot } = get();
+    const userPresets = sdRoot
+      ? await readWebConfig<KidPreset[]>(sdRoot, 'kid-presets.json').catch(() => null)
+      : null;
+    set({ kidPresets: [...BUILTIN_KID_PRESETS, ...(userPresets ?? [])] });
+  },
+
+  saveUserKidPreset: async (preset) => {
+    const { sdRoot, kidPresets } = get();
+    const userPresets = kidPresets.filter((p) => !p.builtIn);
+    const idx = userPresets.findIndex((p) => p.id === preset.id);
+    const next = idx >= 0
+      ? userPresets.map((p) => p.id === preset.id ? preset : p)
+      : [...userPresets, preset];
+    set({ kidPresets: [...BUILTIN_KID_PRESETS, ...next] });
+    if (sdRoot) writeWebConfig(sdRoot, 'kid-presets.json', next).catch(() => {});
+  },
+
+  deleteUserKidPreset: async (id) => {
+    const { sdRoot, kidPresets } = get();
+    const next = kidPresets.filter((p) => p.id !== id || p.builtIn);
+    set({ kidPresets: next });
+    const userPresets = next.filter((p) => !p.builtIn);
+    if (sdRoot) writeWebConfig(sdRoot, 'kid-presets.json', userPresets).catch(() => {});
   },
 
   uploadVehicleTypeImage: async (typeId, file) => {
@@ -342,8 +446,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Load per-model metadata (scale, vehicleType, power etc.)
       const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>>(root, 'model-meta.json');
       if (meta) set({ modelMeta: meta });
-      // Load vehicle categories + type images
+      // Load vehicle categories + type images, and kid presets
       get().loadVehicleCategories();
+      get().loadKidPresets();
     } catch (e) {
       const msg = friendlyError(e);
       if (msg) set({ lastError: msg });
@@ -366,6 +471,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       modelMeta: {},
       vehicleCategories: BUILT_IN_CATEGORIES,
       vehicleTypeImages: {},
+      kidPresets: BUILTIN_KID_PRESETS,
       lastError: null,
       warnings: [],
     });
@@ -883,6 +989,62 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const radio = parseRadio(yaml);
       set({ radio });
     } catch { /* leave in-memory radio as-is; dirty already cleared */ }
+  },
+
+  availableSwitches: () => {
+    const { radio } = get();
+    const cfg = radio?.switchConfig ?? {};
+    const result: { key: string; name: string; type: string }[] = BASE_SWITCHES.map((s) => ({
+      key: s.key,
+      name: cfg[s.key]?.name || s.key,
+      type: cfg[s.key]?.type || s.type,
+    }));
+    // FL1/FL2 are always in switchConfig for MT12; include them when type is not NONE.
+    for (const key of FLEX_SWITCHES) {
+      const swCfg = cfg[key];
+      if (swCfg && swCfg.type.toLowerCase() !== 'none') {
+        result.push({ key, name: swCfg.name || key, type: swCfg.type });
+      }
+    }
+    return result;
+  },
+
+  availablePots: () => {
+    const { radio } = get();
+    const cfg = radio?.potsConfig ?? {};
+    const result: { key: string; name: string; type: string }[] = BASE_POTS.map((p) => ({
+      key: p.key,
+      name: cfg[p.key]?.name || p.key,
+      type: cfg[p.key]?.type || 'with_detent',
+    }));
+    for (const key of EXPANSION_POTS) {
+      const potCfg = cfg[key];
+      const t = potCfg?.type.toLowerCase();
+      if (t && t !== 'none' && t !== 'switch') {
+        result.push({ key, name: potCfg.name || key, type: potCfg.type });
+      }
+    }
+    return result;
+  },
+
+  expansionModule: (): ExpansionModuleType => {
+    const { radio } = get();
+    if (!radio) return 'none';
+    const cfg = radio.potsConfig ?? {};
+    const swCfg = radio.switchConfig ?? {};
+    const flex = radio.switchesFlex ?? {};
+    const p3 = cfg['P3']?.type?.toLowerCase() ?? 'none';
+    const p4 = cfg['P4']?.type?.toLowerCase() ?? 'none';
+    const hasFlex = !!(flex['FL1'] || flex['FL2']);
+    if (p3 === 'with_detent' && p4 === 'with_detent' && !hasFlex) return 'joystick';
+    if (p3 === 'switch' && p4 === 'switch') {
+      const fl1Type = swCfg['FL1']?.type?.toLowerCase() ?? '';
+      const fl2Type = swCfg['FL2']?.type?.toLowerCase() ?? '';
+      if (fl1Type === '3pos' && fl2Type === '3pos') return 'switch_dual3';
+      if (fl1Type === '3pos') return 'switch_3and2';
+      return 'switch_dual2';
+    }
+    return 'none';
   },
 
   isDirty: (key: string) => get().dirty.has(key),

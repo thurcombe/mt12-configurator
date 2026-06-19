@@ -268,19 +268,20 @@ Open the wizard from:
 
 Shows the full list of vehicle categories from your [Vehicle Types](#16-vehicle-types) page. Each category maps to a KidControl preset (Crawler, Sport, Rally, or High-speed) that provides default throttle and steering limits. Clicking a category advances immediately to step 2.
 
-### Step 2 — Speed class
+### Step 2 — Driver skill
 
-![KidControl wizard — speed class selection](screenshots/27-kidcontrol-02-speed-step.png)
+![KidControl wizard — driver skill selection](screenshots/27-kidcontrol-02-speed-step.png)
 
-Choose how conservative the limits should be:
+Choose the driver's current skill level. The app calculates appropriate throttle and steering limits from the vehicle's physical characteristics and the selected skill level.
 
-| Option | Description |
+| Preset | Description |
 |--------|-------------|
-| Slow | Very conservative — for young or first-time drivers |
-| Medium | Balanced — comfortable limits for most kids |
-| Fast | Light limits — for older or experienced kids |
+| Newbie | Completely new to R/C. Maximum assistance applied — very soft limits throughout |
+| Learner | Some experience and beginning to feather inputs. Significant but not extreme limits |
+| Confident Learner | Solid proportional control. Light assistance for higher-power vehicles |
+| Independent | Reliable control in all conditions. Minimal safety margin only |
 
-Clicking a speed class advances immediately to step 3 with pre-filled values based on the vehicle category and speed class combination.
+Clicking a preset advances immediately to step 3 with pre-filled values.
 
 ### Step 3 — Adjust & Confirm
 
@@ -309,7 +310,15 @@ Once applied, both the Basic view and the Advanced KidControl tab show a summary
 
 ![Basic view — KidControl active](screenshots/30-basic-kidcontrol-active.png)
 
-The summary shows the trigger switch, throttle limit and expo, speed ramp values, and steering limit and expo. A **Re-run KidControl wizard** button lets you reconfigure, and a **Remove KidControl** button deletes the FM1 drive mode and all associated KidControl mix/expo lines.
+The KidControl card shows:
+- A green **Active** badge and the name of the applied skill preset (e.g. **Newbie**)
+- The trigger switch currently assigned
+- Throttle limit, expo, and speed ramp values
+- Steering limit and expo
+
+A **Re-run KidControl wizard** button lets you reconfigure. A **Remove KidControl** button deletes the FM1 drive mode and all associated KidControl mix/expo lines.
+
+If the vehicle type's physical properties (steering character or power delivery) have been edited since KidControl was applied, a **⚠ Vehicle properties have changed** warning appears. Click **Recalculate** to recompute the limits using the current vehicle properties and the original preset.
 
 ---
 
@@ -560,36 +569,55 @@ Two buttons appear in the top bar when radio settings are loaded:
 | Brightness | Screen brightness level |
 | Contrast | Display contrast |
 
-### Switches tab
+### Input Hardware tab
 
-![Transmitter Settings — Switches tab](screenshots/38-radio-settings-switches.png)
+The **Input Hardware** tab covers all physical inputs on the MT12 in a single view: built-in switches, built-in pots, trim levers, and the optional expansion module.
 
-Configure the **type** and **name** of each physical switch on the MT12:
+#### Built-in switches
 
-| Switch | Default type | Notes |
-|--------|-------------|-------|
-| SA | 3-position | Centre position is middle |
-| SB, SC, SD | 2-position toggle | Some may be momentary |
-| FL1, FL2 | 2-position latching | |
+Configure the **type** and **name** of the four permanently fitted switches:
 
-Setting a meaningful name (e.g. "KID" for FL1 when used for KidControl) causes that name to appear on the transmitter screen and in the diagram labels.
+| Switch | Default type |
+|--------|-------------|
+| SA | 3-position |
+| SB, SC, SD | 2-position |
 
-### Pots tab
+Setting a meaningful name (e.g. "KID" for the switch used for KidControl) causes it to appear on the transmitter screen and in the diagram labels.
 
-![Transmitter Settings — Pots tab](screenshots/39-radio-settings-pots.png)
+> **Unplaced control warning** — if a switch or pot has not yet been positioned on the MT12 Controls diagram, its row shows an amber left border and a **⚠** icon. Hover the row to see the tooltip. Open **⚙ Place control labels** in the diagram to position it.
 
-Configure the **type** and **name** of each pot (scroll wheel/knob):
+#### Built-in pots
+
+Configure the **type** and **name** of the two built-in scroll wheels:
 
 | Pot | Default use |
 |-----|-------------|
 | P1 | Scroll wheel — typically steering trim or auxiliary |
 | P2 | Scroll wheel with centre detent — speed limiter by default |
-| P3 | Joystick X axis (if expansion module fitted) |
-| P4 | Joystick Y axis (if expansion module fitted) |
+
+#### Trim levers
+
+T1–T5 are fixed hardware and cannot be removed or reconfigured. The section lists each trim lever with its physical description for reference. Hover a row to highlight the control on the diagram.
+
+#### Expansion module
+
+The MT12 has one expansion slot. Choose the fitted module from the **Installed module** dropdown:
+
+| Option | Inputs exposed |
+|--------|----------------|
+| None | — |
+| Dual 3-pos switch module | FL1, FL2 (3-position each) |
+| 3+2-pos switch module | FL1 (3-position), FL2 (2-position) |
+| Dual 2-pos switch module | FL1, FL2 (2-position each) |
+| Joystick module | P3 (X axis), P4 (Y axis) |
+
+Selecting a module automatically sets the appropriate EdgeTX input types in `radio.yml`. The inputs table below the selector shows only the user-facing controls for the chosen module: FL1/FL2 for switch modules, P3/P4 for the joystick. Set a custom name for each if desired.
 
 ### MT12 Controls diagram
 
-The diagram on the right of the Transmitter Settings page shows the transmitter layout with your configured labels. Each control is annotated with its current name. Use **⚙ Reposition labels** to adjust label placement and **Reset** to restore defaults.
+The diagram panel on the right shows the transmitter layout with your configured labels. Use **⚙ Place control labels** to drag labels to their physical positions, and **Reset** to restore defaults.
+
+When an expansion module is configured, a second annotated diagram for that module appears below the transmitter diagram. It works identically — zoom, drag-to-place, and **Reset**. Label positions for each module type are saved independently, so switching modules and back restores the previous placement.
 
 ---
 
@@ -605,19 +633,19 @@ The Vehicle Types page manages the list of categories that appear in the model e
 
 Nine categories are always available and cannot be deleted:
 
-| Category | KidControl preset | Speed range |
-|----------|------------------|-------------|
-| 🐢 Crawler | Crawler | 3–8 mph |
-| ⛰️ Scale Trail | Crawler | 5–18 mph |
-| 🏁 Short Course | Sport | 25–55 mph |
-| 🏎️ Buggy / Truggy | Rally | 35–65 mph |
-| 🚛 Monster Truck | Sport | 20–45 mph |
-| 🏎️ Sport / Touring | Sport | 30–60 mph |
-| 🚗 Rally | Rally | 40–70 mph |
-| ⚡ Desert Racer | High-speed | 55–90 mph |
-| 💨 Drift | Sport | 20–50 mph |
+| Category | Speed range |
+|----------|-------------|
+| 🐢 Crawler | 3–8 mph |
+| ⛰️ Scale Trail | 5–18 mph |
+| 🏁 Short Course | 25–55 mph |
+| 🏎️ Buggy / Truggy | 35–65 mph |
+| 🚛 Monster Truck | 20–45 mph |
+| 🏎️ Sport / Touring | 30–60 mph |
+| 🚗 Rally | 40–70 mph |
+| ⚡ Desert Racer | 55–90 mph |
+| 💨 Drift | 20–50 mph |
 
-The **KidControl preset** determines which set of default throttle and steering limits the KidControl wizard uses for that category.
+Each category has **steering character** and **power delivery** values that describe how the vehicle behaves. The KidControl wizard uses these values — combined with the selected skill preset — to calculate appropriate throttle and steering limits via a formula. Crawlers and scale vehicles get softer, gentler limits by default; high-speed categories get tighter limits to account for the consequences of overcorrection at speed.
 
 ### Custom categories
 
