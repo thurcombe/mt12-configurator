@@ -5,6 +5,7 @@ import { useEditorStore } from '../store/useEditorStore.ts';
 import { findFreeSlot } from '../codec/modelTemplate.ts';
 import { BUILT_IN_CATEGORIES } from '../data/vehicleTypes.ts';
 import { ModelCard } from '../components/models/ModelCard.tsx';
+import { getExpansionConflict } from '../components/models/expansionConflict.ts';
 import { ModelImagePicker } from '../components/models/ModelImagePicker.tsx';
 import { BackupHistory } from '../components/models/BackupHistory.tsx';
 import css from './ModelList.module.css';
@@ -23,6 +24,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
   const vehicleCategories = useEditorStore((s) => s.vehicleCategories);
   const vehicleTypeImages = useEditorStore((s) => s.vehicleTypeImages);
   const kidPresets = useEditorStore((s) => s.kidPresets);
+  const expansionModule = useEditorStore((s) => s.expansionModule);
   const dirty = useEditorStore((s) => s.dirty);
   const loadAllModels = useEditorStore((s) => s.loadAllModels);
   const createModel = useEditorStore((s) => s.createModel);
@@ -171,6 +173,9 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 }
               }
             }
+            const expansionConflict = models[key]
+              ? getExpansionConflict(models[key], expansionModule())
+              : null;
             return (
               <ModelCard
                 key={key}
@@ -183,6 +188,7 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 power={meta?.power}
                 kidPresetName={kidPresetName}
                 kidStale={kidStale}
+                expansionConflict={expansionConflict}
                 vehicleTypeImageUrl={vehicleTypeImageUrl}
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}
