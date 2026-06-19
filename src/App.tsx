@@ -6,6 +6,7 @@ import { VehicleTypesPage } from './pages/VehicleTypesPage.tsx';
 import { useState } from 'react';
 import { useEditorStore } from './store/useEditorStore.ts';
 import css from './App.module.css';
+import './styles/shared.css';
 
 export type Route =
   | { page: 'list' }

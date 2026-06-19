@@ -27,7 +27,7 @@ export function HelpModal({ onClose }: Props) {
         <div className={css.body}>
           <section className={css.section}>
             <h3 className={css.sectionTitle}>User Manual</h3>
-            <p>The built-in user manual covers all features of this app — model setup, the Basic and Advanced views, KidControl, saving & backup, and more.</p>
+            <p>The built-in user manual covers all features of this app — model setup, the Basic and Advanced views, KidControl, transmitter settings (input hardware, expansion modules, audio, display), saving &amp; backup, and more.</p>
             <button
               className="btn btn-primary btn-sm"
               style={{ alignSelf: 'flex-start', marginTop: 4 }}

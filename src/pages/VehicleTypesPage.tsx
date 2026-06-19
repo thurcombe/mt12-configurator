@@ -2,21 +2,13 @@ import { useRef, useState } from 'react';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
-import { VEHICLE_LABELS } from '../components/kidmode/kidDefaults.ts';
+import { GaugeIcon } from '../components/shared/GaugeIcon.tsx';
+import { SteeringWheelIcon } from '../components/shared/SteeringWheelIcon.tsx';
 import css from './VehicleTypesPage.module.css';
 
 interface Props {
   navigate: (r: Route) => void;
 }
-
-const KID_TYPE_LABELS: Record<string, string> = {
-  crawler: 'Crawler preset',
-  sport: 'Sport preset',
-  rally: 'Rally preset',
-  highspeed: 'High-speed preset',
-};
-
-const KID_TYPE_OPTIONS = Object.entries(VEHICLE_LABELS).map(([id, label]) => ({ id, label }));
 
 const BUILT_IN_IDS = new Set(BUILT_IN_CATEGORIES.map((c) => c.id));
 
@@ -28,23 +20,27 @@ function blankCustom(): VehicleCategory {
     description: '',
     speedMin: 20,
     speedMax: 50,
-    kidType: 'sport',
-    custom: true,
+    steeringCharacter: 50,
+    powerDelivery: 50,
   };
 }
 
 export function VehicleTypesPage({ navigate }: Props) {
   const vehicleCategories = useEditorStore((s) => s.vehicleCategories);
   const vehicleTypeImages = useEditorStore((s) => s.vehicleTypeImages);
-  const saveCustomVehicleCategory = useEditorStore((s) => s.saveCustomVehicleCategory);
+  const saveVehicleCategory = useEditorStore((s) => s.saveVehicleCategory);
+  const resetVehicleCategoryToDefault = useEditorStore((s) => s.resetVehicleCategoryToDefault);
   const deleteCustomVehicleCategory = useEditorStore((s) => s.deleteCustomVehicleCategory);
   const uploadVehicleTypeImage = useEditorStore((s) => s.uploadVehicleTypeImage);
   const sdRoot = useEditorStore((s) => s.sdRoot);
+  const models    = useEditorStore((s) => s.models);
+  const modelMeta = useEditorStore((s) => s.modelMeta);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   const [draft, setDraft] = useState<VehicleCategory>(blankCustom());
   const [idError, setIdError] = useState('');
+  const [kidWarningModels, setKidWarningModels] = useState<{ key: string; name: string }[]>([]);
   const imageRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function startEdit(cat: VehicleCategory) {
@@ -72,19 +68,38 @@ export function VehicleTypesPage({ navigate }: Props) {
   }
 
   function saveEdit() {
-    const id = draft.id.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    if (!id) { setIdError('Name is required'); return; }
-    if (addingNew && vehicleCategories.some((c) => c.id === id)) {
-      setIdError('A type with this ID already exists');
-      return;
+    if (addingNew) {
+      const id = draft.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      if (!id) { setIdError('Name is required'); return; }
+      if (vehicleCategories.some((c) => c.id === id)) {
+        setIdError('A type with this ID already exists');
+        return;
+      }
+      saveVehicleCategory({ ...draft, id });
+    } else {
+      const original = vehicleCategories.find((c) => c.id === draft.id);
+      const characterChanged = original && (
+        draft.steeringCharacter !== original.steeringCharacter ||
+        draft.powerDelivery     !== original.powerDelivery
+      );
+      saveVehicleCategory(draft);
+      if (characterChanged) {
+        const affected = Object.entries(modelMeta)
+          .filter(([key, meta]) => meta.vehicleType === draft.id && !!models[key]?.flightModeData?.['1'])
+          .map(([key, _]) => ({ key, name: models[key]?.header?.name ?? key }));
+        if (affected.length > 0) setKidWarningModels(affected);
+      }
     }
-    const cat: VehicleCategory = { ...draft, id, custom: true };
-    saveCustomVehicleCategory(cat);
     cancelEdit();
   }
 
-  const builtIn = vehicleCategories.filter((c) => !c.custom);
-  const custom = vehicleCategories.filter((c) => c.custom);
+  function handleReset(id: string) {
+    resetVehicleCategoryToDefault(id);
+    if (editingId === id) cancelEdit();
+  }
+
+  const builtIn = vehicleCategories.filter((c) => BUILT_IN_IDS.has(c.id));
+  const custom = vehicleCategories.filter((c) => !BUILT_IN_IDS.has(c.id));
 
   return (
     <div className={css.page}>
@@ -98,24 +113,42 @@ export function VehicleTypesPage({ navigate }: Props) {
       <div className={css.content}>
         <p className={css.toolbarSub}>
           Define the types of vehicles you drive. The type appears as a badge on the model list
-          and pre-selects KidControl limits when setting up a new model.
-          {!sdRoot && <span className={css.noSd}> Connect an SD card to persist custom types and images.</span>}
+          and informs KidControl limit calculations when setting up a new model.
+          {!sdRoot && <span className={css.noSd}> Connect an SD card to persist changes and images.</span>}
         </p>
 
       <div className={css.section}>
         <h3 className={css.sectionTitle}>Built-in types</h3>
         <div className={css.grid}>
-          {builtIn.map((cat) => (
-            <TypeCard
-              key={cat.id}
-              cat={cat}
-              imageUrl={vehicleTypeImages[cat.id]}
-              onUploadImage={(file) => uploadVehicleTypeImage(cat.id, file)}
-              imageRef={(el) => { imageRefs.current[cat.id] = el; }}
-              onRequestUpload={() => imageRefs.current[cat.id]?.click()}
-              readOnly
-            />
-          ))}
+          {builtIn.map((cat) =>
+            editingId === cat.id ? (
+              <TypeForm
+                key={cat.id}
+                draft={draft}
+                idError={idError}
+                isNew={false}
+                isBuiltIn
+                onChange={patchDraft}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+              />
+            ) : (
+              <TypeCard
+                key={cat.id}
+                cat={cat}
+                imageUrl={vehicleTypeImages[cat.id]}
+                onUploadImage={(file) => uploadVehicleTypeImage(cat.id, file)}
+                imageRef={(el) => { imageRefs.current[cat.id] = el; }}
+                onRequestUpload={() => imageRefs.current[cat.id]?.click()}
+                onEdit={() => startEdit(cat)}
+                onReset={
+                  JSON.stringify(cat) !== JSON.stringify(BUILT_IN_CATEGORIES.find(b => b.id === cat.id))
+                    ? () => handleReset(cat.id)
+                    : undefined
+                }
+              />
+            )
+          )}
         </div>
       </div>
 
@@ -130,6 +163,7 @@ export function VehicleTypesPage({ navigate }: Props) {
                   draft={draft}
                   idError={idError}
                   isNew={false}
+                  isBuiltIn={false}
                   onChange={patchDraft}
                   onSave={saveEdit}
                   onCancel={cancelEdit}
@@ -152,6 +186,7 @@ export function VehicleTypesPage({ navigate }: Props) {
                 draft={draft}
                 idError={idError}
                 isNew
+                isBuiltIn={false}
                 onChange={patchDraft}
                 onSave={saveEdit}
                 onCancel={cancelEdit}
@@ -166,6 +201,28 @@ export function VehicleTypesPage({ navigate }: Props) {
       )}
       </div>
       </div>
+
+      {/* KidControl review modal */}
+      {kidWarningModels.length > 0 && (
+        <div className={css.modalBackdrop}>
+          <div className={css.modal}>
+            <h3 className={css.modalTitle}>KidControl review needed</h3>
+            <p className={css.modalBody}>
+              The following {kidWarningModels.length === 1 ? 'model uses' : 'models use'} this vehicle
+              type and already have KidControl active. The updated steering and power delivery values
+              will affect the recommended limits — the settings for {kidWarningModels.length === 1 ? 'this model' : 'these models'} should be reviewed.
+            </p>
+            <ul className={css.modalList}>
+              {kidWarningModels.map(({ key, name }) => (
+                <li key={key}>{name}</li>
+              ))}
+            </ul>
+            <div className={css.modalActions}>
+              <button className="btn btn-primary btn-sm" onClick={() => setKidWarningModels([])}>Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -175,16 +232,33 @@ export function VehicleTypesPage({ navigate }: Props) {
 interface TypeCardProps {
   cat: VehicleCategory;
   imageUrl?: string;
-  readOnly?: boolean;
   onUploadImage: (file: File) => void;
   imageRef: (el: HTMLInputElement | null) => void;
   onRequestUpload: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onReset?: () => void;
 }
 
-function TypeCard({ cat, imageUrl, readOnly, onUploadImage, imageRef, onRequestUpload, onEdit, onDelete }: TypeCardProps) {
+function steeringLabel(value: number): string {
+  if (value <= 20) return 'Forgiving';
+  if (value <= 40) return 'Easy';
+  if (value <= 60) return 'Moderate';
+  if (value <= 80) return 'Responsive';
+  return 'Sharp';
+}
+
+function powerLabel(value: number): string {
+  if (value <= 20) return 'Gentle';
+  if (value <= 40) return 'Progressive';
+  if (value <= 60) return 'Moderate';
+  if (value <= 80) return 'Strong';
+  return 'Aggressive';
+}
+
+function TypeCard({ cat, imageUrl, onUploadImage, imageRef, onRequestUpload, onEdit, onDelete, onReset }: TypeCardProps) {
   const src = imageUrl ?? '/model-default.png';
+  const isBuiltIn = BUILT_IN_IDS.has(cat.id);
   return (
     <div className={css.card}>
       <div className={css.cardImage}>
@@ -206,36 +280,37 @@ function TypeCard({ cat, imageUrl, readOnly, onUploadImage, imageRef, onRequestU
         <div className={css.cardName}>
           <span className={css.cardNameIcon}>{cat.icon}</span>
           {cat.name}
-          {BUILT_IN_IDS.has(cat.id) && <span className={css.builtInBadge}>built-in</span>}
+          {isBuiltIn && <span className={css.builtInBadge}>built-in</span>}
         </div>
         <p className={css.cardDesc}>{cat.description}</p>
         <div className={css.cardMeta}>
-          <span className="badge">{cat.speedMin}–{cat.speedMax} mph</span>
-          <span className="badge badge-accent">{KID_TYPE_LABELS[cat.kidType]}</span>
+          <span className="badge" title="Typical top speed range for this vehicle type">{cat.speedMin}–{cat.speedMax} mph</span>
+          <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Steering character — how sharply the vehicle responds to steering input"><SteeringWheelIcon size={13} /> {steeringLabel(cat.steeringCharacter)}</span>
+          <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Power delivery — how instantly the motor responds to throttle input"><GaugeIcon size={13} /> {powerLabel(cat.powerDelivery)}</span>
         </div>
-        {!readOnly && (
-          <div className={css.cardActions}>
-            <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
-            <button className="btn btn-danger btn-sm" onClick={onDelete}>Delete</button>
-          </div>
-        )}
+        <div className={css.cardActions}>
+          {onEdit && <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>}
+          {onReset && <button className="btn btn-ghost btn-sm" onClick={onReset}>Reset</button>}
+          {onDelete && <button className="btn btn-danger btn-sm" onClick={onDelete}>Delete</button>}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Type form (add / edit custom) ─────────────────────────────────────────────
+// ── Type form (add / edit) ─────────────────────────────────────────────────────
 
 interface TypeFormProps {
   draft: VehicleCategory;
   idError: string;
   isNew: boolean;
+  isBuiltIn: boolean;
   onChange: (p: Partial<VehicleCategory>) => void;
   onSave: () => void;
   onCancel: () => void;
 }
 
-function TypeForm({ draft, idError, isNew, onChange, onSave, onCancel }: TypeFormProps) {
+function TypeForm({ draft, idError, isNew, isBuiltIn, onChange, onSave, onCancel }: TypeFormProps) {
   const inputStyle = {
     background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)',
     borderRadius: 4, padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)', width: '100%',
@@ -244,7 +319,12 @@ function TypeForm({ draft, idError, isNew, onChange, onSave, onCancel }: TypeFor
   return (
     <div className={`${css.card} ${css.formCard}`}>
       <div className={css.cardBody}>
-        <p className={css.formTitle}>{isNew ? 'New custom type' : 'Edit type'}</p>
+        <p className={css.formTitle}>{isNew ? 'New custom type' : isBuiltIn ? 'Edit built-in type' : 'Edit type'}</p>
+        {isBuiltIn && (
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Changes to built-in types are saved to your SD card and can be reset to defaults at any time.
+          </p>
+        )}
         <div className={css.formRow}>
           <label className={css.formLabel}>Name</label>
           <input
@@ -253,18 +333,21 @@ function TypeForm({ draft, idError, isNew, onChange, onSave, onCancel }: TypeFor
             value={draft.name}
             onChange={(e) => onChange({ name: e.target.value })}
             autoFocus={isNew}
+            readOnly={!isNew && isBuiltIn}
           />
           {idError && <p style={{ color: 'var(--danger)', fontSize: 11, margin: '2px 0 0' }}>{idError}</p>}
         </div>
-        <div className={css.formRow}>
-          <label className={css.formLabel}>Icon</label>
-          <input
-            style={{ ...inputStyle, width: 60 }}
-            value={draft.icon}
-            onChange={(e) => onChange({ icon: e.target.value })}
-            maxLength={4}
-          />
-        </div>
+        {!isBuiltIn && (
+          <div className={css.formRow}>
+            <label className={css.formLabel}>Icon</label>
+            <input
+              style={{ ...inputStyle, width: 60 }}
+              value={draft.icon}
+              onChange={(e) => onChange({ icon: e.target.value })}
+              maxLength={4}
+            />
+          </div>
+        )}
         <div className={css.formRow}>
           <label className={css.formLabel}>Description</label>
           <input
@@ -297,20 +380,40 @@ function TypeForm({ draft, idError, isNew, onChange, onSave, onCancel }: TypeFor
           </div>
         </div>
         <div className={css.formRow}>
-          <label className={css.formLabel}>KidControl preset</label>
-          <select
-            style={{ ...inputStyle, width: 'auto' }}
-            value={draft.kidType}
-            onChange={(e) => onChange({ kidType: e.target.value as VehicleCategory['kidType'] })}
-          >
-            {KID_TYPE_OPTIONS.map((o) => (
-              <option key={o.id} value={o.id}>{o.label}</option>
-            ))}
-          </select>
+          <label className={css.formLabel}>Steering character</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 42 }}>Stable</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={draft.steeringCharacter}
+              onChange={(e) => onChange({ steeringCharacter: parseInt(e.target.value) })}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 42, textAlign: 'right' }}>Twitchy</span>
+            <span style={{ fontSize: 12, fontFamily: 'var(--mono)', minWidth: 28, textAlign: 'right' }}>{draft.steeringCharacter}</span>
+          </div>
+        </div>
+        <div className={css.formRow}>
+          <label className={css.formLabel}>Power delivery</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 42 }}>Smooth</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={draft.powerDelivery}
+              onChange={(e) => onChange({ powerDelivery: parseInt(e.target.value) })}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 42, textAlign: 'right' }}>Punchy</span>
+            <span style={{ fontSize: 12, fontFamily: 'var(--mono)', minWidth: 28, textAlign: 'right' }}>{draft.powerDelivery}</span>
+          </div>
         </div>
         <div className={css.formActions}>
           <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={onSave}>Save type</button>
+          <button className="btn btn-primary btn-sm" onClick={onSave}>Save</button>
         </div>
       </div>
     </div>

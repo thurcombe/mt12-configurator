@@ -4,8 +4,11 @@ import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { InputSourcePicker } from '../shared/InputSourcePicker.tsx';
 import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
-import { removeKidMode } from '../kidmode/kidGenerator.ts';
+import { applyKidMode, removeKidMode } from '../kidmode/kidGenerator.ts';
+import { calculateKidParams } from '../kidmode/kidCalculator.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
+import { BUILT_IN_CATEGORIES } from '../../data/vehicleTypes.ts';
+import type { KidModeParams } from '../kidmode/kidDefaults.ts';
 import {
   analyseBasicPatterns,
   analysisToWizardParams,
@@ -134,6 +137,7 @@ interface RecognisedViewProps {
 }
 
 function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRunKidControl, onRemoveKidControl }: RecognisedViewProps) {
+  const clearKidControlSnapshot = useEditorStore(s => s.clearKidControlSnapshot);
   const inputMap = useMemo(() => buildInputMap(model.expoData ?? []), [model.expoData]);
   const kidActive = !!model.flightModeData?.['1'];
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
@@ -193,7 +197,14 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
       <RadioLinkCard model={model} onChange={onChange} />
 
       {/* KidControl */}
-      <KidControlCard model={model} kidActive={kidActive} onRunKidControl={onRunKidControl} onRemoveKidControl={onRemoveKidControl} />
+      <KidControlCard
+        model={model}
+        modelKey={modelKey}
+        kidActive={kidActive}
+        onChange={onChange}
+        onRunKidControl={onRunKidControl}
+        onRemoveKidControl={() => { onRemoveKidControl(); clearKidControlSnapshot(modelKey); }}
+      />
 
       {/* Setup wizard card */}
       <section className={css.card}>
@@ -313,7 +324,7 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
-function KidControlCard({ model, kidActive, onRunKidControl, onRemoveKidControl }: { model: Model; kidActive: boolean; onRunKidControl: () => void; onRemoveKidControl: () => void }) {
+function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl, onRemoveKidControl }: { model: Model; modelKey: string; kidActive: boolean; onChange: (updater: (m: Model) => Model) => void; onRunKidControl: () => void; onRemoveKidControl: () => void }) {
   const fm1 = model.flightModeData?.['1'];
   const triggerSwitch = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
   const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
@@ -321,15 +332,99 @@ function KidControlCard({ model, kidActive, onRunKidControl, onRemoveKidControl 
   const stExpo = kidExpos.find(l => l.name === 'KID-ST');
   const spMix = (model.mixData ?? []).find(l => l.name === 'KID-SP');
 
+  const vehicleCategories      = useEditorStore(s => s.vehicleCategories);
+  const kidPresets             = useEditorStore(s => s.kidPresets);
+  const modelMeta              = useEditorStore(s => s.modelMeta[modelKey]);
+  const recordKidControlApplied = useEditorStore(s => s.recordKidControlApplied);
+
+  // Reconstruct applied params from model lines
+  const appliedParams: KidModeParams | null = (thExpo && stExpo && spMix) ? {
+    thrRate:   thExpo.weight,
+    thrExpo:   thExpo.curve?.value ?? 0,
+    speedUp:   spMix.speedUp,
+    speedDown: spMix.speedDown,
+    strRate:   stExpo.weight,
+    strExpo:   stExpo.curve?.value ?? 0,
+  } : null;
+
+  // Stale detection — same two-path logic as KidModeWizard
+  let stale = false;
+  if (kidActive && appliedParams && modelMeta?.vehicleType) {
+    const currentCat = vehicleCategories.find(c => c.id === modelMeta.vehicleType);
+    if (currentCat) {
+      const snap = modelMeta.kidSnapshot;
+      if (snap) {
+        // Precise: compare snapshot to current vehicle properties
+        const vehicleChanged =
+          currentCat.steeringCharacter !== snap.steeringCharacter ||
+          currentCat.powerDelivery     !== snap.powerDelivery;
+        if (vehicleChanged) {
+          const preset = kidPresets.find(p => p.id === snap.presetId);
+          if (preset) {
+            const expected = calculateKidParams(currentCat, preset);
+            stale = (
+              Math.abs(appliedParams.thrRate  - expected.thrRate)  > 2 ||
+              Math.abs(appliedParams.thrExpo  - expected.thrExpo)  > 2 ||
+              Math.abs(appliedParams.speedUp  - expected.speedUp)  > 2 ||
+              Math.abs(appliedParams.strRate  - expected.strRate)  > 2 ||
+              Math.abs(appliedParams.strExpo  - expected.strExpo)  > 2
+            );
+          }
+        }
+      } else {
+        // Fallback: check if the built-in vehicle type has been edited from its defaults
+        const defaultCat = BUILT_IN_CATEGORIES.find(c => c.id === modelMeta.vehicleType);
+        if (defaultCat) {
+          stale =
+            currentCat.steeringCharacter !== defaultCat.steeringCharacter ||
+            currentCat.powerDelivery     !== defaultCat.powerDelivery;
+        }
+      }
+    }
+  }
+
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
         <span className={css.cardIcon}>🔒</span>
         <span className={css.cardTitle}>KidControl</span>
         {kidActive && <span className={css.cardMetaGreen}>Active</span>}
+        {kidActive && modelMeta?.kidSnapshot && (() => {
+          const name = kidPresets.find(p => p.id === modelMeta.kidSnapshot!.presetId)?.name;
+          return name ? <span className={css.cardMetaMuted}>{name}</span> : null;
+        })()}
       </div>
       {kidActive ? (
         <>
+          {stale && (
+            <div className={css.staleWarning}>
+              <span className={css.staleIcon}>⚠</span>
+              <div className={css.staleText}>
+                <strong>Vehicle properties have changed</strong>
+                <span>The vehicle type's steering or power character has been updated since KidControl was set up. The current limits may no longer suit your vehicle.</span>
+              </div>
+              {(() => {
+                const snap = modelMeta?.kidSnapshot;
+                const currentCat = vehicleCategories.find(c => c.id === modelMeta?.vehicleType);
+                const preset = snap ? kidPresets.find(p => p.id === snap.presetId) : undefined;
+                if (currentCat && preset) {
+                  return (
+                    <button className="btn btn-warning btn-sm" onClick={() => {
+                      const newParams = calculateKidParams(currentCat, preset);
+                      const sw = (fm1?.swtch && fm1.swtch !== 'NONE') ? fm1.swtch : 'SA2';
+                      onChange(m => applyKidMode(m, newParams, sw));
+                      recordKidControlApplied(modelKey, preset.id, currentCat.steeringCharacter, currentCat.powerDelivery);
+                    }}>
+                      Recalculate
+                    </button>
+                  );
+                }
+                return (
+                  <button className="btn btn-warning btn-sm" onClick={onRunKidControl}>Review</button>
+                );
+              })()}
+            </div>
+          )}
           <p className={css.fieldHint}>Reduced throttle and steering limits apply when the trigger switch is engaged.</p>
           {triggerSwitch && (
             <div className={css.fieldRow}>

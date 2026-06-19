@@ -32,6 +32,10 @@ export interface SwitchConfig {
   name: string;
 }
 
+export interface SwitchFlex {
+  channel: string;
+}
+
 export interface Radio {
   manuallyEdited: number;
   timezoneMinutes: number;
@@ -103,6 +107,7 @@ export interface Radio {
   serialPort: Record<string, SerialPortConfig>;
   potsConfig: Record<string, PotConfig>;
   switchConfig: Record<string, SwitchConfig>;
+  switchesFlex?: Record<string, SwitchFlex>;
   backlightColor: number;
   bluetoothName: string;
   ownerRegistrationID: string;
