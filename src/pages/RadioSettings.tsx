@@ -8,7 +8,7 @@ import type { Tab } from '../components/layout/TabBar.tsx';
 import { TabBar } from '../components/layout/TabBar.tsx';
 import { BASE_SWITCHES, EXPANSION_MODULES, TRIMS } from '../hardware/mt12.ts';
 import type { ExpansionModuleType } from '../hardware/mt12.ts';
-import { getExpansionConflict, modelUsesFlexSwitches, getControlUsages } from '../components/models/expansionConflict.ts';
+import { getExpansionConflict, getControlUsages, switchPosLabel } from '../components/models/expansionConflict.ts';
 import css from './RadioSettings.module.css';
 
 interface Props {
@@ -16,9 +16,9 @@ interface Props {
 }
 
 const TABS: Tab[] = [
-  { id: 'audio', label: 'Audio' },
-  { id: 'display', label: 'Display' },
   { id: 'hardware', label: 'Input Hardware' },
+  { id: 'display', label: 'Display' },
+  { id: 'audio', label: 'Audio' },
 ];
 
 const BACKLIGHT_MODES = ['off', 'keys', 'sticks', 'both', 'on'];
@@ -382,30 +382,21 @@ function ExpansionTab({ onHover }: { onHover: (ctrl: string | null) => void }) {
 
   const currentModule = expansionModule();
 
-  const SWITCH_MODULE_TYPES = new Set<ExpansionModuleType>(['switch_dual3', 'switch_3and2', 'switch_dual2']);
-
   function applyModule(moduleType: ExpansionModuleType) {
-    // Warn if any loaded models reference controls the new module won't provide,
-    // or if switching between switch variants and models use FL1/FL2 (behaviour changes).
-    const changingBetweenSwitchVariants =
-      SWITCH_MODULE_TYPES.has(currentModule) &&
-      SWITCH_MODULE_TYPES.has(moduleType) &&
-      currentModule !== moduleType;
+    // Warn only when the new module cannot provide a position the model actually uses.
     const affected: string[] = [];
     for (const [key, model] of Object.entries(models)) {
       if (!model) continue;
       const conflict = getExpansionConflict(model, moduleType);
-      const variantWarning = changingBetweenSwitchVariants && modelUsesFlexSwitches(model);
-      if (conflict || variantWarning) {
+      if (conflict) {
         const modelName = model.header?.name || key;
         const usages = getControlUsages(model);
-        // Flatten usage descriptions for all affected controls
         const allUsages = Object.entries(usages)
-          .filter(([ctrl]) => conflict ? conflict.controls.includes(ctrl) : (ctrl === 'FL1' || ctrl === 'FL2'))
+          .filter(([ctrl]) => conflict.controls.includes(ctrl))
           .flatMap(([, descs]) => descs);
         const usageDetail = allUsages.length > 0
           ? allUsages.join(', ')
-          : conflict ? conflict.controls.join(', ') : 'FL1/FL2';
+          : conflict.controls.map(c => /^FL[12]\d$/.test(c) ? switchPosLabel(c) : c).join(', ');
         affected.push(`"${modelName}": ${usageDetail}`);
       }
     }
@@ -514,7 +505,7 @@ function ExpansionTab({ onHover }: { onHover: (ctrl: string | null) => void }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export function RadioSettings({ navigate }: Props) {
-  const [tab, setTab] = useState('audio');
+  const [tab, setTab] = useState('hardware');
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);

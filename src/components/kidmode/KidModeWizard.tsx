@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import { switchLabel } from '../../codec/switches.ts';
 import type { KidModeParams } from './kidDefaults.ts';
 import { calculateKidParams } from './kidCalculator.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
@@ -283,7 +284,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
           {trigSw && (
             <div className={css.activeRow}>
               <span className={css.activeLabel}>Trigger switch</span>
-              <span className={css.activeValue}>{trigSw}</span>
+              <span className={css.activeValue}>{switchLabel(trigSw)}</span>
             </div>
           )}
           {appliedParams && (

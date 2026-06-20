@@ -3,11 +3,15 @@ import type { Model, FlightModeData } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import { switchLabel } from '../../codec/switches.ts';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
+import { warnForRef } from '../models/expansionConflict.ts';
 import css from './FlightModeEditor.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  expansionConflict?: ExpansionConflict | null;
 }
 
 const TRIM_MODES = [
@@ -50,9 +54,10 @@ interface FmPanelProps {
   onRemove?: () => void;
   initialOpen?: boolean;
   inUse?: Record<string, string[]>;
+  expansionConflict?: ExpansionConflict | null;
 }
 
-function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse }: FmPanelProps) {
+function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse, expansionConflict }: FmPanelProps) {
   const [open, setOpen] = useState(initialOpen ?? idx === '0');
   const trimEntries = Object.entries(fm.trim ?? {});
   const gvarEntries = Object.entries(fm.gvars ?? {});
@@ -64,7 +69,7 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse }:
         <span className={css.panelTitle}>{fmLabel(idx, fm)}</span>
         {isDefault && <span className="badge" title="This flight mode is always active when no other is triggered">default</span>}
         {!isDefault && fm.swtch && fm.swtch !== 'NONE' && (
-          <span className="badge badge-accent" title="Switch that activates this flight mode">{fm.swtch}</span>
+          <span className="badge badge-accent" title="Switch that activates this flight mode">{switchLabel(fm.swtch)}</span>
         )}
         {(fm.fadeIn || fm.fadeOut) ? (
           <span className={css.fadeHint}>fade {fm.fadeIn * FADE_STEP}s / {fm.fadeOut * FADE_STEP}s</span>
@@ -86,7 +91,7 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse }:
             {!isDefault && (
               <>
                 <label className={css.label}>Switch <Tooltip text="The physical switch that activates this flight mode. When flipped, the radio instantly switches to these settings." /></label>
-                <SwitchPicker value={fm.swtch ?? 'NONE'} onChange={(v) => onChange({ ...fm, swtch: v })} inUse={inUse} />
+                <SwitchPicker value={fm.swtch ?? 'NONE'} onChange={(v) => onChange({ ...fm, swtch: v })} inUse={inUse} {...warnForRef(fm.swtch, expansionConflict ?? null)} />
               </>
             )}
 
@@ -194,7 +199,7 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse }:
   );
 }
 
-export function FlightModeEditor({ model, onChange }: Props) {
+export function FlightModeEditor({ model, onChange, expansionConflict }: Props) {
   const fms = model.flightModeData ?? {};
   const [newIdx, setNewIdx] = useState<string | null>(null);
   const entries = Object.entries(fms).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
@@ -247,6 +252,7 @@ export function FlightModeEditor({ model, onChange }: Props) {
           onRemove={idx !== '0' ? () => removeFm(idx) : undefined}
           initialOpen={idx === newIdx}
           inUse={inUse}
+          expansionConflict={expansionConflict}
         />
       ))}
       {canAdd && (

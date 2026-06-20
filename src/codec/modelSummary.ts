@@ -307,7 +307,7 @@ export function buildModelSummary(model: Model): ModelSummary {
   // Kid mode
   const fm1 = model.flightModeData?.['1'];
   const kidMode = fm1
-    ? { active: true, triggerSwitch: fm1.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : undefined }
+    ? { active: true, triggerSwitch: fm1.swtch && fm1.swtch !== 'NONE' ? switchLabel(fm1.swtch) : undefined }
     : { active: false };
 
   // Timers

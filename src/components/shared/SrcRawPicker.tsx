@@ -20,9 +20,11 @@ interface Props {
   onChange: (v: string) => void;
   id?: string;
   style?: React.CSSProperties;
+  warn?: boolean;
+  warnTitle?: string;
 }
 
-export function SrcRawPicker({ value, onChange, id, style }: Props) {
+export function SrcRawPicker({ value, onChange, id, style, warn, warnTitle }: Props) {
   const [open, setOpen] = useState(false);
   const [focusedIdx, setFocusedIdx] = useState(-1);
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
@@ -151,10 +153,11 @@ export function SrcRawPicker({ value, onChange, id, style }: Props) {
         onMouseLeave={() => { if (!open) setHighlight(null); }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        title={warn ? warnTitle : undefined}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           background: 'var(--bg)', color: 'var(--text)',
-          border: '1px solid var(--border)', borderRadius: 4,
+          border: warn ? '1px solid #f59e0b' : '1px solid var(--border)', borderRadius: 4,
           padding: '3px 6px', fontSize: 13, fontFamily: 'var(--font)', cursor: 'pointer',
         }}
       >

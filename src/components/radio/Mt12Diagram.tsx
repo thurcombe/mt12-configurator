@@ -9,6 +9,7 @@ import { readWebConfig, writeWebConfig } from '../../fs/webconfig.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { buildInputMap } from '../../codec/modelSummary.ts';
 import type { ExpansionModuleType } from '../../hardware/mt12.ts';
+import { EXPANSION_MODULES } from '../../hardware/mt12.ts';
 import css from './Mt12Diagram.module.css';
 
 // ── Function map ───────────────────────────────────────────────────────────────
@@ -331,9 +332,9 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
                   <span style={{
                     display:'inline-block', fontSize, fontWeight: isMapped ? 700 : 500,
                     fontFamily:'system-ui,sans-serif',
-                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (w ? '#f59e0b' : (isMapped ? '#dbeafe' : (showFunctions ? 'rgba(255,255,255,0.3)' : '#fff')))),
+                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (isMapped ? '#dbeafe' : (showFunctions ? 'rgba(255,255,255,0.3)' : '#fff'))),
                     background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : (w ? 'rgba(217,119,6,0.9)' : 'rgba(29,78,216,0.85)'))
-                                   : (isMapped ? 'rgba(0,0,0,0.65)' : (showFunctions ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)')),
+                                   : (w ? 'rgba(217,119,6,0.9)' : (isMapped ? 'rgba(0,0,0,0.65)' : (showFunctions ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)'))),
                     padding:'1px 5px', borderRadius:3,
                     whiteSpace:'nowrap',
                   }}>{labelText}</span>
@@ -561,6 +562,18 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
           functionMap={functionMap}
           showFunctions={showFunctions}
         />
+        {diagramLabel && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: 'rgba(0,0,0,0.72)', color: '#fff',
+            fontSize: 15, fontFamily: 'var(--font)', fontWeight: 700,
+            letterSpacing: '0.02em',
+            padding: '6px 10px', textAlign: 'center', pointerEvents: 'none',
+            borderRadius: '0 0 4px 4px', textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+          }}>
+            {diagramLabel}
+          </div>
+        )}
       </div>
 
       {/* Enlarged modal */}
@@ -714,7 +727,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, warningControls
             sdRoot={sdRoot}
             externalHighlight={externalHighlight}
             warningControls={warningControls}
-            diagramLabel="Expansion module"
+            diagramLabel={EXPANSION_MODULES[moduleType]?.label ?? 'Expansion module'}
           />
         </div>
       )}
