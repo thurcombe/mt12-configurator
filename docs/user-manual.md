@@ -628,30 +628,25 @@ Selecting a module automatically sets the appropriate EdgeTX input types in `rad
 
 #### Module change warnings
 
-The app tracks which module was installed when each model was last saved. Changing the module triggers warnings in two places.
+When you change the installed module, the app immediately checks every model against the new module and highlights anything that can no longer work correctly.
 
-**Inline warning (Transmitter Settings):** Appears immediately below the module selector when any models may be affected. The warning names each model and lists exactly where the controls are used — for example: *"Racer": mix "Cruise" source, drive mode "KidControl" condition*. This specificity matters: if cruise control is wired to FL2 and you swap modules, the warning makes clear that the cruise trigger could behave unexpectedly or stop working entirely when you connect the car.
+Two situations trigger a conflict:
+- **Missing control** — the installed module does not provide a control the model uses (e.g. switching from a switch module to a joystick removes FL1/FL2; switching to "None" removes all expansion controls). Those mixes and switch conditions become inactive.
+- **Position overflow** — the installed module provides the control but has fewer positions than the model uses (e.g. switching from dual 3-pos to dual 2-pos means a condition set to *FL1 ↓* — the third position — can never trigger).
 
-Two situations trigger the warning:
-- **Module type changes** (e.g. switch → joystick, or any module → none): FL1/FL2 or P3/P4 controls referenced in the model no longer exist.
-- **Switch variant changes** (e.g. dual 3-pos → dual 2-pos): FL1/FL2 still exist but the number of positions changes, so any mix source, switch condition, or drive mode trigger wired to those controls may behave differently.
+**Inline warning (Transmitter Settings):** Appears immediately below the module selector when any models are affected. The warning names each model and the specific usages — for example: *"Racer": mix "Cruise" source, drive mode "KidControl" condition*. Switch positions are shown in human-readable form (↑ / — / ↓) rather than raw codes.
 
 The models themselves are not modified — existing YAML is preserved and will work correctly again if the original module is reinstalled.
 
-**Model List badges:** After changing the module, any model whose saved module snapshot differs from the installed module shows a yellow **⚠** badge on its image and a **⚠ Module changed** detail badge. Hovering shows which module it was configured with. This is persistent — the badge stays until you re-save the model under the new module, clearing the snapshot. This mirrors the KidControl stale detection pattern: the flag is always visible so you know which models need review before driving.
-
-**In-editor highlighting:** When you open an affected model, the conflict is pinpointed in amber (the same colour used throughout for "needs attention"):
-- On the **MT12 Controls diagram**, the missing control's connector line *and* its label turn amber.
-- The **input field** that references the missing control is outlined in amber with a **⚠** marker and a tooltip explaining why (for example, the cruise-control switch picker or the speed-limiter section).
-- When the affected control sits inside a composite widget rather than a standalone field — most notably the **KidControl** panel, whose trigger switch is shown as read-only info — the whole panel is outlined in amber and an inline warning explains that the trigger switch is unavailable.
-
-This appears for hard conflicts: a referenced control the installed module does not provide, or a switch position (e.g. the third position of a 3-position switch) that the installed switch variant cannot reach.
+**In-editor highlighting:** When you open an affected model, every input picker that references a conflicted control is outlined in amber with a tooltip explaining the specific issue. This covers all editors: Basic view, Drive Modes, Mixes, Expos, Logical Switches, and Special Functions.
+- On the **MT12 Controls diagram**, the conflicted control's connector and label turn amber.
+- The **KidControl** panel is outlined in amber if its trigger switch is affected, with an inline explanation.
 
 ### MT12 Controls diagram
 
 The diagram panel on the right shows the transmitter layout with your configured labels. Use **⚙ Place control labels** to drag labels to their physical positions, and **Reset** to restore defaults.
 
-When an expansion module is configured, a second annotated diagram for that module appears below the transmitter diagram. It works identically — zoom, drag-to-place, and **Reset**. Label positions for each module type are saved independently, so switching modules and back restores the previous placement.
+When an expansion module is configured, a second annotated diagram for that module appears below the transmitter diagram. The module type name (e.g. *Dual 2-pos switch module*) is overlaid directly on the module image so you can identify it at a glance. The diagram works identically to the main one — zoom, drag-to-place, and **Reset**. Label positions for each module type are saved independently, so switching modules and back restores the previous placement.
 
 ---
 
