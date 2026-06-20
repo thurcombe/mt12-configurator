@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Model } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import type { KidModeParams } from './kidDefaults.ts';
 import { calculateKidParams } from './kidCalculator.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
@@ -130,6 +131,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
   const [editingActive, setEditingActive] = useState(false);
 
   const active = isKidModeActive(model);
+  const inUse = useMemo(() => buildSwitchUsageMap(model), [model]);
 
   function param<K extends keyof KidModeParams>(key: K, value: KidModeParams[K]) {
     setParams((p) => ({ ...p, [key]: value }));
@@ -198,7 +200,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
           <p className={css.switchHint}>KidControl activates when this switch is in the selected position (FM1).</p>
           <div className={css.sliderRow}>
             <span className={css.sliderLabel}>Switch</span>
-            <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} />
+            <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} inUse={inUse} />
           </div>
         </div>
         <div className={css.previewBox}>
@@ -402,7 +404,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
             <p className={css.switchHint}>KidControl activates when this switch is in the selected position (FM1).</p>
             <div className={css.sliderRow}>
               <span className={css.sliderLabel}>Switch</span>
-              <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} />
+              <SwitchPicker value={triggerSwitch} onChange={setTriggerSwitch} style={{ gridColumn: '2 / -1' }} inUse={inUse} />
             </div>
           </div>
 

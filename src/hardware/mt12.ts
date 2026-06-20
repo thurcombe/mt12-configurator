@@ -24,12 +24,15 @@ export const TRIMS = ['T1', 'T2', 'T3', 'T4', 'T5'] as const;
 export type ExpansionModuleType =
   'none' | 'switch_dual3' | 'switch_3and2' | 'switch_dual2' | 'joystick';
 
-export const EXPANSION_MODULES: Record<ExpansionModuleType, { label: string }> = {
-  none:         { label: 'None' },
-  switch_dual3: { label: 'Dual 3-pos switch module' },
-  switch_3and2: { label: '3+2-pos switch module' },
-  switch_dual2: { label: 'Dual 2-pos switch module' },
-  joystick:     { label: 'Joystick module' },
+// flMaxPositions: max valid switch position index (0-based) for FL1/FL2.
+// 3-pos switch → positions 0/1/2 (max 2); 2-pos switch → positions 0/1 (max 1).
+// null means the module provides no flex switches.
+export const EXPANSION_MODULES: Record<ExpansionModuleType, { label: string; flMaxPositions: { FL1: number; FL2: number } | null }> = {
+  none:         { label: 'None',                    flMaxPositions: null },
+  switch_dual3: { label: 'Dual 3-pos switch module', flMaxPositions: { FL1: 2, FL2: 2 } },
+  switch_3and2: { label: '3+2-pos switch module',    flMaxPositions: { FL1: 2, FL2: 1 } },
+  switch_dual2: { label: 'Dual 2-pos switch module', flMaxPositions: { FL1: 1, FL2: 1 } },
+  joystick:     { label: 'Joystick module',          flMaxPositions: null },
 };
 
 export type BaseSwitchKey = typeof BASE_SWITCHES[number]['key'];

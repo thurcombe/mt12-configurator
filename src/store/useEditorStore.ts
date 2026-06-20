@@ -85,6 +85,7 @@ interface EditorState {
     vehicleType?: string;
     power?: 'battery' | 'fuel';
     kidSnapshot?: { presetId: string; steeringCharacter: number; powerDelivery: number };
+    moduleSnapshot?: import('../hardware/mt12.ts').ExpansionModuleType;
   }>;
   setModelScale: (key: ModelKey, scale: string) => void;
   setModelVehicleType: (key: ModelKey, vehicleType: string) => void;
@@ -584,8 +585,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         await writeBackup(sdRoot, modelNameFromModel(model), currentYaml, settings.backupCount, image);
       }
       await writeTextFile(sdRoot, `MODELS/${key}.yml`, yaml);
-      const { modelMeta, pendingModelImageFiles } = get();
-      await writeWebConfig(sdRoot, 'model-meta.json', modelMeta).catch(() => {});
+      const { pendingModelImageFiles, expansionModule } = get();
+      // Stamp moduleSnapshot so ModelList can detect if the module changes after this save.
+      const currentModule = expansionModule();
+      set((s) => ({
+        modelMeta: {
+          ...s.modelMeta,
+          [key]: { ...(s.modelMeta[key] ?? {}), moduleSnapshot: currentModule },
+        },
+      }));
+      await writeWebConfig(sdRoot, 'model-meta.json', get().modelMeta).catch(() => {});
       const pendingImageFile = pendingModelImageFiles[key];
       if (pendingImageFile) {
         const ext = safeImageExt(pendingImageFile.name);

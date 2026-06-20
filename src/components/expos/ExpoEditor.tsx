@@ -7,6 +7,7 @@ import { FlightModeCheckboxes } from '../shared/FlightModeCheckboxes.tsx';
 import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { switchLabel } from '../../codec/switches.ts';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './ExpoEditor.module.css';
 
 interface Props {
@@ -51,9 +52,10 @@ interface RowProps {
   onToggle: () => void;
   onChange: (l: ExpoLine) => void;
   onDelete: () => void;
+  inUse?: Record<string, string[]>;
 }
 
-function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete }: RowProps) {
+function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse }: RowProps) {
   const sw = line.swtch && line.swtch !== 'NONE' ? switchLabel(line.swtch) : null;
   const modeLabel = MODE_OPTIONS.find((m) => m.value === line.mode)?.label ?? String(line.mode);
 
@@ -127,7 +129,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete }: RowProps
             )}
 
             <label className={css.label}>Switch <Tooltip text="Only use these rates when this switch is active — good for a 'race mode' vs 'normal mode'." /></label>
-            <SwitchPicker value={line.swtch ?? 'NONE'} onChange={(v) => onChange({ ...line, swtch: v })} />
+            <SwitchPicker value={line.swtch ?? 'NONE'} onChange={(v) => onChange({ ...line, swtch: v })} inUse={inUse} />
 
             <label className={css.label}>Flight modes <Tooltip text="Which flight modes this rate line is active in." /></label>
             <FlightModeCheckboxes value={line.flightModes} onChange={(v) => onChange({ ...line, flightModes: v })} />
@@ -145,6 +147,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete }: RowProps
 export function ExpoEditor({ model, onChange }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const expoData = model.expoData ?? [];
+  const inUse = buildSwitchUsageMap(model);
 
   function toggle(i: number) {
     setExpanded((s) => {
@@ -196,6 +199,7 @@ export function ExpoEditor({ model, onChange }: Props) {
             onToggle={() => toggle(i)}
             onChange={(l) => updateLine(i, l)}
             onDelete={() => deleteLine(i)}
+            inUse={inUse}
           />
         ))}
       </div>

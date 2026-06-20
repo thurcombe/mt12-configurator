@@ -1,6 +1,71 @@
 // Plain-English analysis of a model's configuration.
 
 import type { Model, MixLine, ExpoLine } from '../types/model.ts';
+
+// Returns a map of physical switch base key → human-readable usage descriptions.
+// e.g. { SC: ['Cruise control'], SA: ['KidControl'] }
+// Used by SwitchPicker to show which switches are already assigned in the model.
+export function buildSwitchUsageMap(model: Model): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+
+  // Key is the full switch value WITH position digit (e.g. "FL20", "SC2") so callers
+  // can show "in use" only on the specific position that's actually assigned.
+  // Strip only the leading ! for negated switches.
+  function add(sw: string | undefined | null, usage: string) {
+    if (!sw || sw === 'NONE' || sw === 'ON') return;
+    const key = sw.replace(/^!/, '');
+    if (!key) return;
+    // Skip numeric tokens — FUNC_EDGE defs include delay values like "200" that
+    // are not switch references and must not appear as usage-map keys.
+    if (/^-?\d+$/.test(key)) return;
+    if (!map[key]) map[key] = [];
+    if (!map[key].includes(usage)) map[key].push(usage);
+  }
+
+  for (const [idx, fm] of Object.entries(model.flightModeData ?? {})) {
+    if (idx === '0') continue;
+    add(fm.swtch, fm.name?.trim() || `Drive mode ${idx}`);
+  }
+
+  for (const line of model.mixData ?? []) {
+    add(line.swtch, line.name?.trim() || 'Mix');
+  }
+
+  for (const line of model.expoData ?? []) {
+    add(line.swtch, line.name?.trim() || 'Expo');
+  }
+
+  const switchFuncs = new Set(['FUNC_AND', 'FUNC_OR', 'FUNC_XOR', 'FUNC_STICKY', 'FUNC_LATCH', 'FUNC_EDGE']);
+  for (const [idx, ls] of Object.entries(model.logicalSw ?? {})) {
+    const lsIndex1 = parseInt(idx) + 1;
+    let label: string;
+    if (ls.func === 'FUNC_STICKY') {
+      // Cruise control — find the mix that sources from this LS for a readable label
+      const lsSrc = `ls(${lsIndex1})`;
+      const usingMix = (model.mixData ?? []).find(m => m.srcRaw === lsSrc);
+      const mixName = usingMix?.name?.trim();
+      label = mixName === 'CRUISE' ? 'Cruise control' : (mixName || 'Cruise control');
+    } else {
+      label = `L${lsIndex1}`;
+    }
+    if (switchFuncs.has(ls.func) && ls.def) {
+      for (const arg of ls.def.split(',')) add(arg, label);
+    }
+    add(ls.andsw, `${label} AND`);
+  }
+
+  for (const [idx, fn] of Object.entries(model.customFn ?? {})) {
+    const f = fn as { swtch?: string; func?: string };
+    const label = f.func ? `${f.func} (SF${parseInt(idx) + 1})` : `SF${parseInt(idx) + 1}`;
+    add(f.swtch, label);
+  }
+
+  for (const [idx, timer] of Object.entries(model.timers ?? {})) {
+    add(timer.swtch, timer.name?.trim() || `Timer ${parseInt(idx) + 1}`);
+  }
+
+  return map;
+}
 import { srcRawLabel } from './srcRaw.ts';
 import { parseSubType, protocolName } from './protocols.ts';
 import { switchLabel } from './switches.ts';

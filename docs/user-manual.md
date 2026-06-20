@@ -2,6 +2,8 @@
 
 A browser-based editor for creating and managing EdgeTX model configuration files on the Radiomaster MT12 surface transmitter.
 
+> **Warning — manual YAML edits:** This app manages specific fields within EdgeTX model YAML files. If you edit a model's `.yml` file directly (in a text editor, OpenTX Companion, or another tool) while it is also open or cached in this app, the results may be unpredictable: your manual changes could be silently overwritten on the next save, or the app may fail to parse the file and skip the model entirely on reload. Always make changes in one place at a time. If you need to make manual edits, do so with the model closed in this app, then use **Refresh from card** to reload before editing further.
+
 ---
 
 ## Table of Contents
@@ -181,6 +183,17 @@ If the app cannot map a model's mix structure to the expected basic patterns (th
 The right panel shows a photo of the MT12 with your controls labelled. Toggle **Labels / Functions** at the bottom to switch between showing the assigned names and the EdgeTX function names (SA, SB, P1, etc.). Click **⚙ Reposition labels** to adjust label placement.
 
 > **Note:** Label repositioning requires an SD card (or demo) to be connected. The button is disabled when no card is connected.
+
+### Diagram hover highlighting
+
+Throughout the editor, **any physical-input selector highlights the corresponding control on the MT12 diagram** as you interact with it. This works at two levels:
+
+- **Hovering the closed picker button** — the control currently assigned to that field lights up on the diagram.
+- **Hovering or navigating an open dropdown** — the control for the focused option lights up as you move through the list, so you can visually confirm which control you are about to select. Keyboard navigation (↑ / ↓ arrow keys to move, Enter to select, Escape to close) triggers the same highlighting as mouse hover.
+
+Where a switch or pot is **already assigned elsewhere** in the model (a drive mode, mix, expo, logical switch, special function, or timer), the dropdown option shows a small **"In use: …"** note listing those usages. This helps avoid assigning the same physical control to conflicting functions.
+
+Highlighting is available across every input selector in the app: Basic view cruise control switch, drive modes, mixes, expos, logical switches, special functions, timers, the KidControl wizard trigger switch, and the Transmitter Settings expansion-module rows (P3, P4, FL1, FL2).
 
 ---
 
@@ -615,9 +628,24 @@ Selecting a module automatically sets the appropriate EdgeTX input types in `rad
 
 #### Module change warnings
 
-If you change the installed module and any existing models reference controls that the new module does not provide, a **⚠ Model conflict** warning appears immediately below the module selector. It lists the affected models and which controls they depend on. The models are not modified — mixes and switch conditions that reference the missing controls remain in the YAML and will be inactive until either the original module is reinstalled or the models are updated.
+The app tracks which module was installed when each model was last saved. Changing the module triggers warnings in two places.
 
-The same warning is surfaced on the Model List page: affected model cards show a yellow **⚠** badge on their image and a detail badge such as **⚠ FL1, FL2**. Hover the badge to see the full conflict description. This mirrors the KidControl stale detection pattern — the flag is always visible so you know which models need attention before driving.
+**Inline warning (Transmitter Settings):** Appears immediately below the module selector when any models may be affected. The warning names each model and lists exactly where the controls are used — for example: *"Racer": mix "Cruise" source, drive mode "KidControl" condition*. This specificity matters: if cruise control is wired to FL2 and you swap modules, the warning makes clear that the cruise trigger could behave unexpectedly or stop working entirely when you connect the car.
+
+Two situations trigger the warning:
+- **Module type changes** (e.g. switch → joystick, or any module → none): FL1/FL2 or P3/P4 controls referenced in the model no longer exist.
+- **Switch variant changes** (e.g. dual 3-pos → dual 2-pos): FL1/FL2 still exist but the number of positions changes, so any mix source, switch condition, or drive mode trigger wired to those controls may behave differently.
+
+The models themselves are not modified — existing YAML is preserved and will work correctly again if the original module is reinstalled.
+
+**Model List badges:** After changing the module, any model whose saved module snapshot differs from the installed module shows a yellow **⚠** badge on its image and a **⚠ Module changed** detail badge. Hovering shows which module it was configured with. This is persistent — the badge stays until you re-save the model under the new module, clearing the snapshot. This mirrors the KidControl stale detection pattern: the flag is always visible so you know which models need review before driving.
+
+**In-editor highlighting:** When you open an affected model, the conflict is pinpointed in amber (the same colour used throughout for "needs attention"):
+- On the **MT12 Controls diagram**, the missing control's connector line *and* its label turn amber.
+- The **input field** that references the missing control is outlined in amber with a **⚠** marker and a tooltip explaining why (for example, the cruise-control switch picker or the speed-limiter section).
+- When the affected control sits inside a composite widget rather than a standalone field — most notably the **KidControl** panel, whose trigger switch is shown as read-only info — the whole panel is outlined in amber and an inline warning explains that the trigger switch is unavailable.
+
+This appears for hard conflicts: a referenced control the installed module does not provide, or a switch position (e.g. the third position of a 3-position switch) that the installed switch variant cannot reach.
 
 ### MT12 Controls diagram
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Model, FlightModeData } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './FlightModeEditor.module.css';
 
 interface Props {
@@ -48,9 +49,10 @@ interface FmPanelProps {
   onChange: (fm: FlightModeData) => void;
   onRemove?: () => void;
   initialOpen?: boolean;
+  inUse?: Record<string, string[]>;
 }
 
-function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen }: FmPanelProps) {
+function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse }: FmPanelProps) {
   const [open, setOpen] = useState(initialOpen ?? idx === '0');
   const trimEntries = Object.entries(fm.trim ?? {});
   const gvarEntries = Object.entries(fm.gvars ?? {});
@@ -84,7 +86,7 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen }: FmPane
             {!isDefault && (
               <>
                 <label className={css.label}>Switch <Tooltip text="The physical switch that activates this flight mode. When flipped, the radio instantly switches to these settings." /></label>
-                <SwitchPicker value={fm.swtch ?? 'NONE'} onChange={(v) => onChange({ ...fm, swtch: v })} />
+                <SwitchPicker value={fm.swtch ?? 'NONE'} onChange={(v) => onChange({ ...fm, swtch: v })} inUse={inUse} />
               </>
             )}
 
@@ -197,6 +199,7 @@ export function FlightModeEditor({ model, onChange }: Props) {
   const [newIdx, setNewIdx] = useState<string | null>(null);
   const entries = Object.entries(fms).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
   const canAdd = entries.length < MAX_FM;
+  const inUse = buildSwitchUsageMap(model);
 
   function updateFm(idx: string, fm: FlightModeData) {
     onChange((m) => ({
@@ -243,6 +246,7 @@ export function FlightModeEditor({ model, onChange }: Props) {
           onChange={(f) => updateFm(idx, f)}
           onRemove={idx !== '0' ? () => removeFm(idx) : undefined}
           initialOpen={idx === newIdx}
+          inUse={inUse}
         />
       ))}
       {canAdd && (

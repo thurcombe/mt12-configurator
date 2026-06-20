@@ -14,6 +14,7 @@ import { SpecialFnEditor } from '../components/specialfn/SpecialFnEditor.tsx';
 import { KidModeWizard } from '../components/kidmode/KidModeWizard.tsx';
 import { BasicMixView } from '../components/mixes/BasicMixView.tsx';
 import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
+import { getExpansionConflict } from '../components/models/expansionConflict.ts';
 import { YamlViewer } from '../components/yaml/YamlViewer.tsx';
 import css from './ModelEditor.module.css';
 
@@ -76,6 +77,12 @@ export function ModelEditor({ modelKey, navigate }: Props) {
   const updateModel = useEditorStore((s) => s.updateModel);
   const saveModel = useEditorStore((s) => s.saveModel);
   const sdRoot = useEditorStore((s) => s.sdRoot);
+  const expansionModule = useEditorStore((s) => s.expansionModule);
+  const expansionConflict = model ? getExpansionConflict(model, expansionModule()) : null;
+  // Normalise position refs (e.g. FL12 → FL1) to diagram control keys
+  const diagramWarnings = expansionConflict
+    ? [...new Set(expansionConflict.controls.map(c => c.match(/^(FL[12])\d$/) ? c.slice(0, 3) : c))]
+    : undefined;
 
   if (!model) {
     return (
@@ -134,7 +141,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           </div>
           <div className={`${css.diagramPanel} card-panel`}>
             <div className={css.diagramTitle}>MT12 controls</div>
-            <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} />
+            <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} warningControls={diagramWarnings} />
             {diagramSelected && (
               <p className={css.diagramHint}>
                 <strong>{diagramSelected}</strong> — physical location on transmitter
@@ -196,7 +203,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
         <div className={css.diagramPanel}>
           <div className={css.diagramTitle}>MT12 controls</div>
-          <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} />
+          <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} warningControls={diagramWarnings} />
           {diagramSelected && (
             <p className={css.diagramHint}>
               <strong>{diagramSelected}</strong> — physical location on transmitter

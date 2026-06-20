@@ -2,6 +2,8 @@ import type { Model } from '../../types/model.ts';
 import { parseSubType, protocolName } from '../../codec/protocols.ts';
 import type { ExpansionConflict } from './expansionConflict.ts';
 import { expansionConflictLabel } from './expansionConflict.ts';
+import type { ExpansionModuleType } from '../../hardware/mt12.ts';
+import { EXPANSION_MODULES } from '../../hardware/mt12.ts';
 import css from './ModelCard.module.css';
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
   kidPresetName?: string;
   kidStale?: boolean;
   expansionConflict?: ExpansionConflict | null;
+  moduleStale?: boolean;
+  moduleSnapshot?: ExpansionModuleType;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -35,15 +39,20 @@ function protocolBadge(model: Model): string {
   return mod.type.replace('TYPE_', '');
 }
 
-export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, kidPresetName, kidStale, expansionConflict, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
+export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTypeName, vehicleTypeImageUrl, power, kidPresetName, kidStale, expansionConflict, moduleStale, moduleSnapshot, onEdit, onDuplicate, onDelete, onBackup, onHistory, onChangeImage }: Props) {
   const name = model.header?.name;
   const displayImageUrl = imageUrl ?? vehicleTypeImageUrl;
   const isRealPhoto = !!imageUrl;
   const isPlaceholder = !displayImageUrl;
   const kidActive = !!model.flightModeData?.['1'];
+  const anyStale = kidStale || expansionConflict || moduleStale;
+
+  const moduleStaleTitle = moduleStale && moduleSnapshot
+    ? `This model was last saved with a ${EXPANSION_MODULES[moduleSnapshot].label}. The installed module has since changed — verify that FL1/FL2 mixes and switch conditions still behave as expected.`
+    : undefined;
 
   return (
-    <div className={`${css.card} ${isDirty ? css.dirty : ''} ${kidStale || expansionConflict ? css.stale : ''}`}>
+    <div className={`${css.card} ${isDirty ? css.dirty : ''} ${anyStale ? css.stale : ''}`}>
       <div
         className={`${css.imageWrap} ${!isRealPhoto ? css.imageWrapDefault : ''}`}
         onClick={onEdit}
@@ -56,8 +65,12 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
           alt={name || modelKey}
           className={`${css.image} ${!isRealPhoto ? css.imageContain : ''} ${isPlaceholder ? css.imageDefault : ''}`}
         />
-        {(kidStale || expansionConflict) && (
-          <div className={css.staleIndicator} title={expansionConflict ? expansionConflictLabel(expansionConflict) : 'KidControl settings need review'}>⚠</div>
+        {anyStale && (
+          <div className={css.staleIndicator} title={
+            expansionConflict ? expansionConflictLabel(expansionConflict)
+            : moduleStale ? moduleStaleTitle
+            : 'KidControl settings need review'
+          }>⚠</div>
         )}
         {onChangeImage && (
           <button
@@ -96,7 +109,12 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
         )}
         {expansionConflict && (
           <span className="badge badge-warning" title={expansionConflictLabel(expansionConflict)}>
-            ⚠ {expansionConflict.controls.join(', ')}
+            ⚠ {[...new Set(expansionConflict.controls.map(c => c.match(/^(FL[12])\d$/) ? c.slice(0, 3) : c))].join(', ')}
+          </span>
+        )}
+        {moduleStale && moduleSnapshot && (
+          <span className="badge badge-warning" title={moduleStaleTitle}>
+            ⚠ module changed
           </span>
         )}
         {isDirty && <span className="badge badge-warning" title="This model has unsaved changes">unsaved</span>}

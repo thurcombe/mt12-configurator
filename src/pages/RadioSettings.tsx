@@ -8,7 +8,7 @@ import type { Tab } from '../components/layout/TabBar.tsx';
 import { TabBar } from '../components/layout/TabBar.tsx';
 import { BASE_SWITCHES, EXPANSION_MODULES, TRIMS } from '../hardware/mt12.ts';
 import type { ExpansionModuleType } from '../hardware/mt12.ts';
-import { getExpansionConflict } from '../components/models/expansionConflict.ts';
+import { getExpansionConflict, modelUsesFlexSwitches, getControlUsages } from '../components/models/expansionConflict.ts';
 import css from './RadioSettings.module.css';
 
 interface Props {
@@ -364,14 +364,14 @@ const MODULE_POT_CONFIG: Record<ExpansionModuleType, { P3: string; P4: string }>
 };
 
 const MODULE_FL_CONFIG: Record<ExpansionModuleType, { FL1: string; FL2: string }> = {
-  none:         { FL1: 'none', FL2: 'none' },
-  joystick:     { FL1: 'none', FL2: 'none' },
-  switch_dual3: { FL1: '3pos', FL2: '3pos' },
-  switch_3and2: { FL1: '3pos', FL2: '2pos' },
-  switch_dual2: { FL1: '2pos', FL2: '2pos' },
+  none:         { FL1: 'NONE', FL2: 'NONE' },
+  joystick:     { FL1: 'NONE', FL2: 'NONE' },
+  switch_dual3: { FL1: '3POS', FL2: '3POS' },
+  switch_3and2: { FL1: '3POS', FL2: '2POS' },
+  switch_dual2: { FL1: '2POS', FL2: '2POS' },
 };
 
-function ExpansionTab() {
+function ExpansionTab({ onHover }: { onHover: (ctrl: string | null) => void }) {
   const radio = useEditorStore((s) => s.radio);
   const updateRadio = useEditorStore((s) => s.updateRadio);
   const expansionModule = useEditorStore((s) => s.expansionModule);
@@ -382,20 +382,36 @@ function ExpansionTab() {
 
   const currentModule = expansionModule();
 
+  const SWITCH_MODULE_TYPES = new Set<ExpansionModuleType>(['switch_dual3', 'switch_3and2', 'switch_dual2']);
+
   function applyModule(moduleType: ExpansionModuleType) {
-    // Warn if any loaded models reference controls the new module won't provide
+    // Warn if any loaded models reference controls the new module won't provide,
+    // or if switching between switch variants and models use FL1/FL2 (behaviour changes).
+    const changingBetweenSwitchVariants =
+      SWITCH_MODULE_TYPES.has(currentModule) &&
+      SWITCH_MODULE_TYPES.has(moduleType) &&
+      currentModule !== moduleType;
     const affected: string[] = [];
     for (const [key, model] of Object.entries(models)) {
       if (!model) continue;
       const conflict = getExpansionConflict(model, moduleType);
-      if (conflict) {
-        const name = model.header?.name || key;
-        affected.push(`${name} (uses ${conflict.controls.join(', ')})`);
+      const variantWarning = changingBetweenSwitchVariants && modelUsesFlexSwitches(model);
+      if (conflict || variantWarning) {
+        const modelName = model.header?.name || key;
+        const usages = getControlUsages(model);
+        // Flatten usage descriptions for all affected controls
+        const allUsages = Object.entries(usages)
+          .filter(([ctrl]) => conflict ? conflict.controls.includes(ctrl) : (ctrl === 'FL1' || ctrl === 'FL2'))
+          .flatMap(([, descs]) => descs);
+        const usageDetail = allUsages.length > 0
+          ? allUsages.join(', ')
+          : conflict ? conflict.controls.join(', ') : 'FL1/FL2';
+        affected.push(`"${modelName}": ${usageDetail}`);
       }
     }
     setModuleChangeWarning(
       affected.length > 0
-        ? `${affected.length} model${affected.length > 1 ? 's use' : ' uses'} controls that won't be available with this module: ${affected.join('; ')}`
+        ? `${affected.length} model${affected.length > 1 ? 's use' : ' uses'} expansion controls that may behave differently with ${EXPANSION_MODULES[moduleType].label}: ${affected.join('; ')}`
         : null
     );
     const potCfg = MODULE_POT_CONFIG[moduleType];
@@ -452,13 +468,13 @@ function ExpansionTab() {
             <tbody>
               {currentModule === 'joystick' && (
                 <>
-                  <tr className={css.tableRow}>
+                  <tr className={css.tableRow} onMouseEnter={() => onHover('P3')} onMouseLeave={() => onHover(null)}>
                     <td className={css.swLabel}>P3</td>
                     <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p3Cfg?.type ?? '—'}</span></td>
                     <td><input type="text" className={css.nameInput} value={p3Cfg?.name ?? ''} maxLength={10} placeholder="—"
                       onChange={(e) => updateRadio((r) => ({ ...r, potsConfig: { ...r.potsConfig, P3: { ...(r.potsConfig?.['P3'] ?? { type: 'none', inv: 0 }), name: e.target.value } } }))} /></td>
                   </tr>
-                  <tr className={css.tableRow}>
+                  <tr className={css.tableRow} onMouseEnter={() => onHover('P4')} onMouseLeave={() => onHover(null)}>
                     <td className={css.swLabel}>P4</td>
                     <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p4Cfg?.type ?? '—'}</span></td>
                     <td><input type="text" className={css.nameInput} value={p4Cfg?.name ?? ''} maxLength={10} placeholder="—"
@@ -468,13 +484,13 @@ function ExpansionTab() {
               )}
               {(currentModule === 'switch_dual3' || currentModule === 'switch_3and2' || currentModule === 'switch_dual2') && (
                 <>
-                  <tr className={css.tableRow}>
+                  <tr className={css.tableRow} onMouseEnter={() => onHover('FL1')} onMouseLeave={() => onHover(null)}>
                     <td className={css.swLabel}>FL1</td>
                     <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{fl1Cfg?.type ?? '—'}</span></td>
                     <td><input type="text" className={css.nameInput} value={fl1Cfg?.name ?? ''} maxLength={10} placeholder="—"
                       onChange={(e) => updateRadio((r) => ({ ...r, switchConfig: { ...r.switchConfig, FL1: { ...(r.switchConfig?.['FL1'] ?? { type: '2pos' }), name: e.target.value } } }))} /></td>
                   </tr>
-                  <tr className={css.tableRow}>
+                  <tr className={css.tableRow} onMouseEnter={() => onHover('FL2')} onMouseLeave={() => onHover(null)}>
                     <td className={css.swLabel}>FL2</td>
                     <td><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{fl2Cfg?.type ?? '—'}</span></td>
                     <td><input type="text" className={css.nameInput} value={fl2Cfg?.name ?? ''} maxLength={10} placeholder="—"
@@ -511,6 +527,7 @@ export function RadioSettings({ navigate }: Props) {
   const isDirty = useEditorStore((s) => s.isDirty('radio'));
   const saveRadio = useEditorStore((s) => s.saveRadio);
   const backupRadio = useEditorStore((s) => s.backupRadio);
+  const setDiagramHighlight = useEditorStore((s) => s.setDiagramHighlight);
 
   useEffect(() => {
     if (sdRoot && !radio) loadRadio();
@@ -537,8 +554,8 @@ export function RadioSettings({ navigate }: Props) {
   }
 
   function handleHover(control: string | null) {
-    if (control) setDiagramSelected(control);
-    else setDiagramSelected(undefined);
+    setDiagramSelected(control ?? undefined);
+    setDiagramHighlight(control);
   }
 
   return (
@@ -592,7 +609,7 @@ export function RadioSettings({ navigate }: Props) {
                   <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
                   <TrimsSection onHover={handleHover} />
                   <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
-                  <ExpansionTab />
+                  <ExpansionTab onHover={handleHover} />
                 </>
               )}
             </div>

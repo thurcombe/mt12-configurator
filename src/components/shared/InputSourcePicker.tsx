@@ -16,9 +16,11 @@ interface Props {
   options: InputSourceOption[];
   placeholder?: string;
   onChange: (v: string) => void;
+  warn?: boolean;          // amber-highlight the control (e.g. references a missing expansion input)
+  warnTitle?: string;      // tooltip explaining the warning
 }
 
-export function InputSourcePicker({ value, options, placeholder = '— select —', onChange }: Props) {
+export function InputSourcePicker({ value, options, placeholder = '— select —', onChange, warn, warnTitle }: Props) {
   const [open, setOpen] = useState(false);
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
   const ref = useRef<HTMLDivElement>(null);
@@ -50,14 +52,15 @@ export function InputSourcePicker({ value, options, placeholder = '— select �
         onClick={() => setOpen(v => !v)}
         onMouseEnter={() => { if (value) setHighlight(value); }}
         onMouseLeave={() => { if (!open) setHighlight(null); }}
+        title={warn ? warnTitle : undefined}
         style={{
           width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
           background:'var(--bg)', color: selected ? 'var(--text)' : 'var(--text-muted)',
-          border:'1px solid var(--border)', borderRadius:4,
+          border: warn ? '1px solid #f59e0b' : '1px solid var(--border)', borderRadius:4,
           padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', cursor:'pointer',
         }}
       >
-        <span>{selected ? selected.label : placeholder}</span>
+        <span>{warn && <span style={{ color:'#f59e0b', marginRight:4 }}>⚠</span>}{selected ? selected.label : placeholder}</span>
         <span style={{ fontSize:10, opacity:0.6 }}>▾</span>
       </button>
 

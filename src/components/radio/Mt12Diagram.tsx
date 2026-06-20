@@ -24,7 +24,7 @@ function buildFunctionMap(model: Model): FunctionMap {
     if (!result[ctrl].includes(fn)) result[ctrl].push(fn);
   }
 
-  function ctrl(sw: string) { return sw.replace(/^!/, '').replace(/\d+$/, ''); }
+  function ctrl(sw: string) { return sw.replace(/^!/, '').replace(/\d$/, ''); }
 
   add('TH', 'Throttle trigger');
 
@@ -208,6 +208,7 @@ interface PhotoProps {
   selected?: string;
   hovered?: string | null;
   externalHighlight?: string | null;
+  warningControls?: string[];
   onSelect?: (name: string) => void;
   onHover?: (name: string | null) => void;
   placing?: boolean;
@@ -219,10 +220,13 @@ interface PhotoProps {
 }
 
 function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, externalHighlight,
-  onSelect, onHover, placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
+  warningControls, onSelect, onHover, placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
 
   function active(name: string) {
     return selected === name || hovered === name || externalHighlight === name;
+  }
+  function warned(name: string) {
+    return !!warningControls?.includes(name);
   }
   const fontSize = large ? 15 : 11;
   const dotR = large ? 1.5 : 1.1;
@@ -246,7 +250,7 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
           if (!pos) return null;
           const on = active(c.name);
           const { lx, ly } = getLabelPos(pos);
-          const col = c.inert ? '#6b7280' : '#3b82f6';
+          const col = c.inert ? '#6b7280' : warned(c.name) ? '#f59e0b' : '#3b82f6';
           const lineEnd = retract(pos.dx, pos.dy, lx, ly, 4);
           return (
             <g key={c.name}
@@ -321,13 +325,14 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
               const hasFunction = fns.length > 0;
               const labelText = showFunctions ? (hasFunction ? fns[0] : c.name) : c.name;
               const isMapped = showFunctions && hasFunction;
+              const w = warned(c.name) && !c.inert;
               return (
                 <>
                   <span style={{
                     display:'inline-block', fontSize, fontWeight: isMapped ? 700 : 500,
                     fontFamily:'system-ui,sans-serif',
-                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (isMapped ? '#dbeafe' : (showFunctions ? 'rgba(255,255,255,0.3)' : '#fff'))),
-                    background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : 'rgba(29,78,216,0.85)')
+                    color: on ? '#fff' : (c.inert ? '#e5e7eb' : (w ? '#f59e0b' : (isMapped ? '#dbeafe' : (showFunctions ? 'rgba(255,255,255,0.3)' : '#fff')))),
+                    background: on ? (c.inert ? 'rgba(55,65,81,0.85)' : (w ? 'rgba(217,119,6,0.9)' : 'rgba(29,78,216,0.85)'))
                                    : (isMapped ? 'rgba(0,0,0,0.65)' : (showFunctions ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)')),
                     padding:'1px 5px', borderRadius:3,
                     whiteSpace:'nowrap',
@@ -392,6 +397,7 @@ interface DiagramProps {
   selected?: string;
   onSelect?: (name: string) => void;
   externalHighlight?: string | null;
+  warningControls?: string[];
   diagramLabel?: string;
   functionMap?: FunctionMap;
   showFunctions?: boolean;
@@ -399,7 +405,7 @@ interface DiagramProps {
 }
 
 function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, sdRoot,
-  selected, onSelect, externalHighlight, diagramLabel, functionMap, showFunctions,
+  selected, onSelect, externalHighlight, warningControls, diagramLabel, functionMap, showFunctions,
   legacyLocalStorageKey }: DiagramProps) {
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -549,6 +555,7 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
           selected={selected}
           hovered={hovered}
           externalHighlight={externalHighlight}
+          warningControls={warningControls}
           onSelect={onSelect}
           onHover={setHovered}
           functionMap={functionMap}
@@ -623,6 +630,7 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
               selected={selected}
               hovered={hovered}
               externalHighlight={externalHighlight}
+              warningControls={warningControls}
               onSelect={(name) => { onSelect?.(name); if (!placing) setEnlarged(false); }}
               onHover={setHovered}
               placing={placing}
@@ -646,10 +654,11 @@ interface Props {
   model?: Model;
   selected?: string;
   onSelect?: (name: string) => void;
+  warningControls?: string[];
   className?: string;
 }
 
-export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Props) {
+export function Mt12Diagram({ sdRoot, model, selected, onSelect, warningControls, className }: Props) {
   const externalHighlight = useEditorStore(s => s.diagramHighlight);
   const expansionModule = useEditorStore(s => s.expansionModule);
   const moduleType = expansionModule();
@@ -674,6 +683,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
         selected={selected}
         onSelect={onSelect}
         externalHighlight={externalHighlight}
+        warningControls={warningControls}
         functionMap={functionMap}
         showFunctions={showFunctions}
       />
@@ -703,6 +713,7 @@ export function Mt12Diagram({ sdRoot, model, selected, onSelect, className }: Pr
             webConfigKey={`diagram-module-${moduleType}-labels.json`}
             sdRoot={sdRoot}
             externalHighlight={externalHighlight}
+            warningControls={warningControls}
             diagramLabel="Expansion module"
           />
         </div>

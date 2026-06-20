@@ -81,6 +81,10 @@
   gap: 10px;
 }
 
+.cardStale {
+  border-color: #f59e0b;
+}
+
 .cardHeader {
   display: flex;
   align-items: center;
@@ -177,6 +181,10 @@
   flex-direction: column;
   gap: 10px;
   margin-top: 4px;
+}
+
+.subCardWarn {
+  border-color: #f59e0b;
 }
 
 .subHeader {
