@@ -38,7 +38,7 @@ function buildOptions(switches: { key: string; name: string; type: string }[]): 
 function switchToControl(sw: string): string | null {
   if (!sw || sw === 'NONE' || sw === 'ON') return null;
   const s = sw.startsWith('!') ? sw.slice(1) : sw;
-  return s.replace(/\d+$/, '') || null;
+  return s.replace(/\d$/, '') || null;
 }
 
 interface Props {
@@ -46,9 +46,12 @@ interface Props {
   onChange: (v: string) => void;
   id?: string;
   style?: React.CSSProperties;
+  warn?: boolean;          // amber-highlight the control (e.g. references a missing expansion input)
+  warnTitle?: string;      // tooltip explaining the warning
+  inUse?: Record<string, string[]>;  // switch key → usage labels, shown in dropdown
 }
 
-export function SwitchPicker({ value, onChange, id, style }: Props) {
+export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUse }: Props) {
   const [open, setOpen] = useState(false);
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
   const availableSwitches = useEditorStore(s => s.availableSwitches);
@@ -79,14 +82,15 @@ export function SwitchPicker({ value, onChange, id, style }: Props) {
         onClick={() => setOpen(v => !v)}
         onMouseEnter={() => { if (value) setHighlight(switchToControl(value)); }}
         onMouseLeave={() => { if (!open) setHighlight(null); }}
+        title={warn ? warnTitle : undefined}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           background: 'var(--bg)', color: selected ? 'var(--text)' : 'var(--text-muted)',
-          border: '1px solid var(--border)', borderRadius: 4,
+          border: warn ? '1px solid #f59e0b' : '1px solid var(--border)', borderRadius: 4,
           padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)', cursor: 'pointer',
         }}
       >
-        <span>{selected ? selected.label : '— select —'}</span>
+        <span>{warn && <span style={{ color: '#f59e0b', marginRight: 4 }}>⚠</span>}{selected ? selected.label : '— select —'}</span>
         <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
       </button>
 
@@ -123,6 +127,15 @@ export function SwitchPicker({ value, onChange, id, style }: Props) {
                       onMouseOut={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = ''; }}
                     >
                       {opt.label}
+                      {(() => {
+                        const usages = inUse?.[opt.value];
+                        if (!usages?.length) return null;
+                        return (
+                          <div style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', marginTop: 1 }}>
+                            In use: {usages.join(', ')}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}

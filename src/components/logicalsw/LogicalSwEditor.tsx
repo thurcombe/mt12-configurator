@@ -3,6 +3,7 @@ import { decodeDef, encodeDef, defArgCount } from '../../codec/logicalSwDef.ts';
 import { SrcRawPicker } from '../shared/SrcRawPicker.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './LogicalSwEditor.module.css';
 
 interface Props {
@@ -94,9 +95,10 @@ interface RowProps {
   ls: LogicalSw;
   onChange: (ls: LogicalSw) => void;
   onDelete: () => void;
+  inUse?: Record<string, string[]>;
 }
 
-function LogicalSwRow({ lsKey, ls, onChange, onDelete }: RowProps) {
+function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse }: RowProps) {
   const decoded = decodeDef(ls.func, ls.def);
   const kinds = argKinds(ls.func);
   const labels = ARG_LABELS[ls.func] ?? kinds.map((_, i) => `Arg ${i + 1}`);
@@ -146,7 +148,7 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete }: RowProps) {
         return (
           <td key={i} title={label}>
             {kind === 'switch' && (
-              <SwitchPicker value={val || 'NONE'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} />
+              <SwitchPicker value={val || 'NONE'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} inUse={inUse} />
             )}
             {kind === 'srcraw' && (
               <SrcRawPicker value={val || 'TH'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} />
@@ -165,7 +167,7 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete }: RowProps) {
       })}
 
       <td>
-        <SwitchPicker value={ls.andsw || 'NONE'} onChange={(v) => onChange({ ...ls, andsw: v })} style={{ fontSize: 12 }} />
+        <SwitchPicker value={ls.andsw || 'NONE'} onChange={(v) => onChange({ ...ls, andsw: v })} style={{ fontSize: 12 }} inUse={inUse} />
       </td>
 
       <td>
@@ -200,6 +202,7 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete }: RowProps) {
 export function LogicalSwEditor({ model, onChange }: Props) {
   const lsData = model.logicalSw ?? {};
   const entries = Object.entries(lsData).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+  const inUse = buildSwitchUsageMap(model);
 
   function updateLs(key: string, ls: LogicalSw) {
     onChange((m) => ({ ...m, logicalSw: { ...m.logicalSw, [key]: ls } }));
@@ -255,6 +258,7 @@ export function LogicalSwEditor({ model, onChange }: Props) {
                   ls={ls}
                   onChange={(l) => updateLs(key, l)}
                   onDelete={() => deleteLs(key)}
+                  inUse={inUse}
                 />
               ))}
             </tbody>

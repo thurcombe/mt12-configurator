@@ -26,13 +26,24 @@ import {
   type BasicAnalysis,
   type WizardParams,
 } from './basicPatterns.ts';
-import { buildInputMap } from '../../codec/modelSummary.ts';
+import { buildInputMap, buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
+import { getExpansionConflict, refControl } from '../models/expansionConflict.ts';
+import { EXPANSION_MODULES } from '../../hardware/mt12.ts';
 import css from './BasicMixView.module.css';
 import { ModelImagePicker } from '../models/ModelImagePicker.tsx';
 
 const SURFACE_PROTOCOLS = MULTI_PROTOCOLS;
+
+// Builds the amber-warning tooltip for a switch/source value when the control it
+// references is no longer provided by the installed expansion module. Returns
+// undefined when there's no conflict (so callers can spread it as a `warn` flag).
+function expansionWarnTitle(ref: string | undefined | null, affected: Set<string>, moduleLabel: string): string | undefined {
+  const ctrl = refControl(ref);
+  if (!ctrl || !affected.has(ctrl)) return undefined;
+  return `${ctrl} isn't provided by the installed expansion module (${moduleLabel}). Its mixes and switch conditions will be inactive until the module is changed back or this model is updated.`;
+}
 
 const FAILSAFE_OPTIONS = [
   { value: 'no pulses', label: 'Stop — safest' },
@@ -139,7 +150,21 @@ interface RecognisedViewProps {
 function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRunKidControl, onRemoveKidControl }: RecognisedViewProps) {
   const clearKidControlSnapshot = useEditorStore(s => s.clearKidControlSnapshot);
   const inputMap = useMemo(() => buildInputMap(model.expoData ?? []), [model.expoData]);
+  const inUse = useMemo(() => buildSwitchUsageMap(model), [model]);
   const kidActive = !!model.flightModeData?.['1'];
+  const expansionModule = useEditorStore(s => s.expansionModule);
+
+  // Expansion-module conflict: which base controls (FL1/FL2/P3/P4) this model uses
+  // that the installed module no longer provides. Drives the amber field/panel highlights.
+  const installedModule = expansionModule();
+  const { affectedControls, moduleLabel } = useMemo(() => {
+    const c = getExpansionConflict(model, installedModule);
+    const affected = new Set<string>();
+    if (c) for (const ctrl of c.controls) { const b = refControl(ctrl); if (b) affected.add(b); }
+    const label = installedModule === 'none' ? 'no module installed' : EXPANSION_MODULES[installedModule].label;
+    return { affectedControls: affected, moduleLabel: label };
+  }, [model, installedModule]);
+
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
   const modelMeta = useEditorStore(s => s.modelMeta[modelKey]);
   const setModelScale = useEditorStore(s => s.setModelScale);
@@ -150,7 +175,7 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
   return (
     <div className={css.root}>
       {analysis.throttle && (
-        <ThrottleCard analysis={analysis} inputMap={inputMap} onChange={onChange} />
+        <ThrottleCard analysis={analysis} inputMap={inputMap} onChange={onChange} affectedControls={affectedControls} moduleLabel={moduleLabel} inUse={inUse} />
       )}
       {analysis.steering && (
         <SteeringCard analysis={analysis} onChange={onChange} />
@@ -204,6 +229,8 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
         onChange={onChange}
         onRunKidControl={onRunKidControl}
         onRemoveKidControl={() => { onRemoveKidControl(); clearKidControlSnapshot(modelKey); }}
+        affectedControls={affectedControls}
+        moduleLabel={moduleLabel}
       />
 
       {/* Setup wizard card */}
@@ -304,6 +331,9 @@ interface CardProps {
   analysis: BasicAnalysis;
   inputMap: Record<number, string>;
   onChange: (updater: (m: Model) => Model) => void;
+  affectedControls?: Set<string>;
+  moduleLabel?: string;
+  inUse?: Record<string, string[]>;
 }
 
 // ── KidControl card ───────────────────────────────────────────────────────────
@@ -324,9 +354,12 @@ function rampDesc(up: number, down: number): string {
   return `${d}s to slow down`;
 }
 
-function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl, onRemoveKidControl }: { model: Model; modelKey: string; kidActive: boolean; onChange: (updater: (m: Model) => Model) => void; onRunKidControl: () => void; onRemoveKidControl: () => void }) {
+function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl, onRemoveKidControl, affectedControls, moduleLabel }: { model: Model; modelKey: string; kidActive: boolean; onChange: (updater: (m: Model) => Model) => void; onRunKidControl: () => void; onRemoveKidControl: () => void; affectedControls?: Set<string>; moduleLabel?: string }) {
   const fm1 = model.flightModeData?.['1'];
   const triggerSwitch = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
+  // The trigger switch lives inside this panel rather than in a standalone field,
+  // so when it references a missing expansion control we highlight the whole panel.
+  const triggerWarnTitle = expansionWarnTitle(triggerSwitch, affectedControls ?? new Set(), moduleLabel ?? '');
   const kidExpos = (model.expoData ?? []).filter(l => (l.name ?? '').startsWith('KID-'));
   const thExpo = kidExpos.find(l => l.name === 'KID-TH');
   const stExpo = kidExpos.find(l => l.name === 'KID-ST');
@@ -384,7 +417,7 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
   }
 
   return (
-    <section className={css.card}>
+    <section className={`${css.card} ${stale || triggerWarnTitle ? css.cardStale : ''}`}>
       <div className={css.cardHeader}>
         <span className={css.cardIcon}>🔒</span>
         <span className={css.cardTitle}>KidControl</span>
@@ -396,6 +429,15 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
       </div>
       {kidActive ? (
         <>
+          {triggerWarnTitle && (
+            <div className={css.staleWarning}>
+              <span className={css.staleIcon}>⚠</span>
+              <div className={css.staleText}>
+                <strong>Trigger switch unavailable</strong>
+                <span>{triggerWarnTitle} Change the expansion module back or re-run the KidControl wizard to pick a different switch.</span>
+              </div>
+            </div>
+          )}
           {stale && (
             <div className={css.staleWarning}>
               <span className={css.staleIcon}>⚠</span>
@@ -429,7 +471,9 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
           {triggerSwitch && (
             <div className={css.fieldRow}>
               <span className={css.fieldLabel}>Trigger switch</span>
-              <span className={css.fieldInfo}>{triggerSwitch}</span>
+              <span className={css.fieldInfo} style={triggerWarnTitle ? { color:'#f59e0b' } : undefined} title={triggerWarnTitle}>
+                {triggerWarnTitle && '⚠ '}{triggerSwitch}
+              </span>
             </div>
           )}
           {thExpo && (
@@ -479,7 +523,7 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
 
 // ── Throttle card ──────────────────────────────────────────────────────────────
 
-function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
+function ThrottleCard({ analysis, inputMap, onChange, affectedControls, moduleLabel, inUse }: CardProps) {
   const { throttle, cruise, drate } = analysis;
   if (!throttle) return null;
   return (
@@ -495,20 +539,21 @@ function ThrottleCard({ analysis, inputMap, onChange }: CardProps) {
         <WeightSlider value={throttle.weight} onChange={(v) => onChange((m) => setThrottleWeight(m, analysis, v))} min={0} max={100} />
       </div>
       {cruise ? (
-        <CruiseSubCard analysis={analysis} onChange={onChange} />
+        <CruiseSubCard analysis={analysis} onChange={onChange} affectedControls={affectedControls} moduleLabel={moduleLabel} inUse={inUse} />
       ) : (
         <button className={`btn btn-ghost btn-sm ${css.addBtn}`} onClick={() => onChange((m) => addCruise(m, analysis, 'SC2', 70))}>
           + Add cruise control
         </button>
       )}
-      {drate && <DRateSubCard drate={drate} inputMap={inputMap} />}
+      {drate && <DRateSubCard drate={drate} inputMap={inputMap} affectedControls={affectedControls} moduleLabel={moduleLabel} />}
     </section>
   );
 }
 
-function CruiseSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChange: CardProps['onChange'] }) {
+function CruiseSubCard({ analysis, onChange, affectedControls, moduleLabel, inUse }: { analysis: BasicAnalysis; onChange: CardProps['onChange']; affectedControls?: Set<string>; moduleLabel?: string; inUse?: Record<string, string[]> }) {
   const { cruise } = analysis;
   if (!cruise) return null;
+  const warnTitle = expansionWarnTitle(cruise.setSw, affectedControls ?? new Set(), moduleLabel ?? '');
   return (
     <div className={css.subCard}>
       <div className={css.subHeader}>
@@ -519,8 +564,9 @@ function CruiseSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChan
       <p className={css.fieldHint}>Hold this switch to drive at a fixed speed without pressing the trigger. Toggle again to disengage.</p>
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Switch</span>
-        <SwitchPicker value={cruise.setSw} onChange={(v) => onChange((m) => setCruiseSw(m, analysis, v))} />
+        <SwitchPicker value={cruise.setSw} onChange={(v) => onChange((m) => setCruiseSw(m, analysis, v))} warn={!!warnTitle} warnTitle={warnTitle} inUse={inUse} />
       </div>
+      {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b' }}>⚠ {warnTitle}</p>}
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Cruise speed</span>
         <WeightSlider value={cruise.cruiseSpeed} onChange={(v) => onChange((m) => setCruiseSpeed(m, analysis, v))} min={0} max={100} />
@@ -530,14 +576,16 @@ function CruiseSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChan
   );
 }
 
-function DRateSubCard({ drate, inputMap }: { drate: NonNullable<BasicAnalysis['drate']>; inputMap: Record<number, string> }) {
+function DRateSubCard({ drate, inputMap, affectedControls, moduleLabel }: { drate: NonNullable<BasicAnalysis['drate']>; inputMap: Record<number, string>; affectedControls?: Set<string>; moduleLabel?: string }) {
   if (drate.switchMode) {
+    const warnTitle = expansionWarnTitle(drate.switchMode.swtch, affectedControls ?? new Set(), moduleLabel ?? '');
     return (
-      <div className={css.subCard}>
+      <div className={`${css.subCard} ${warnTitle ? css.subCardWarn : ''}`}>
         <div className={css.subHeader}><span className={css.subTitle}>Speed limiter</span></div>
         <p className={css.fieldHint}>
           Switch <strong>{drate.switchMode.swtch}</strong> caps throttle at <strong>{drate.switchMode.percent}%</strong> when active.
         </p>
+        {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b' }}>⚠ {warnTitle}</p>}
       </div>
     );
   }

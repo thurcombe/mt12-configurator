@@ -1,6 +1,7 @@
 import type { Model, CustomFn } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './SpecialFnEditor.module.css';
 
 interface Props {
@@ -46,15 +47,16 @@ interface RowProps {
   fn: CustomFn;
   onChange: (fn: CustomFn) => void;
   onDelete: () => void;
+  inUse?: Record<string, string[]>;
 }
 
-function SpecialFnRow({ fnKey, fn, onChange, onDelete }: RowProps) {
+function SpecialFnRow({ fnKey, fn, onChange, onDelete, inUse }: RowProps) {
   return (
     <tr className={css.row}>
       <td className={css.idx}>#{parseInt(fnKey) + 1}</td>
 
       <td>
-        <SwitchPicker value={fn.swtch || 'NONE'} onChange={(v) => onChange({ ...fn, swtch: v })} style={{ fontSize: 12 }} />
+        <SwitchPicker value={fn.swtch || 'NONE'} onChange={(v) => onChange({ ...fn, swtch: v })} style={{ fontSize: 12 }} inUse={inUse} />
       </td>
 
       <td>
@@ -92,6 +94,7 @@ function SpecialFnRow({ fnKey, fn, onChange, onDelete }: RowProps) {
 export function SpecialFnEditor({ model, onChange }: Props) {
   const fnData = model.customFn ?? {};
   const entries = Object.entries(fnData).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+  const inUse = buildSwitchUsageMap(model);
 
   function updateFn(key: string, fn: CustomFn) {
     onChange((m) => ({ ...m, customFn: { ...m.customFn, [key]: fn } }));
@@ -143,6 +146,7 @@ export function SpecialFnEditor({ model, onChange }: Props) {
                   fn={fn}
                   onChange={(f) => updateFn(key, f)}
                   onDelete={() => deleteFn(key)}
+                  inUse={inUse}
                 />
               ))}
             </tbody>

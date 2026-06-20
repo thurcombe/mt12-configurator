@@ -18,9 +18,10 @@ interface Props {
   onSave: (line: MixLine) => void;
   onDelete: () => void;
   onClose: () => void;
+  inUse?: Record<string, string[]>;
 }
 
-export function MixLineModal({ line, onSave, onDelete, onClose }: Props) {
+export function MixLineModal({ line, onSave, onDelete, onClose, inUse }: Props) {
   const [draft, setDraft] = useState<MixLine>({ ...line });
   const ch = draft.destCh + 1; // display as 1-based
 
@@ -73,7 +74,7 @@ export function MixLineModal({ line, onSave, onDelete, onClose }: Props) {
             <WeightSlider value={draft.offset} onChange={(v) => field('offset', v)} min={-100} max={100} />
 
             <label className={css.label}>Switch <Tooltip text="Only apply this mix line when a specific switch is active. Leave as 'None' to always apply." /></label>
-            <SwitchPicker value={draft.swtch ?? 'NONE'} onChange={(v) => field('swtch', v)} />
+            <SwitchPicker value={draft.swtch ?? 'NONE'} onChange={(v) => field('swtch', v)} inUse={inUse} />
 
             <label className={css.label}>Flight modes <Tooltip text="Tick the flight modes where this line is active. An unticked mode means the line is excluded (ignored) in that mode." /></label>
             <FlightModeCheckboxes

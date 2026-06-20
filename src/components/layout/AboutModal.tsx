@@ -82,6 +82,7 @@ export function AboutModal({ onClose }: Props) {
           <section className={css.section}>
             <h3 className={css.sectionTitle}>Other known limitations</h3>
             <ul className={css.list}>
+              <li><strong>Manual YAML edits:</strong> Editing a model's <code>.yml</code> file directly while it is open or cached here may cause your changes to be silently overwritten on the next save, or the file to fail to load entirely. Make changes in one place at a time — if you edit outside the app, use <strong>Refresh from card</strong> before continuing here.</li>
               <li><strong>Single drive mode:</strong> The wizard configures drive mode 0 only. KidControl uses drive mode 1 as its safe-mode slot. Multi-mode setups (more than two modes) are not supported in the basic view — use Advanced view.</li>
               <li><strong>No curve editor:</strong> Expo values can be read and written via the Advanced view, but there is no graphical curve editor.</li>
               <li><strong>No telemetry configuration:</strong> Telemetry sensor setup, alarms, and logging are not accessible — use the transmitter menu or OpenTX Companion.</li>

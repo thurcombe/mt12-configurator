@@ -16,6 +16,7 @@ import {
 import type { Model, MixLine } from '../../types/model.ts';
 import { ChannelGroup } from './ChannelGroup.tsx';
 import { MixLineModal } from './MixLineModal.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './MixEditor.module.css';
 
 interface Props {
@@ -196,6 +197,7 @@ export function MixEditor({ model, onChange }: Props) {
             setEditingIdx(null);
             setIsNewLine(false);
           }}
+          inUse={buildSwitchUsageMap(model)}
         />
       )}
     </DndContext>

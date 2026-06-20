@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Model, Timer } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import css from './TimerEditor.module.css';
 
 interface Props {
@@ -44,7 +45,7 @@ const DEFAULT_TIMER: Timer = {
   extraHaptic: 0,
 };
 
-function TimerRow({ idx, timer, onChange, onRemove, initialOpen }: { idx: string; timer: Timer; onChange: (t: Timer) => void; onRemove: () => void; initialOpen?: boolean }) {
+function TimerRow({ idx, timer, onChange, onRemove, initialOpen, inUse }: { idx: string; timer: Timer; onChange: (t: Timer) => void; onRemove: () => void; initialOpen?: boolean; inUse?: Record<string, string[]> }) {
   const [open, setOpen] = useState(initialOpen ?? false);
   const title = timer.name?.trim() || `Timer ${parseInt(idx) + 1}`;
 
@@ -87,7 +88,7 @@ function TimerRow({ idx, timer, onChange, onRemove, initialOpen }: { idx: string
             </select>
 
             <label className={css.label}>Switch <Tooltip text="The switch that starts/stops the timer (only used when Mode is 'Swtch')." /></label>
-            <SwitchPicker value={timer.swtch ?? 'NONE'} onChange={(v) => onChange({ ...timer, swtch: v })} />
+            <SwitchPicker value={timer.swtch ?? 'NONE'} onChange={(v) => onChange({ ...timer, swtch: v })} inUse={inUse} />
 
             <label className={css.label}>Start value (s) <Tooltip text="Countdown start time in seconds. Set to 0 for a count-up timer." /></label>
             <input
@@ -143,6 +144,7 @@ function TimerRow({ idx, timer, onChange, onRemove, initialOpen }: { idx: string
 export function TimerEditor({ model, onChange }: Props) {
   const timers = model.timers ?? {};
   const [newIdx, setNewIdx] = useState<string | null>(null);
+  const inUse = buildSwitchUsageMap(model);
 
   function updateTimer(idx: string, timer: Timer) {
     onChange((m) => ({
@@ -186,6 +188,7 @@ export function TimerEditor({ model, onChange }: Props) {
           onChange={(t) => updateTimer(idx, t)}
           onRemove={() => removeTimer(idx)}
           initialOpen={idx === newIdx}
+          inUse={inUse}
         />
       ))}
       {canAdd && (
