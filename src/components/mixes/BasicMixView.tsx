@@ -219,6 +219,17 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
           <span className={css.cardTitle}>Vehicle details</span>
         </div>
         <div className={css.fieldRow}>
+          <span className={css.fieldLabel}>Model name</span>
+          <input
+            type="text"
+            style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:180 }}
+            value={model.header?.name ?? ''}
+            placeholder={modelKey}
+            maxLength={15}
+            onChange={(e) => onChange(m => ({ ...m, header: { ...m.header, name: e.target.value } }))}
+          />
+        </div>
+        <div className={css.fieldRow}>
           <span className={css.fieldLabel}>Vehicle type</span>
           <select
             style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}

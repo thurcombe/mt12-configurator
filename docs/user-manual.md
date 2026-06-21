@@ -158,6 +158,7 @@ If a gyro gain channel is configured, a card shows which knob controls gyro sens
 
 | Field | Description |
 |-------|-------------|
+| Model name | Editable name (up to 15 characters) shown on the transmitter screen and the model list card. The top bar displays this name as read-only; edit it here. |
 | Vehicle type | Links this model to a [Vehicle Type](#17-vehicle-types), which provides KidControl presets |
 | Scale | The 1:N scale of your vehicle (metadata only, stored on the SD card) |
 
@@ -340,7 +341,7 @@ The Vehicle tab gives access to model identity, vehicle type, and radio link set
 
 ### Model name
 
-An editable text field (max 15 characters) for the model name — identical to the name input in the editor top bar. Changes here update the name shown on the transmitter screen and on the model list card.
+An editable text field (max 15 characters) for the model name. The editor top bar shows the current name as read-only text — this field is the only place to change it. Changes update the name shown on the transmitter screen and on the model list card.
 
 ### Vehicle type
 

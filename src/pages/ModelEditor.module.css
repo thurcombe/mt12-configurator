@@ -38,6 +38,19 @@
   background: var(--bg);
 }
 
+.nameDisplay {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 2px 6px;
+  font-family: var(--font);
+  min-width: 80px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Model photo button in topBar */
 .photoBtn {
   width: 36px;
