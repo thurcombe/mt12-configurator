@@ -287,16 +287,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {isDirty && (
             <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
           )}
-          {!wizardActive && (
-            <input
-              type="text"
-              className={css.nameInput}
-              value={model.header?.name ?? ''}
-              placeholder={modelKey}
-              maxLength={15}
-              onChange={(e) => handleChange((m) => ({ ...m, header: { ...m.header, name: e.target.value } }))}
-            />
-          )}
+          <span className={css.nameDisplay}>{model.header?.name || modelKey}</span>
           {isDirty && <span className="badge badge-warning">Unsaved</span>}
           <div style={{ flex: 1 }} />
           <div className={css.toggleGroup}>
@@ -338,14 +329,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         {isDirty && (
           <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
         )}
-        <input
-          type="text"
-          className={css.nameInput}
-          value={model.header?.name ?? ''}
-          placeholder={modelKey}
-          maxLength={15}
-          onChange={(e) => handleChange((m) => ({ ...m, header: { ...m.header, name: e.target.value } }))}
-        />
+        <span className={css.nameInput}>{model.header?.name || modelKey}</span>
         {isDirty && <span className="badge badge-warning">Unsaved</span>}
         <div style={{ flex: 1 }} />
         <div className={css.toggleGroup}>
