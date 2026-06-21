@@ -241,7 +241,6 @@ export function ModelEditor({ modelKey, navigate }: Props) {
   const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('basic');
   const [tab, setTab] = useState('vehicle-details');
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>(undefined);
-  const [wizardActive, setWizardActive] = useState(false);
   const model = useEditorStore((s) => s.models[modelKey]);
   const isDirty = useEditorStore((s) => s.isDirty(modelKey));
   const updateModel = useEditorStore((s) => s.updateModel);
@@ -298,7 +297,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
         <div className={css.body}>
           <div className={css.content}>
-            <BasicMixView model={model} modelKey={modelKey} onChange={handleChange} onWizardActiveChange={setWizardActive} />
+            <BasicMixView model={model} modelKey={modelKey} onChange={handleChange} />
           </div>
           <div className={`${css.diagramPanel} card-panel`}>
             <div className={css.diagramTitle}>MT12 controls</div>
