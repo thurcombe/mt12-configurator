@@ -104,6 +104,14 @@ export function AppShell({ children, route, navigate }: Props) {
 
         <button
           className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
+          onClick={() => navigate({ page: 'kid-presets' })}
+          style={route.page === 'kid-presets' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        >
+          Driver Presets
+        </button>
+
+        <button
+          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
           onClick={() => setShowHelp(true)}
           style={{ fontSize: 12 }}
         >

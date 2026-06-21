@@ -7,7 +7,8 @@ import type { KidModeParams } from './kidDefaults.ts';
 import { calculateKidParams } from './kidCalculator.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
-import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../../data/vehicleTypes.ts';
+import { BUILT_IN_CATEGORIES } from '../../data/vehicleTypes.ts';
+import type { VehicleCategory } from '../../data/vehicleTypes.ts';
 import type { KidPreset } from '../../types/kidPreset.ts';
 import css from './KidModeWizard.module.css';
 
@@ -19,7 +20,7 @@ interface Props {
   skipActiveCheck?: boolean;
 }
 
-type Step = 'vehicle' | 'preset' | 'sliders';
+type Step = 'preset' | 'sliders';
 
 interface SliderRowProps {
   label: string;
@@ -116,17 +117,16 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
   const kidSnapshot  = useEditorStore(s => s.modelMeta[modelKey]?.kidSnapshot);
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
   const kidPresets = useEditorStore(s => s.kidPresets);
-  const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
   const recordKidControlApplied = useEditorStore(s => s.recordKidControlApplied);
   const clearKidControlSnapshot = useEditorStore(s => s.clearKidControlSnapshot);
 
   const storedCat = vehicleCategories.find(c => c.id === storedTypeId);
 
-  const [step, setStep] = useState<Step>(storedCat ? 'preset' : 'vehicle');
+  const [step, setStep] = useState<Step>('preset');
   const [selectedCat, setSelectedCat] = useState<VehicleCategory>(storedCat ?? vehicleCategories[0]);
   const [selectedPreset, setSelectedPreset] = useState<KidPreset>(kidPresets[0]);
   const [params, setParams] = useState<KidModeParams>(() =>
-    storedCat ? calculateKidParams(storedCat, kidPresets[0]) : calculateKidParams(vehicleCategories[0], kidPresets[0])
+    calculateKidParams(storedCat ?? vehicleCategories[0], kidPresets[0])
   );
   const [triggerSwitch, setTriggerSwitch] = useState('SA2');
   const [editingActive, setEditingActive] = useState(false);
@@ -136,12 +136,6 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
 
   function param<K extends keyof KidModeParams>(key: K, value: KidModeParams[K]) {
     setParams((p) => ({ ...p, [key]: value }));
-  }
-
-  function handleSelectCategory(cat: VehicleCategory) {
-    setModelVehicleType(modelKey, cat.id);
-    setSelectedCat(cat);
-    setStep('preset');
   }
 
   function handleSelectPreset(preset: KidPreset) {
@@ -175,9 +169,24 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
       setParams(calculateKidParams(vehicle, preset));
       setEditingActive(true);
     } else {
-      // No known preset — take user back to preset selection
       setStep('preset');
     }
+  }
+
+  // ── Locked state — no vehicle type set ─────────────────────────────────────
+  if (!storedCat && !active) {
+    return (
+      <div className={css.root}>
+        <div style={{ padding: '20px 0', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6 }}>
+          <div style={{ marginBottom: 10, fontSize: 22 }}>🔒</div>
+          <strong style={{ color: 'var(--text)' }}>Set a vehicle type first</strong>
+          <p style={{ marginTop: 6 }}>
+            KidControl needs to know the vehicle's steering and power characteristics to calculate safe limits.
+            Set a vehicle type in the Vehicle tab, then come back here.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // ── Edit mode overlay (sliders over the active card) ──────────────────────
@@ -326,16 +335,11 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
   return (
     <div className={css.root}>
       <div className={css.breadcrumb}>
-        <button className={step === 'vehicle' ? css.crumbActive : css.crumb} onClick={() => setStep('vehicle')}>
-          1. Vehicle
-        </button>
-        <span className={css.crumbSep}>›</span>
         <button
           className={step === 'preset' ? css.crumbActive : css.crumb}
-          onClick={() => step !== 'vehicle' && setStep('preset')}
-          disabled={step === 'vehicle'}
+          onClick={() => setStep('preset')}
         >
-          2. Driver
+          1. Driver
         </button>
         <span className={css.crumbSep}>›</span>
         <button
@@ -343,24 +347,9 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
           onClick={() => step === 'sliders' && setStep('sliders')}
           disabled={step !== 'sliders'}
         >
-          3. Adjust &amp; Confirm
+          2. Adjust &amp; Confirm
         </button>
       </div>
-
-      {step === 'vehicle' && (
-        <div>
-          <h3 className={css.stepTitle}>What type of vehicle?</h3>
-          <div className={css.cardGrid}>
-            {vehicleCategories.map((cat) => (
-              <button key={cat.id} className={css.typeCard} onClick={() => handleSelectCategory(cat)}>
-                <span className={css.typeIcon}>{cat.icon}</span>
-                <span className={css.typeLabel}>{cat.name}</span>
-                <span className={css.typeDesc}>{cat.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {step === 'preset' && (
         <div>
@@ -375,9 +364,6 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
               </button>
             ))}
           </div>
-          <button className="btn btn-ghost btn-sm" style={{ marginTop: 16 }} onClick={() => setStep('vehicle')}>
-            ← Back
-          </button>
         </div>
       )}
 

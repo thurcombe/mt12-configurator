@@ -94,6 +94,7 @@ interface CtrlDef {
 interface DotPos {
   dx: number; dy: number;
   lx?: number; ly?: number;
+  lineStyle?: 'solid' | 'dashed';
 }
 
 interface DragState {
@@ -121,8 +122,9 @@ const CONTROLS: CtrlDef[] = [
 const BUILTIN_POSITIONS: Positions = {
   P1: { dx:77.9, dy:25.6, lx:88.6, ly:13.6 },
   P2: { dx:38.7, dy:26.1, lx:17.2, ly:13.9 },
-  SC: { dx:48,   dy:43.8, lx:61,   ly:71.9 },
-  SA: { dx:58.5, dy:45.7, lx:64.1, ly:58   },
+  SC: { dx:47.3, dy:43.3, lx:47,   ly:53.5 },
+  SA: { dx:58.4, dy:45.3, lx:64.1, ly:54.6 },
+  SB: { dx:54.2, dy:31.8, lx:55.4, ly:57.5 },
   TH: { dx:72.1, dy:41.7, lx:82.3, ly:41.6 },
   SD: { dx:11.2, dy:87.6, lx:4.8,  ly:66   },
   T1: { dx:48.5, dy:17.1, lx:39.1, ly:6.2  },
@@ -261,7 +263,8 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
               style={{ cursor: placing ? 'crosshair' : (c.inert ? 'default' : 'pointer') }}
             >
               <line x1={pos.dx} y1={pos.dy} x2={lineEnd.x} y2={lineEnd.y}
-                stroke={col} strokeWidth={on ? 0.7 : 0.4} strokeLinecap="round" />
+                stroke={col} strokeWidth={on ? 0.7 : 0.4} strokeLinecap="round"
+                strokeDasharray={pos.lineStyle === 'dashed' ? '2 1.5' : undefined} />
               <circle cx={pos.dx} cy={pos.dy} r={on ? dotR * 1.4 : dotR}
                 fill={col} stroke="rgba(0,0,0,0.6)" strokeWidth="0.4" />
             </g>
@@ -609,6 +612,31 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
                   </option>
                 ))}
               </select>
+              {positions[activeControl] && (() => {
+                const cur = positions[activeControl].lineStyle ?? 'solid';
+                return (
+                  <button
+                    title={cur === 'dashed' ? 'Line: dashed (click for solid)' : 'Line: solid (click for dashed)'}
+                    style={{ background:'#1e293b', border:'1px solid #475569', color:'#fff', borderRadius:4, padding:'3px 8px', cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', gap:6 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next: Positions = {
+                        ...positions,
+                        [activeControl]: { ...positions[activeControl], lineStyle: cur === 'dashed' ? undefined : 'dashed' },
+                      };
+                      savePositions(next);
+                    }}
+                  >
+                    <svg width="28" height="10" viewBox="0 0 28 10" style={{ display:'block' }}>
+                      {cur === 'dashed'
+                        ? <line x1="1" y1="5" x2="27" y2="5" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" strokeLinecap="round" />
+                        : <line x1="1" y1="5" x2="27" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      }
+                    </svg>
+                    {cur === 'dashed' ? 'Dashed' : 'Solid'}
+                  </button>
+                );
+              })()}
               <button
                 style={{ background:'#3b82f6', border:'none', color:'#fff', borderRadius:4, padding:'4px 12px', cursor:'pointer', fontSize:13 }}
                 onClick={(e) => { e.stopPropagation(); setPlacing(false); setDragState(null); setEnlarged(false); }}

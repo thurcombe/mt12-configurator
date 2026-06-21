@@ -190,6 +190,16 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
 
   const selectedCat = vehicleCategories.find(c => c.id === (modelMeta?.vehicleType ?? ''));
 
+  const [pendingVehicleType, setPendingVehicleType] = useState<string | null>(null);
+
+  function handleVehicleTypeChange(newValue: string) {
+    if (kidActive) {
+      setPendingVehicleType(newValue);
+    } else {
+      setModelVehicleType(modelKey, newValue);
+    }
+  }
+
   return (
     <div className={css.root}>
       {analysis.throttle && (
@@ -213,7 +223,7 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
           <select
             style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
             value={modelMeta?.vehicleType ?? ''}
-            onChange={(e) => setModelVehicleType(modelKey, e.target.value)}
+            onChange={(e) => handleVehicleTypeChange(e.target.value)}
           >
             <option value="">Not specified</option>
             {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -274,6 +284,26 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
           </>
         )}
       </section>
+
+      {pendingVehicleType !== null && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:24, maxWidth:400, width:'90%', boxShadow:'0 8px 32px rgba(0,0,0,0.4)' }}>
+            <p style={{ fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
+              <strong>KidControl will be removed</strong><br/>
+              This model has KidControl configured. Changing the vehicle type will remove the KidControl setup — you can configure it again afterwards.
+            </p>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPendingVehicleType(null)}>Cancel</button>
+              <button className="btn btn-danger btn-sm" onClick={() => {
+                onChange(m => removeKidMode(m));
+                clearKidControlSnapshot(modelKey);
+                setModelVehicleType(modelKey, pendingVehicleType);
+                setPendingVehicleType(null);
+              }}>Change type &amp; remove KidControl</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -529,13 +559,17 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
             </button>
           </div>
         </>
-      ) : (
+      ) : modelMeta?.vehicleType ? (
         <>
           <p className={css.fieldHint}>KidControl adds a safe driving mode with reduced speed and steering limits, activated by a switch.</p>
           <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
             + Set up KidControl
           </button>
         </>
+      ) : (
+        <p className={css.fieldHint} style={{ color: 'var(--text-muted)' }}>
+          Set a vehicle type in Vehicle details above to enable KidControl.
+        </p>
       )}
     </section>
   );
