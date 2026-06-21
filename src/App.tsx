@@ -3,6 +3,7 @@ import { ModelList } from './pages/ModelList.tsx';
 import { ModelEditor } from './pages/ModelEditor.tsx';
 import { RadioSettings } from './pages/RadioSettings.tsx';
 import { VehicleTypesPage } from './pages/VehicleTypesPage.tsx';
+import { KidPresetsPage } from './pages/KidPresetsPage.tsx';
 import { useState } from 'react';
 import { useEditorStore } from './store/useEditorStore.ts';
 import css from './App.module.css';
@@ -12,7 +13,8 @@ export type Route =
   | { page: 'list' }
   | { page: 'editor'; modelKey: string }
   | { page: 'radio' }
-  | { page: 'vehicle-types' };
+  | { page: 'vehicle-types' }
+  | { page: 'kid-presets' };
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ page: 'list' });
@@ -96,6 +98,7 @@ export default function App() {
       {route.page === 'editor' && <ModelEditor modelKey={route.modelKey} navigate={navigate} />}
       {route.page === 'radio' && <RadioSettings navigate={navigate} />}
       {route.page === 'vehicle-types' && <VehicleTypesPage navigate={navigate} />}
+      {route.page === 'kid-presets' && <KidPresetsPage navigate={navigate} />}
 
       {pendingNav && (
         <div className={css.leaveOverlay}>

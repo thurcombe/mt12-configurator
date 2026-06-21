@@ -13,19 +13,20 @@ A browser-based editor for creating and managing EdgeTX model configuration file
 3. [Basic View](#3-basic-view)
 4. [Setup Wizard](#4-setup-wizard)
 5. [KidControl Wizard](#5-kidcontrol-wizard)
-6. [Advanced View — Module](#6-advanced-view--module)
-7. [Advanced View — Timers](#7-advanced-view--timers)
-8. [Advanced View — Drive Modes](#8-advanced-view--drive-modes)
-9. [Advanced View — Mixes](#9-advanced-view--mixes)
-10. [Advanced View — Expos](#10-advanced-view--expos)
-11. [Advanced View — Limits](#11-advanced-view--limits)
-12. [Advanced View — Logical Switches](#12-advanced-view--logical-switches)
-13. [Advanced View — Special Functions](#13-advanced-view--special-functions)
-14. [Advanced View — KidControl Tab](#14-advanced-view--kidcontrol-tab)
-15. [Transmitter Settings](#15-transmitter-settings)
-16. [Vehicle Types](#16-vehicle-types)
-17. [Saving & Backup](#17-saving--backup)
-18. [Help & About](#18-help--about)
+6. [Advanced View — Vehicle](#6-advanced-view--vehicle)
+7. [Advanced View — Module](#7-advanced-view--module)
+8. [Advanced View — Timers](#8-advanced-view--timers)
+9. [Advanced View — Drive Modes](#9-advanced-view--drive-modes)
+10. [Advanced View — Mixes](#10-advanced-view--mixes)
+11. [Advanced View — Expos](#11-advanced-view--expos)
+12. [Advanced View — Limits](#12-advanced-view--limits)
+13. [Advanced View — Logical Switches](#13-advanced-view--logical-switches)
+14. [Advanced View — Special Functions](#14-advanced-view--special-functions)
+15. [Advanced View — KidControl Tab](#15-advanced-view--kidcontrol-tab)
+16. [Transmitter Settings](#16-transmitter-settings)
+17. [Vehicle Types & Driver Presets](#17-vehicle-types--driver-presets)
+18. [Saving & Backup](#18-saving--backup)
+19. [Help & About](#19-help--about)
 
 ---
 
@@ -157,7 +158,7 @@ If a gyro gain channel is configured, a card shows which knob controls gyro sens
 
 | Field | Description |
 |-------|-------------|
-| Vehicle type | Links this model to a [Vehicle Type](#16-vehicle-types), which provides KidControl presets |
+| Vehicle type | Links this model to a [Vehicle Type](#17-vehicle-types), which provides KidControl presets |
 | Scale | The 1:N scale of your vehicle (metadata only, stored on the SD card) |
 
 ### Radio link
@@ -269,19 +270,13 @@ Review a summary of all settings and click **Apply** to generate the model's mix
 
 KidControl creates a safe driving profile activated by a physical switch. When the switch is engaged, reduced throttle and steering limits apply — flip it back for full control.
 
+> **Prerequisite:** A vehicle type must be set before KidControl can be configured. In the Basic view, use the Vehicle details card; in the Advanced view, use the **Vehicle** tab. Once a vehicle type is set, the KidControl card becomes available.
+
 Open the wizard from:
 - **Basic view** — click **+ Set up KidControl** in the KidControl card
 - **Advanced view** — go to the **KidControl** tab (the wizard appears automatically when KidControl isn't yet configured)
 
-### Step 1 — Vehicle type
-
-> **This step is skipped automatically** if the model already has a vehicle type set. The wizard jumps straight to step 2 using the saved type.
-
-![KidControl wizard — vehicle type selection](screenshots/26-kidcontrol-01-vehicle-step.png)
-
-Shows the full list of vehicle categories from your [Vehicle Types](#16-vehicle-types) page. Each category maps to a KidControl preset (Crawler, Sport, Rally, or High-speed) that provides default throttle and steering limits. Clicking a category advances immediately to step 2.
-
-### Step 2 — Driver skill
+### Step 1 — Driver skill
 
 ![KidControl wizard — driver skill selection](screenshots/27-kidcontrol-02-speed-step.png)
 
@@ -294,9 +289,9 @@ Choose the driver's current skill level. The app calculates appropriate throttle
 | Confident Learner | Solid proportional control. Light assistance for higher-power vehicles |
 | Independent | Reliable control in all conditions. Minimal safety margin only |
 
-Clicking a preset advances immediately to step 3 with pre-filled values.
+Clicking a preset advances immediately to step 2 with pre-filled values.
 
-### Step 3 — Adjust & Confirm
+### Step 2 — Adjust & Confirm
 
 ![KidControl wizard — adjust sliders](screenshots/28-kidcontrol-03-sliders-step.png)
 
@@ -315,7 +310,7 @@ A **Trigger switch** picker at the bottom sets which switch activates KidControl
 
 A live **Effective in KidControl (FM1)** summary shows the final values before you commit.
 
-Click **Apply KidControl** to write the configuration to the model. Click **← Back** to return to the speed class selection without changing anything.
+Click **Apply KidControl** to write the configuration to the model. Click **← Back** to return to the driver selection without changing anything.
 
 ### KidControl active state
 
@@ -335,9 +330,43 @@ If the vehicle type's physical properties (steering character or power delivery)
 
 ---
 
-## 6. Advanced View — Module
+## 6. Advanced View — Vehicle
 
-Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor shows a row of tabs; the default is **Module**.
+Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor opens on the **Vehicle** tab.
+
+![Advanced view — Vehicle tab](screenshots/17-advanced-vehicle-tab.png)
+
+The Vehicle tab gives access to model identity, vehicle type, and radio link settings without leaving Advanced view:
+
+### Model name
+
+An editable text field (max 15 characters) for the model name — identical to the name input in the editor top bar. Changes here update the name shown on the transmitter screen and on the model list card.
+
+### Vehicle type
+
+A dropdown to select the vehicle category for this model (the same list as in the Basic view Vehicle details card). Selecting a type is required before KidControl can be configured.
+
+When a vehicle type is selected, two read-only characteristic bars are shown:
+
+- **Steering character** — Stable to Twitchy. Affects KidControl steering expo and rate calculations.
+- **Power delivery** — Smooth to Punchy. Affects KidControl throttle expo and ramp calculations.
+
+An **Edit vehicle types →** link opens the [Vehicle Types](#17-vehicle-types) page where these values can be adjusted.
+
+### Radio link
+
+Protocol and failsafe settings — identical to the Radio link card in Basic view:
+
+| Setting | Description |
+|---------|-------------|
+| Receiver protocol | RF protocol to match your receiver (e.g. Traxxas TQi, FlySky AFHDS2A, DSM/Spektrum) |
+| Signal lost | What the vehicle does if the signal is lost: Stop, Hold last position, or Not set |
+
+---
+
+## 7. Advanced View — Module
+
+Switch to **Advanced** view using the toggle in the top-right of the model editor. The editor shows a row of tabs; the first is **Vehicle** and the second is **Module**.
 
 ![Advanced view — Module tab](screenshots/17-advanced-01-module.png)
 
@@ -359,7 +388,7 @@ The MT12 has an external module bay (SMA connector). Configure a second RF modul
 
 ---
 
-## 7. Advanced View — Timers
+## 8. Advanced View — Timers
 
 ![Advanced view — Timers tab](screenshots/18-advanced-02-timers.png)
 
@@ -379,7 +408,7 @@ Timers are useful for tracking battery run time, session duration, or enforcing 
 
 ---
 
-## 8. Advanced View — Drive Modes
+## 9. Advanced View — Drive Modes
 
 ![Advanced view — Drive Modes tab](screenshots/19-advanced-03-drive-modes.png)
 
@@ -398,7 +427,7 @@ Each mode has:
 
 ---
 
-## 9. Advanced View — Mixes
+## 10. Advanced View — Mixes
 
 ![Advanced view — Mixes tab](screenshots/20-advanced-04-mixes.png)
 
@@ -433,7 +462,7 @@ Drag a mix line by its handle to reorder it within a channel group. Order matter
 
 ---
 
-## 10. Advanced View — Expos
+## 11. Advanced View — Expos
 
 ![Advanced view — Expos tab](screenshots/21-advanced-05-expos.png)
 
@@ -453,7 +482,7 @@ Multiple expo lines can be stacked on the same input — the active line is sele
 
 ---
 
-## 11. Advanced View — Limits
+## 12. Advanced View — Limits
 
 ![Advanced view — Limits tab](screenshots/22-advanced-06-limits.png)
 
@@ -471,7 +500,7 @@ Use limits to prevent servo over-travel if the physical linkage cannot reach the
 
 ---
 
-## 12. Advanced View — Logical Switches
+## 13. Advanced View — Logical Switches
 
 ![Advanced view — Logical Switches tab](screenshots/23-advanced-07-logical-sw.png)
 
@@ -505,7 +534,7 @@ Each row is one logical switch (L1, L2, …):
 
 ---
 
-## 13. Advanced View — Special Functions
+## 14. Advanced View — Special Functions
 
 ![Advanced view — Special Functions tab](screenshots/24-advanced-08-special-fn.png)
 
@@ -532,26 +561,27 @@ Special functions run an action when a switch is activated. They fire in real ti
 
 ---
 
-## 14. Advanced View — KidControl Tab
+## 15. Advanced View — KidControl Tab
 
 ![Advanced KidControl tab — wizard (not yet configured)](screenshots/25-advanced-09-kidcontrol.png)
 
-The KidControl tab shows the wizard directly when KidControl is not yet configured for this model. The three-step flow (vehicle type → speed class → sliders) is identical to the Basic view path — see [KidControl Wizard](#5-kidcontrol-wizard).
+The KidControl tab shows the wizard directly when KidControl is not yet configured for this model. The two-step flow (driver selection → adjust & confirm) is identical to the Basic view path — see [KidControl Wizard](#5-kidcontrol-wizard).
 
 When **KidControl is active**, the tab shows a summary card:
 
 ![Advanced KidControl tab — active state](screenshots/48-advanced-kidcontrol-active.png)
 
 The summary shows:
-- The trigger switch currently assigned (e.g. FL10)
+- The trigger switch currently assigned
 - Throttle limit and expo settings
-- Speed-up and speed-down ramp times
+- Speed ramp time
 - Steering limit and expo settings
+- An **Edit limits** button to jump directly to the sliders step and tweak values without re-selecting a preset
 - A **Remove KidControl** button to delete the FM1 drive mode and all associated mix/expo lines
 
 ---
 
-## 15. Transmitter Settings
+## 16. Transmitter Settings
 
 Access Transmitter Settings from the **Transmitter Settings** button in the header.
 
@@ -650,7 +680,9 @@ When an expansion module is configured, a second annotated diagram for that modu
 
 ---
 
-## 16. Vehicle Types
+## 17. Vehicle Types & Driver Presets
+
+### Vehicle Types
 
 Access Vehicle Types from the **Vehicle Types** button in the header.
 
@@ -660,7 +692,7 @@ The Vehicle Types page manages the list of categories that appear in the model e
 
 ### Built-in categories
 
-Nine categories are always available and cannot be deleted:
+Nine categories are always available and cannot be deleted, but their characteristics can be edited. Click **Edit** on any built-in to adjust its steering character and power delivery values. A **Reset** button appears on any built-in that has been modified, letting you restore the original defaults.
 
 | Category | Speed range |
 |----------|-------------|
@@ -684,13 +716,41 @@ Click **＋ Add custom type** to create a custom vehicle category. Each category
 |-------|-------------|
 | Name | Display name shown in model cards and the wizard |
 | Icon/image | An image uploaded from your computer, stored on the SD card |
-| KidControl defaults | Pre-set throttle limit, steering limit, and expo values |
+| Steering character | 0–100 slider — how sharply the vehicle responds to steering input (affects KidControl limit calculations) |
+| Power delivery | 0–100 slider — how instantly the motor responds to throttle input (affects KidControl limit calculations) |
 
 Custom categories are stored in `.webconfig/vehicle-categories.json` on the SD card — they travel with the card, not with individual model files.
 
+### Driver Presets
+
+Access Driver Presets from the **Driver Presets** button in the header.
+
+Driver presets define the skill level of the person who will be driving. When setting up KidControl, you choose a preset and the app calculates appropriate limits from the combination of the vehicle's physical characteristics and the preset's restriction level.
+
+#### Built-in presets
+
+Four presets are always available and cannot be deleted:
+
+| Preset | Restriction | Description |
+|--------|-------------|-------------|
+| Newbie | 100% | Completely new to R/C — maximum assistance |
+| Learner | 65% | Beginning to feather inputs — significant limits |
+| Confident Learner | 35% | Solid proportional control — light assistance |
+| Independent | 10% | Reliable in all conditions — minimal safety margin |
+
+#### Custom presets
+
+Click **New preset** to create a custom driver preset with:
+- A name and description
+- A **restriction level** (0–100%) — higher means more limiting
+
+Click **Clone** on a built-in preset to create a custom copy as a starting point.
+
+Custom presets are stored in `.webconfig/kid-presets.json` on the SD card.
+
 ---
 
-## 17. Saving & Backup
+## 18. Saving & Backup
 
 ### Saving with an SD card connected
 
@@ -753,7 +813,7 @@ If a model has been deleted its card is gone, so the **History** button is no lo
 
 ---
 
-## 18. Help & About
+## 19. Help & About
 
 ### Help
 
