@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
+import { switchLabel } from '../../codec/switches.ts';
 
 const POS_LABEL: Record<number, string> = { 0: '↑', 1: '—', 2: '↓' };
 
@@ -73,7 +74,7 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
     if (!open) setHighlight(null);
   }, [open, setHighlight]);
 
-  const selected = options.find(o => o.value === value) ?? (value ? { value, label: value, group: '', control: switchToControl(value) } : null);
+  const selected = options.find(o => o.value === value) ?? (value ? { value, label: switchLabel(value), group: '', control: switchToControl(value) } : null);
 
   return (
     <div ref={ref} id={id} style={{ position: 'relative', display: 'inline-block', minWidth: 160, ...style }}>

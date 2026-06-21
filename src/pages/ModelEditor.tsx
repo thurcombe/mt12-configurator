@@ -191,12 +191,12 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {tabDesc && <p className={css.tabDesc}>{tabDesc}</p>}
           {tab === 'module'      && <ModuleEditor model={model} onChange={handleChange} />}
           {tab === 'timers'      && <TimerEditor model={model} onChange={handleChange} />}
-          {tab === 'flightmodes' && <FlightModeEditor model={model} onChange={handleChange} />}
-          {tab === 'mixes'       && <MixEditor model={model} onChange={handleChange} />}
-          {tab === 'expos'       && <ExpoEditor model={model} onChange={handleChange} />}
+          {tab === 'flightmodes' && <FlightModeEditor model={model} onChange={handleChange} expansionConflict={expansionConflict} />}
+          {tab === 'mixes'       && <MixEditor model={model} onChange={handleChange} expansionConflict={expansionConflict} />}
+          {tab === 'expos'       && <ExpoEditor model={model} onChange={handleChange} expansionConflict={expansionConflict} />}
           {tab === 'limits'      && <LimitsEditor model={model} onChange={handleChange} />}
-          {tab === 'logicalsw'   && <LogicalSwEditor model={model} onChange={handleChange} />}
-          {tab === 'specialfn'   && <SpecialFnEditor model={model} onChange={handleChange} />}
+          {tab === 'logicalsw'   && <LogicalSwEditor model={model} onChange={handleChange} expansionConflict={expansionConflict} />}
+          {tab === 'specialfn'   && <SpecialFnEditor model={model} onChange={handleChange} expansionConflict={expansionConflict} />}
           {tab === 'kidmode'     && <KidModeWizard model={model} onChange={handleChange} modelKey={modelKey} />}
           {tab === 'yaml'        && <YamlViewer model={model} modelKey={modelKey} />}
         </div>

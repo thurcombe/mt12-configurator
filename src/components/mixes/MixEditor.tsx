@@ -17,11 +17,13 @@ import type { Model, MixLine } from '../../types/model.ts';
 import { ChannelGroup } from './ChannelGroup.tsx';
 import { MixLineModal } from './MixLineModal.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
 import css from './MixEditor.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  expansionConflict?: ExpansionConflict | null;
 }
 
 function blankMixLine(destCh: number): MixLine {
@@ -70,7 +72,7 @@ function reorderWithinChannel(
   return result;
 }
 
-export function MixEditor({ model, onChange }: Props) {
+export function MixEditor({ model, onChange, expansionConflict }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [isNewLine, setIsNewLine] = useState(false);
 
@@ -198,6 +200,7 @@ export function MixEditor({ model, onChange }: Props) {
             setIsNewLine(false);
           }}
           inUse={buildSwitchUsageMap(model)}
+          expansionConflict={expansionConflict}
         />
       )}
     </DndContext>

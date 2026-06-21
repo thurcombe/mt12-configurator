@@ -8,11 +8,14 @@ import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { switchLabel } from '../../codec/switches.ts';
 import { Tooltip } from '../shared/Tooltip.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
+import { warnForRef } from '../models/expansionConflict.ts';
 import css from './ExpoEditor.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  expansionConflict?: ExpansionConflict | null;
 }
 
 // ExpoLine.mode: bit 1 = positive, bit 2 = negative. 3 = both directions.
@@ -53,9 +56,10 @@ interface RowProps {
   onChange: (l: ExpoLine) => void;
   onDelete: () => void;
   inUse?: Record<string, string[]>;
+  expansionConflict?: ExpansionConflict | null;
 }
 
-function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse }: RowProps) {
+function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse, expansionConflict }: RowProps) {
   const sw = line.swtch && line.swtch !== 'NONE' ? switchLabel(line.swtch) : null;
   const modeLabel = MODE_OPTIONS.find((m) => m.value === line.mode)?.label ?? String(line.mode);
 
@@ -86,7 +90,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse }: R
             />
 
             <label className={css.label}>Source <Tooltip text="Which physical control this dual-rate applies to." /></label>
-            <SrcRawPicker value={line.srcRaw} onChange={(v) => onChange({ ...line, srcRaw: v })} />
+            <SrcRawPicker value={line.srcRaw} onChange={(v) => onChange({ ...line, srcRaw: v })} {...warnForRef(line.srcRaw, expansionConflict ?? null)} />
 
             <label className={css.label}>Direction <Tooltip text="Whether to apply these rates to positive stick, negative stick, or both directions." /></label>
             <select
@@ -129,7 +133,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse }: R
             )}
 
             <label className={css.label}>Switch <Tooltip text="Only use these rates when this switch is active — good for a 'race mode' vs 'normal mode'." /></label>
-            <SwitchPicker value={line.swtch ?? 'NONE'} onChange={(v) => onChange({ ...line, swtch: v })} inUse={inUse} />
+            <SwitchPicker value={line.swtch ?? 'NONE'} onChange={(v) => onChange({ ...line, swtch: v })} inUse={inUse} {...warnForRef(line.swtch, expansionConflict ?? null)} />
 
             <label className={css.label}>Flight modes <Tooltip text="Which flight modes this rate line is active in." /></label>
             <FlightModeCheckboxes value={line.flightModes} onChange={(v) => onChange({ ...line, flightModes: v })} />
@@ -144,7 +148,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse }: R
   );
 }
 
-export function ExpoEditor({ model, onChange }: Props) {
+export function ExpoEditor({ model, onChange, expansionConflict }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const expoData = model.expoData ?? [];
   const inUse = buildSwitchUsageMap(model);
@@ -200,6 +204,7 @@ export function ExpoEditor({ model, onChange }: Props) {
             onChange={(l) => updateLine(i, l)}
             onDelete={() => deleteLine(i)}
             inUse={inUse}
+            expansionConflict={expansionConflict}
           />
         ))}
       </div>

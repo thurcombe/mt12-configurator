@@ -4,11 +4,14 @@ import { SrcRawPicker } from '../shared/SrcRawPicker.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
+import { warnForRef } from '../models/expansionConflict.ts';
 import css from './LogicalSwEditor.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  expansionConflict?: ExpansionConflict | null;
 }
 
 const LS_FUNCS = [
@@ -96,9 +99,10 @@ interface RowProps {
   onChange: (ls: LogicalSw) => void;
   onDelete: () => void;
   inUse?: Record<string, string[]>;
+  expansionConflict?: ExpansionConflict | null;
 }
 
-function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse }: RowProps) {
+function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse, expansionConflict }: RowProps) {
   const decoded = decodeDef(ls.func, ls.def);
   const kinds = argKinds(ls.func);
   const labels = ARG_LABELS[ls.func] ?? kinds.map((_, i) => `Arg ${i + 1}`);
@@ -148,10 +152,10 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse }: RowProps) {
         return (
           <td key={i} title={label}>
             {kind === 'switch' && (
-              <SwitchPicker value={val || 'NONE'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} inUse={inUse} />
+              <SwitchPicker value={val || 'NONE'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} inUse={inUse} {...warnForRef(val, expansionConflict ?? null)} />
             )}
             {kind === 'srcraw' && (
-              <SrcRawPicker value={val || 'TH'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} />
+              <SrcRawPicker value={val || 'TH'} onChange={(v) => setArg(i, v)} style={{ fontSize: 12 }} {...warnForRef(val, expansionConflict ?? null)} />
             )}
             {kind === 'number' && (
               <input
@@ -167,7 +171,7 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse }: RowProps) {
       })}
 
       <td>
-        <SwitchPicker value={ls.andsw || 'NONE'} onChange={(v) => onChange({ ...ls, andsw: v })} style={{ fontSize: 12 }} inUse={inUse} />
+        <SwitchPicker value={ls.andsw || 'NONE'} onChange={(v) => onChange({ ...ls, andsw: v })} style={{ fontSize: 12 }} inUse={inUse} {...warnForRef(ls.andsw, expansionConflict ?? null)} />
       </td>
 
       <td>
@@ -199,7 +203,7 @@ function LogicalSwRow({ lsKey, ls, onChange, onDelete, inUse }: RowProps) {
   );
 }
 
-export function LogicalSwEditor({ model, onChange }: Props) {
+export function LogicalSwEditor({ model, onChange, expansionConflict }: Props) {
   const lsData = model.logicalSw ?? {};
   const entries = Object.entries(lsData).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
   const inUse = buildSwitchUsageMap(model);
@@ -259,6 +263,7 @@ export function LogicalSwEditor({ model, onChange }: Props) {
                   onChange={(l) => updateLs(key, l)}
                   onDelete={() => deleteLs(key)}
                   inUse={inUse}
+                  expansionConflict={expansionConflict}
                 />
               ))}
             </tbody>

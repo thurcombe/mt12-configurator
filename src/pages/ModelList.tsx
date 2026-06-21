@@ -5,7 +5,7 @@ import { useEditorStore } from '../store/useEditorStore.ts';
 import { findFreeSlot } from '../codec/modelTemplate.ts';
 import { BUILT_IN_CATEGORIES } from '../data/vehicleTypes.ts';
 import { ModelCard } from '../components/models/ModelCard.tsx';
-import { getExpansionConflict, modelUsesFlexSwitches } from '../components/models/expansionConflict.ts';
+import { getExpansionConflict } from '../components/models/expansionConflict.ts';
 import { ModelImagePicker } from '../components/models/ModelImagePicker.tsx';
 import { BackupHistory } from '../components/models/BackupHistory.tsx';
 import css from './ModelList.module.css';
@@ -176,11 +176,6 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
             const expansionConflict = models[key]
               ? getExpansionConflict(models[key], expansionModule())
               : null;
-            // moduleStale: model was saved against a different module variant than is currently installed
-            const moduleStale = !expansionConflict &&
-              !!meta?.moduleSnapshot &&
-              meta.moduleSnapshot !== expansionModule() &&
-              !!models[key] && modelUsesFlexSwitches(models[key]);
             return (
               <ModelCard
                 key={key}
@@ -194,8 +189,6 @@ export function ModelList({ navigate, offlineBannerDismissed, onDismissOfflineBa
                 kidPresetName={kidPresetName}
                 kidStale={kidStale}
                 expansionConflict={expansionConflict}
-                moduleStale={moduleStale}
-                moduleSnapshot={meta?.moduleSnapshot}
                 vehicleTypeImageUrl={vehicleTypeImageUrl}
                 onEdit={() => navigate({ page: 'editor', modelKey: key })}
                 onDuplicate={() => handleDuplicate(key)}

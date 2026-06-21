@@ -11,6 +11,18 @@ export interface ExpansionConflict {
 // Human-readable descriptions of where each control is used, keyed by control name.
 export type ControlUsageMap = Record<string, string[]>;
 
+const SWITCH_POS_NAMES = ['↑', '—', '↓'];
+
+/**
+ * Converts a position code like "FL12" to a human-readable label like "FL1 ↓".
+ * Falls back to "FL1 Pos N" for out-of-range indices.
+ */
+export function switchPosLabel(pos: string): string {
+  const idx = parseInt(pos[3], 10);
+  const ctrl = pos.slice(0, 3);
+  return `${ctrl} ${SWITCH_POS_NAMES[idx] ?? `Pos ${idx}`}`;
+}
+
 /**
  * Maps a switch position, mix/expo source, or conflict-control string to the base
  * expansion control it depends on (FL1/FL2/P3/P4), or null if it references none.
@@ -82,10 +94,15 @@ function scanModel(model: Model): ScanResult {
     checkSwitch(fm.swtch, `${label} condition`);
   }
   for (const [idx, ls] of Object.entries(model.logicalSw ?? {})) {
-    const label = `logical switch L${parseInt(idx) + 1}`;
-    // ls.def is comma-separated (e.g. "FL12,SA1") — check each token individually
-    // so match() doesn't stop at the first FL hit and silently miss subsequent ones.
-    for (const arg of (ls.def ?? '').split(',')) checkSwitch(arg.trim(), `${label} input`);
+    const lsRef = `L${parseInt(idx) + 1}`;
+    const lsSrcKey = `ls(${parseInt(idx) + 1})`;
+    // Find a mix that uses this logical switch (as swtch condition OR as srcRaw source).
+    const referencingMix = model.mixData?.find(l => {
+      const s = l.swtch ?? '';
+      return s === lsRef || s === `!${lsRef}` || l.srcRaw === lsSrcKey;
+    });
+    const label = referencingMix?.name ? `"${referencingMix.name}" switch` : lsRef;
+    for (const arg of (ls.def ?? '').split(',')) checkSwitch(arg.trim(), `${label} condition`);
     checkSwitch(ls.andsw, `${label} AND condition`);
   }
   for (const [idx, fn] of Object.entries(model.customFn ?? {})) {
@@ -166,13 +183,38 @@ export function expansionConflictLabel(conflict: ExpansionConflict): string {
   }
 
   if (posOverflow.length > 0) {
-    const first = posOverflow[0];
-    const extra = posOverflow.length - 1;
+    const labels = posOverflow.map(switchPosLabel);
+    const first = labels[0];
+    const extra = labels.length - 1;
     const ctrlStr = extra > 2
       ? `${first} (+ ${extra} other${extra > 1 ? 's' : ''})`
-      : posOverflow.join(', ');
-    parts.push(`${ctrlStr} requires more switch positions than ${moduleName} provides — ${extra > 2 ? 'those conditions' : posOverflow.length > 1 ? 'those conditions' : 'that condition'} will never trigger`);
+      : labels.join(', ');
+    parts.push(`${ctrlStr} ${labels.length > 1 ? 'are' : 'is'} not available on ${moduleName} — ${labels.length > 1 ? 'those conditions' : 'that condition'} will never trigger`);
   }
 
   return parts.join('. ');
+}
+
+/**
+ * Returns warn/warnTitle for a single switch or source reference.
+ * Spread directly onto SwitchPicker or SrcRawPicker props.
+ */
+export function warnForRef(
+  ref: string | undefined | null,
+  conflict: ExpansionConflict | null,
+): { warn: boolean; warnTitle?: string } {
+  if (!ref || !conflict) return { warn: false };
+  const norm = ref.startsWith('!') ? ref.slice(1) : ref;
+  const ctrl = refControl(ref);
+  if (!ctrl) return { warn: false };
+  const moduleLabel = conflict.installedModule === 'none'
+    ? 'no module installed'
+    : EXPANSION_MODULES[conflict.installedModule].label;
+  if (/^FL[12]\d$/.test(norm) && conflict.controls.includes(norm)) {
+    return { warn: true, warnTitle: `${switchPosLabel(norm)} is not available on ${moduleLabel} — this condition will never trigger.` };
+  }
+  if (conflict.controls.includes(ctrl)) {
+    return { warn: true, warnTitle: `${ctrl} isn't provided by the installed expansion module (${moduleLabel}). Its mixes and switch conditions will be inactive until the module is changed back or this model is updated.` };
+  }
+  return { warn: false };
 }

@@ -141,7 +141,7 @@ describe('getControlUsages', () => {
       customFn: { '4': fn({ swtch: 'FL20' }) },
     });
     const usages = getControlUsages(m);
-    expect(usages['FL1']).toContain('logical switch L3 input');
+    expect(usages['FL1']).toContain('L3 condition');
     expect(usages['FL2']).toContain('special function SF5 condition');
   });
 
@@ -195,8 +195,8 @@ describe('expansionConflictLabel', () => {
 
   it('describes a position overflow as never triggering', () => {
     const label = expansionConflictLabel({ controls: ['FL12'], requiredFor: 'switch', installedModule: 'switch_dual2' });
-    expect(label).toContain('FL12');
-    expect(label).toContain('requires more switch positions');
+    expect(label).toContain('FL1 ↓');
+    expect(label).toContain('not available on');
     expect(label).toContain('will never trigger');
   });
 
@@ -206,7 +206,7 @@ describe('expansionConflictLabel', () => {
     const label = expansionConflictLabel({ controls: ['P3', 'FL12'], requiredFor: 'both', installedModule: 'switch_dual2' });
     expect(label).toContain('P3');
     expect(label).toContain("doesn't provide");
-    expect(label).toContain('FL12');
+    expect(label).toContain('FL1 ↓');
     expect(label).toContain('will never trigger');
   });
 });

@@ -5,6 +5,8 @@ import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { FlightModeCheckboxes } from '../shared/FlightModeCheckboxes.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
+import { warnForRef } from '../models/expansionConflict.ts';
 import css from './MixLineModal.module.css';
 
 const MLTPX_OPTIONS = [
@@ -19,9 +21,10 @@ interface Props {
   onDelete: () => void;
   onClose: () => void;
   inUse?: Record<string, string[]>;
+  expansionConflict?: ExpansionConflict | null;
 }
 
-export function MixLineModal({ line, onSave, onDelete, onClose, inUse }: Props) {
+export function MixLineModal({ line, onSave, onDelete, onClose, inUse, expansionConflict }: Props) {
   const [draft, setDraft] = useState<MixLine>({ ...line });
   const ch = draft.destCh + 1; // display as 1-based
 
@@ -54,7 +57,7 @@ export function MixLineModal({ line, onSave, onDelete, onClose, inUse }: Props) 
             />
 
             <label className={css.label}>Source <Tooltip text="The input that drives this channel — a stick, switch, pot, or another channel's output." /></label>
-            <SrcRawPicker value={draft.srcRaw} onChange={(v) => field('srcRaw', v)} style={{ width: '100%' }} />
+            <SrcRawPicker value={draft.srcRaw} onChange={(v) => field('srcRaw', v)} style={{ width: '100%' }} {...warnForRef(draft.srcRaw, expansionConflict ?? null)} />
 
             <label className={css.label}>Multiplexer <Tooltip text="How this line combines with earlier lines on the same channel: Add (+) stacks on top; Replace (=) overrides all previous lines; Multiply (×) scales the running total." /></label>
             <select
@@ -74,7 +77,7 @@ export function MixLineModal({ line, onSave, onDelete, onClose, inUse }: Props) 
             <WeightSlider value={draft.offset} onChange={(v) => field('offset', v)} min={-100} max={100} />
 
             <label className={css.label}>Switch <Tooltip text="Only apply this mix line when a specific switch is active. Leave as 'None' to always apply." /></label>
-            <SwitchPicker value={draft.swtch ?? 'NONE'} onChange={(v) => field('swtch', v)} inUse={inUse} />
+            <SwitchPicker value={draft.swtch ?? 'NONE'} onChange={(v) => field('swtch', v)} inUse={inUse} {...warnForRef(draft.swtch, expansionConflict ?? null)} />
 
             <label className={css.label}>Flight modes <Tooltip text="Tick the flight modes where this line is active. An unticked mode means the line is excluded (ignored) in that mode." /></label>
             <FlightModeCheckboxes

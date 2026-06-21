@@ -2,11 +2,14 @@ import type { Model, CustomFn } from '../../types/model.ts';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { Tooltip } from '../shared/Tooltip.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
+import type { ExpansionConflict } from '../models/expansionConflict.ts';
+import { warnForRef } from '../models/expansionConflict.ts';
 import css from './SpecialFnEditor.module.css';
 
 interface Props {
   model: Model;
   onChange: (updater: (m: Model) => Model) => void;
+  expansionConflict?: ExpansionConflict | null;
 }
 
 // Common special function names in EdgeTX.
@@ -48,15 +51,16 @@ interface RowProps {
   onChange: (fn: CustomFn) => void;
   onDelete: () => void;
   inUse?: Record<string, string[]>;
+  expansionConflict?: ExpansionConflict | null;
 }
 
-function SpecialFnRow({ fnKey, fn, onChange, onDelete, inUse }: RowProps) {
+function SpecialFnRow({ fnKey, fn, onChange, onDelete, inUse, expansionConflict }: RowProps) {
   return (
     <tr className={css.row}>
       <td className={css.idx}>#{parseInt(fnKey) + 1}</td>
 
       <td>
-        <SwitchPicker value={fn.swtch || 'NONE'} onChange={(v) => onChange({ ...fn, swtch: v })} style={{ fontSize: 12 }} inUse={inUse} />
+        <SwitchPicker value={fn.swtch || 'NONE'} onChange={(v) => onChange({ ...fn, swtch: v })} style={{ fontSize: 12 }} inUse={inUse} {...warnForRef(fn.swtch, expansionConflict ?? null)} />
       </td>
 
       <td>
@@ -91,7 +95,7 @@ function SpecialFnRow({ fnKey, fn, onChange, onDelete, inUse }: RowProps) {
   );
 }
 
-export function SpecialFnEditor({ model, onChange }: Props) {
+export function SpecialFnEditor({ model, onChange, expansionConflict }: Props) {
   const fnData = model.customFn ?? {};
   const entries = Object.entries(fnData).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
   const inUse = buildSwitchUsageMap(model);
@@ -147,6 +151,7 @@ export function SpecialFnEditor({ model, onChange }: Props) {
                   onChange={(f) => updateFn(key, f)}
                   onDelete={() => deleteFn(key)}
                   inUse={inUse}
+                  expansionConflict={expansionConflict}
                 />
               ))}
             </tbody>
