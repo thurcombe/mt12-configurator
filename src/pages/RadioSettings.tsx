@@ -28,7 +28,7 @@ const HAPTIC_MODES = ['off', 'alarms', 'nokey', 'all'];
 const SWITCH_TYPES = ['2pos', '3pos', 'toggle', 'multipos'];
 const SWITCH_TYPE_LABEL: Record<string, string> = {
   '2pos': '2-Pos (latching)',
-  '3pos': '3-Pos',
+  '3pos': '3-Pos (up/centre/down)',
   toggle: 'Toggle (momentary/push-button)',
   multipos: 'Multi-position rotary',
 };
