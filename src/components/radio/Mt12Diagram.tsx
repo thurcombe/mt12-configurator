@@ -220,10 +220,11 @@ interface PhotoProps {
   large?: boolean;
   functionMap?: FunctionMap;
   showFunctions?: boolean;
+  titleLabel?: string;
 }
 
 function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, externalHighlight,
-  warningControls, onSelect, onHover, placing, activeControl, dragPreview, large, functionMap, showFunctions }: PhotoProps) {
+  warningControls, onSelect, onHover, placing, activeControl, dragPreview, large, functionMap, showFunctions, titleLabel }: PhotoProps) {
 
   function active(name: string) {
     return selected === name || hovered === name || externalHighlight === name;
@@ -385,6 +386,27 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
           }}>{activeControl}</span>
         </div>
       )}
+
+      {titleLabel && (
+        <div style={{
+          position:'absolute', left:'50%', bottom:'6%',
+          transform:'translateX(-50%)',
+          textAlign:'center',
+          pointerEvents:'none',
+        }}>
+          <span style={{
+            display:'inline-block',
+            fontSize: large ? 13 : 10,
+            fontWeight: 600,
+            fontFamily:'system-ui,sans-serif',
+            color:'#fff',
+            background:'rgba(0,0,0,0.6)',
+            padding:'2px 8px',
+            borderRadius: 3,
+            whiteSpace:'nowrap',
+          }}>{titleLabel}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -516,11 +538,6 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
       {/* Toolbar */}
       {sdRoot ? (
         <div className={css.placeBar}>
-          {diagramLabel && (
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font)', marginRight: 8 }}>
-              {diagramLabel}
-            </span>
-          )}
           <button className={css.placeBtn} onClick={() => { setPlacing(true); setEnlarged(true); }}>
             {allPlaced ? '⚙ Reposition labels' : '⚙ Place control labels'}
           </button>
@@ -542,7 +559,7 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
         </div>
       ) : (
         <p className={css.hint} style={{ marginBottom: 4 }}>
-          {diagramLabel ? `${diagramLabel} — ` : ''}Connect your SD card to reposition labels.
+          Connect your SD card to reposition labels.
         </p>
       )}
 
@@ -564,6 +581,7 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
           onHover={setHovered}
           functionMap={functionMap}
           showFunctions={showFunctions}
+          titleLabel={diagramLabel}
         />
       </div>
 
@@ -667,6 +685,7 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
               dragPreview={dragState}
               functionMap={functionMap}
               showFunctions={showFunctions}
+              titleLabel={diagramLabel}
               large
             />
           </div>

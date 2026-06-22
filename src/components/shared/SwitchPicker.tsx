@@ -21,7 +21,7 @@ function buildOptions(switches: { key: string; name: string; type: string }[]): 
     { value: 'ON',   label: 'Always ON',  group: '',    control: null },
   ];
   for (const s of switches) {
-    const positions = s.type === '3POS' ? 3 : 2;
+    const positions = s.type.toUpperCase() === '3POS' ? 3 : 2;
     const displayLabel = `${s.name !== s.key ? `${s.key} (${s.name})` : s.key} (${s.type === '3POS' ? '3-pos' : '2-pos'})`;
     for (let p = 0; p < positions; p++) {
       opts.push({
