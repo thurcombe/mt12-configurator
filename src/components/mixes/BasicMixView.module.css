@@ -153,7 +153,7 @@
 
 .fieldRow {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: var(--form-label-width) 1fr;
   align-items: center;
   gap: 12px;
 }
@@ -161,6 +161,7 @@
 .fieldLabel {
   font-size: 13px;
   color: var(--text-muted);
+  text-align: right;
 }
 
 .fieldHint {
@@ -357,7 +358,7 @@
 }
 
 .channelSelect {
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 4px;

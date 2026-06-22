@@ -25,7 +25,13 @@ const TABS: Tab[] = [
 const BACKLIGHT_MODES = ['off', 'keys', 'sticks', 'both', 'on'];
 const BEEP_MODES = ['quiet', 'alarms', 'nokey', 'all'];
 const HAPTIC_MODES = ['off', 'alarms', 'nokey', 'all'];
-const SWITCH_TYPES = ['2POS', '3POS', 'TOGGLE', 'MULTIPOS'];
+const SWITCH_TYPES = ['2pos', '3pos', 'toggle', 'multipos'];
+const SWITCH_TYPE_LABEL: Record<string, string> = {
+  '2pos': '2-Pos (latching)',
+  '3pos': '3-Pos',
+  toggle: 'Toggle (momentary/push-button)',
+  multipos: 'Multi-position rotary',
+};
 const POT_TYPES = ['with_detent', 'without_detent', 'SLIDER', 'MULTIPOS_SWITCH', 'axis_x', 'axis_y'];
 const POT_TYPE_LABEL: Record<string, string> = {
   with_detent: 'Pot (with detent)',
@@ -221,11 +227,16 @@ function SwitchesTab({ onHover }: { onHover: (sw: string | null) => void }) {
                   )}
                 </td>
                 <td>
-                  <select className={css.selectSm} value={swCfg.type}
-                    onChange={(e) => updateSwitch(s.key, 'type', e.target.value)}>
-                    {SWITCH_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    {!SWITCH_TYPES.includes(swCfg.type) && <option value={swCfg.type}>{swCfg.type}</option>}
-                  </select>
+                  {(() => {
+                    const swType = (swCfg.type ?? '').toLowerCase();
+                    return (
+                      <select className={css.selectSm} value={swType}
+                        onChange={(e) => updateSwitch(s.key, 'type', e.target.value)}>
+                        {SWITCH_TYPES.map((t) => <option key={t} value={t}>{SWITCH_TYPE_LABEL[t] ?? t}</option>)}
+                        {!SWITCH_TYPES.includes(swType) && <option value={swType}>{swType}</option>}
+                      </select>
+                    );
+                  })()}
                 </td>
                 <td>
                   <input type="text" className={css.nameInput}

@@ -16,7 +16,7 @@
 }
 
 .tableWrap {
-  overflow-x: auto;
+  /* overflow-x:auto removed — it clips absolutely-positioned picker dropdowns */
 }
 
 .table {

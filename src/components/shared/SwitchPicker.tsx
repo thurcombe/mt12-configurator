@@ -1,6 +1,6 @@
 // Custom dropdown for selecting an MT12 switch position.
 // Fires per-option hover so the diagram highlights the physical switch as the user browses.
-// Produces raw EdgeTX switch strings like "SA0", "SC1", "NONE", "ON".
+// Produces raw EdgeTX switch strings like "SA0", "SC2", "NONE", "ON".
 
 import { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
@@ -15,15 +15,17 @@ interface SwitchOption {
   control: string | null;
 }
 
-function buildOptions(switches: { key: string; name: string; type: string }[]): SwitchOption[] {
+export function buildOptions(switches: { key: string; name: string; type: string }[]): SwitchOption[] {
   const opts: SwitchOption[] = [
     { value: 'NONE', label: 'None',       group: '',    control: null },
     { value: 'ON',   label: 'Always ON',  group: '',    control: null },
   ];
   for (const s of switches) {
-    const positions = s.type.toUpperCase() === '3POS' ? 3 : 2;
-    const displayLabel = `${s.name !== s.key ? `${s.key} (${s.name})` : s.key} (${s.type === '3POS' ? '3-pos' : '2-pos'})`;
-    for (let p = 0; p < positions; p++) {
+    const is3pos = s.type.toUpperCase() === '3POS';
+    // EdgeTX toggle/2-pos switches use positions 0 (↑) and 2 (↓) — position 1 (middle) does not exist on a 2-pos switch.
+    const positions = is3pos ? [0, 1, 2] : [0, 2];
+    const displayLabel = `${s.name !== s.key ? `${s.key} (${s.name})` : s.key} (${is3pos ? '3-pos' : '2-pos'})`;
+    for (const p of positions) {
       opts.push({
         value: `${s.key}${p}`,
         label: `${displayLabel} ${POS_LABEL[p] ?? p}`,
@@ -99,7 +101,7 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
         <div style={{
           position: 'absolute', top: 'calc(100% + 2px)', left: 0, zIndex: 200,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.4)', minWidth: '100%', overflow: 'hidden',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)', minWidth: '100%', maxHeight: 'var(--picker-max-height)', overflowY: 'auto',
         }}>
           {groups.map((group, gi) => {
             const opts = options.filter(o => o.group === group);
@@ -113,30 +115,32 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
                 )}
                 {opts.map(opt => {
                   const isSelected = opt.value === value;
+                  const usages = inUse?.[opt.value];
+                  const isDisabled = !!(usages?.length && !isSelected);
                   return (
                     <div
                       key={opt.value}
-                      onMouseEnter={() => setHighlight(opt.control)}
+                      onMouseEnter={() => !isDisabled && setHighlight(opt.control)}
                       onMouseLeave={() => setHighlight(null)}
-                      onClick={() => { onChange(opt.value); setOpen(false); setHighlight(null); }}
-                      style={{
-                        padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 13,
-                        background: isSelected ? 'var(--accent)' : undefined,
-                        color: isSelected ? '#fff' : 'var(--text)',
+                      onClick={() => {
+                        if (isDisabled) return;
+                        onChange(opt.value); setOpen(false); setHighlight(null);
                       }}
-                      onMouseOver={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-hover, rgba(255,255,255,0.06))'; }}
+                      style={{
+                        padding: '5px 10px', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font)', fontSize: 13,
+                        background: isSelected ? 'var(--accent)' : undefined,
+                        color: isSelected ? '#fff' : isDisabled ? 'var(--text-muted)' : 'var(--text)',
+                        opacity: isDisabled ? 0.6 : 1,
+                      }}
+                      onMouseOver={(e) => { if (!isSelected && !isDisabled) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-hover, rgba(255,255,255,0.06))'; }}
                       onMouseOut={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = ''; }}
                     >
                       {opt.label}
-                      {(() => {
-                        const usages = inUse?.[opt.value];
-                        if (!usages?.length) return null;
-                        return (
-                          <div style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', marginTop: 1 }}>
-                            In use: {usages.join(', ')}
-                          </div>
-                        );
-                      })()}
+                      {usages?.length ? (
+                        <div style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.7)' : '#ef4444', marginTop: 1 }}>
+                          In use by: {usages.join(', ')}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -148,6 +152,7 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
           })}
         </div>
       )}
+
     </div>
   );
 }

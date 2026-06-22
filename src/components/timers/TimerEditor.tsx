@@ -52,7 +52,7 @@ function TimerRow({ idx, timer, onChange, onRemove, initialOpen, inUse }: { idx:
   return (
     <div className={css.panel}>
       <button className={css.panelHeader} onClick={() => setOpen((o) => !o)}>
-        <span className={css.chevron}>{open ? '▾' : '▸'}</span>
+        <span className={css.caret}>{open ? '▾' : '▸'}</span>
         <span className={css.panelTitle}>{title}</span>
         <span className={css.hint}>{timer.value ? secondsToHMS(timer.value) : '—'}</span>
       </button>

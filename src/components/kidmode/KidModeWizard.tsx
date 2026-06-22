@@ -6,6 +6,7 @@ import { switchLabel } from '../../codec/switches.ts';
 import type { KidModeParams } from './kidDefaults.ts';
 import { calculateKidParams } from './kidCalculator.ts';
 import { applyKidMode, removeKidMode, isKidModeActive } from './kidGenerator.ts';
+import { expoFeel, rampDesc } from './kidFormatters.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { BUILT_IN_CATEGORIES } from '../../data/vehicleTypes.ts';
 import type { VehicleCategory } from '../../data/vehicleTypes.ts';
@@ -59,21 +60,7 @@ function SliderRow({ label, value, min, max, unit = '%', onChange }: SliderRowPr
   );
 }
 
-function expoFeel(expo: number): string {
-  if (expo <= 5)  return 'direct';
-  if (expo <= 25) return 'slightly softer';
-  if (expo <= 50) return 'noticeably softer';
-  if (expo <= 75) return 'very soft';
-  return 'extremely soft';
-}
 
-function rampDesc(up: number, down: number): string {
-  const u = (up * 0.1).toFixed(1);
-  const d = (down * 0.1).toFixed(1);
-  if (up > 0 && down > 0) return `${u}s to speed up, ${d}s to slow down`;
-  if (up > 0) return `${u}s to speed up`;
-  return `${d}s to slow down`;
-}
 
 function restrictionBar(level: number) {
   const filled = Math.round(level / 10);
@@ -223,7 +210,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
         </div>
         <div className={css.actions}>
           <button className="btn btn-ghost btn-sm" onClick={() => setEditingActive(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleApply}>Apply changes</button>
+          <button className="btn btn-primary btn-sm" onClick={handleApply}>Apply changes</button>
         </div>
       </div>
     );
@@ -406,7 +393,7 @@ export function KidModeWizard({ model, onChange, onApplied, modelKey, skipActive
 
           <div className={css.actions}>
             <button className="btn btn-ghost btn-sm" onClick={() => setStep('preset')}>← Back</button>
-            <button className="btn btn-primary" onClick={handleApply}>Apply KidControl</button>
+            <button className="btn btn-primary btn-sm" onClick={handleApply}>Apply KidControl</button>
           </div>
         </div>
       )}
