@@ -389,19 +389,20 @@ function AnnotatedPhoto({ imageSrc, controls, positions, selected, hovered, exte
 
       {titleLabel && (
         <div style={{
-          position:'absolute', left:'50%', bottom:'6%',
+          position:'absolute', left:'50%', top:'85%',
           transform:'translateX(-50%)',
           textAlign:'center',
+          lineHeight: 1.15,
           pointerEvents:'none',
         }}>
           <span style={{
             display:'inline-block',
-            fontSize: large ? 13 : 10,
-            fontWeight: 600,
+            fontSize: large ? 15 : 11,
+            fontWeight: 500,
             fontFamily:'system-ui,sans-serif',
             color:'#fff',
-            background:'rgba(0,0,0,0.6)',
-            padding:'2px 8px',
+            background:'rgba(0,0,0,0.35)',
+            padding:'1px 5px',
             borderRadius: 3,
             whiteSpace:'nowrap',
           }}>{titleLabel}</span>
