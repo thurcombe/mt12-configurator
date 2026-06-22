@@ -647,7 +647,7 @@ Switch type options and their meanings:
 | Type | Meaning |
 |------|---------|
 | 2-Pos (latching) | A standard toggle switch that stays in position — the most common type. |
-| 3-Pos | A three-position switch (up / centre / down). |
+| 3-Pos (up/centre/down) | A three-position switch with up, centre, and down positions. |
 | Toggle (momentary/push-button) | A spring-return switch that snaps back when released — EdgeTX calls this "toggle". |
 | Multi-position rotary | A rotary selector with multiple detented positions. |
 
