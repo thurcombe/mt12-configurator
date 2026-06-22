@@ -13,8 +13,8 @@ export type Route =
   | { page: 'list' }
   | { page: 'editor'; modelKey: string }
   | { page: 'radio' }
-  | { page: 'vehicle-types' }
-  | { page: 'kid-presets' };
+  | { page: 'vehicle-types'; from?: Route }
+  | { page: 'kid-presets'; from?: Route };
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ page: 'list' });
@@ -97,8 +97,8 @@ export default function App() {
       )}
       {route.page === 'editor' && <ModelEditor modelKey={route.modelKey} navigate={navigate} />}
       {route.page === 'radio' && <RadioSettings navigate={navigate} />}
-      {route.page === 'vehicle-types' && <VehicleTypesPage navigate={navigate} />}
-      {route.page === 'kid-presets' && <KidPresetsPage navigate={navigate} />}
+      {route.page === 'vehicle-types' && <VehicleTypesPage navigate={navigate} from={route.from} />}
+      {route.page === 'kid-presets' && <KidPresetsPage navigate={navigate} from={route.from} />}
 
       {pendingNav && (
         <div className={css.leaveOverlay}>

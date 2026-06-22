@@ -10,6 +10,8 @@ import { Tooltip } from '../shared/Tooltip.tsx';
 import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import type { ExpansionConflict } from '../models/expansionConflict.ts';
 import { warnForRef } from '../models/expansionConflict.ts';
+import { Icon } from '../shared/Icon.tsx';
+import { faToggleOn } from '@fortawesome/free-solid-svg-icons';
 import css from './ExpoEditor.module.css';
 
 interface Props {
@@ -74,7 +76,7 @@ function ExpoRow({ line, idx, expanded, onToggle, onChange, onDelete, inUse, exp
           <span className={css.expo}>exp {line.curve.value}</span>
         )}
         <span className={css.mode}>{modeLabel}</span>
-        {sw && <span className={css.sw}>{sw}</span>}
+        {sw && <span className={css.sw}><Icon icon={faToggleOn} size={10} />{sw}</span>}
       </button>
 
       {expanded && (

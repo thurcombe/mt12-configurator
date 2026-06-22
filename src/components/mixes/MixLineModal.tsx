@@ -34,7 +34,6 @@ export function MixLineModal({ line, onSave, onDelete, onClose, inUse, expansion
 
   function handleSave() {
     onSave(draft);
-    onClose();
   }
 
   return (

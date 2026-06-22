@@ -1,3 +1,5 @@
+import { Icon } from '../shared/Icon.tsx';
+import { faTag } from '@fortawesome/free-solid-svg-icons';
 import css from './AboutModal.module.css';
 
 interface Props {
@@ -23,7 +25,7 @@ export function AboutModal({ onClose }: Props) {
               className={`badge ${/^\d+\.\d+\.\d+/.test(__APP_VERSION__) ? 'badge-green' : 'badge-warning'}`}
               style={{ textDecoration: 'none' }}
             >
-              v{__APP_VERSION__}
+              <Icon icon={faTag} size={11} />v{__APP_VERSION__}
             </a>
             <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ fontSize: 18, padding: '2px 8px' }}>✕</button>
           </div>

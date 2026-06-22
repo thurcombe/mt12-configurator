@@ -162,12 +162,18 @@ export function describeMix(line: MixLine, ctx?: MixProseContext): string {
       }
       break;
     }
-    case 'REPL':
-      prose = `Sets ${roleName} to ${srcLabel}`;
+    case 'REPL': {
+      const sameAsRole = srcLabel.toLowerCase() === roleName.toLowerCase();
+      if (sameAsRole) {
+        prose = `${roleName} input passes through`;
+      } else {
+        prose = `Sets ${roleName} to ${srcLabel}`;
+      }
       if (Math.abs(w) !== 100) prose += ` at ${Math.abs(w)}%`;
       if (w < 0) prose += ' (inverted)';
       if (line.offset !== 0) prose += `, offset ${line.offset > 0 ? '+' : ''}${line.offset}%`;
       break;
+    }
     default:
       prose = `${srcLabel} → ${roleName}`;
   }

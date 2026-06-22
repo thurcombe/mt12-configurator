@@ -447,9 +447,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Load per-model metadata (scale, vehicleType, power etc.)
       const meta = await readWebConfig<Record<string, { scale?: string; vehicleType?: string; power?: 'battery' | 'fuel' }>>(root, 'model-meta.json');
       if (meta) set({ modelMeta: meta });
-      // Load vehicle categories + type images, and kid presets
+      // Load vehicle categories + type images, kid presets, and radio config
       get().loadVehicleCategories();
       get().loadKidPresets();
+      get().loadRadio();
     } catch (e) {
       const msg = friendlyError(e);
       if (msg) set({ lastError: msg });

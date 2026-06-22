@@ -292,6 +292,118 @@ export function removeGyroGain(model: Model, a: BasicAnalysis): Model {
   return { ...model, mixData };
 }
 
+export function setGyroSource(model: Model, a: BasicAnalysis, newSrc: string): Model {
+  if (!a.gyro) return model;
+  const oldChn = a.gyro.chn; // 2=P1, 3=P2, -1=direct (trim lever)
+
+  // Remove the current gyro mix line.
+  let mixData = model.mixData.filter((_, i) => i !== a.gyro!.globalIdx);
+  let expoData = [...(model.expoData ?? [])];
+  const inputNames = { ...(model.inputNames ?? {}) };
+
+  // Clean up the old expo input channel if nothing else references it.
+  if (oldChn >= 0) {
+    const srcRef = `I${oldChn}`;
+    if (!mixData.some(m => m.srcRaw === srcRef)) {
+      expoData = expoData.filter(e => e.chn !== oldChn);
+      delete inputNames[String(oldChn)];
+    }
+  }
+
+  // Add new gyro mix (and expo line if the new source is a pot knob).
+  if (newSrc === 'P1' || newSrc === 'P2') {
+    const newChn = newSrc === 'P1' ? 2 : 3;
+    if (!expoData.some(e => e.chn === newChn)) {
+      expoData = [...expoData, blankExpoLine(newSrc, newChn, 100, 0)];
+      inputNames[String(newChn)] = { val: 'GYRO' };
+    }
+    mixData = [...mixData, blankMix('GYRO-GAIN', a.gyro.destCh, `I${newChn}`, 'ADD', 100, 0)];
+  } else {
+    mixData = [...mixData, blankMix('GYRO-GAIN', a.gyro.destCh, newSrc, 'ADD', 100, 0)];
+  }
+
+  return { ...model, mixData, expoData, inputNames };
+}
+
+// Returns the physical hardware source name for a mix's srcRaw.
+// If srcRaw is an expo input like 'I2', resolves to the expo line's srcRaw (e.g. 'P1').
+// Otherwise returns srcRaw directly.
+export function physicalSrcFor(srcRaw: string, expoData: ExpoLine[]): string {
+  const m = INPUT_RE.exec(srcRaw);
+  if (m) {
+    const chn = parseInt(m[1]);
+    return expoData.find(e => e.chn === chn)?.srcRaw ?? srcRaw;
+  }
+  return srcRaw;
+}
+
+export function setDRateSource(model: Model, a: BasicAnalysis, newSrc: string): Model {
+  if (!a.drate || a.drate.switchMode) return model;
+  const drateMix = model.mixData[a.drate.globalIdx];
+  if (!drateMix) return model;
+
+  const oldChn = a.drate.chn; // -1 for direct, >=0 for expo channel
+
+  let mixData = model.mixData.filter((_, i) => i !== a.drate!.globalIdx);
+  let expoData = [...(model.expoData ?? [])];
+  const inputNames = { ...(model.inputNames ?? {}) };
+
+  if (oldChn >= 0) {
+    const srcRef = `I${oldChn}`;
+    if (!mixData.some(m => m.srcRaw === srcRef)) {
+      expoData = expoData.filter(e => e.chn !== oldChn);
+      delete inputNames[String(oldChn)];
+    }
+  }
+
+  if (newSrc === 'P1' || newSrc === 'P2') {
+    const newChn = newSrc === 'P1' ? 2 : 3;
+    if (!expoData.some(e => e.chn === newChn)) {
+      expoData = [...expoData, blankExpoLine(newSrc, newChn, 50, 50)];
+      inputNames[String(newChn)] = { val: newSrc === 'P1' ? 'STT' : 'TDR' };
+    }
+    mixData = [...mixData, blankMix('D-RATE', drateMix.destCh, `I${newChn}`, 'MUL', 100, 0)];
+  } else {
+    mixData = [...mixData, blankMix('D-RATE', drateMix.destCh, newSrc, 'MUL', 50, 50)];
+  }
+
+  return { ...model, mixData, expoData, inputNames };
+}
+
+export function setSTrimSource(model: Model, a: BasicAnalysis, newSrc: string): Model {
+  if (!a.strim) return model;
+  const strimMix = model.mixData[a.strim.globalIdx];
+  if (!strimMix) return model;
+
+  const oldInputM = INPUT_RE.exec(strimMix.srcRaw);
+  const oldChn = oldInputM ? parseInt(oldInputM[1]) : -1;
+
+  let mixData = model.mixData.filter((_, i) => i !== a.strim!.globalIdx);
+  let expoData = [...(model.expoData ?? [])];
+  const inputNames = { ...(model.inputNames ?? {}) };
+
+  if (oldChn >= 0) {
+    const srcRef = `I${oldChn}`;
+    if (!mixData.some(m => m.srcRaw === srcRef)) {
+      expoData = expoData.filter(e => e.chn !== oldChn);
+      delete inputNames[String(oldChn)];
+    }
+  }
+
+  if (newSrc === 'P1' || newSrc === 'P2') {
+    const newChn = newSrc === 'P1' ? 2 : 3;
+    if (!expoData.some(e => e.chn === newChn)) {
+      expoData = [...expoData, blankExpoLine(newSrc, newChn, 100, 0)];
+      inputNames[String(newChn)] = { val: 'STR' };
+    }
+    mixData = [...mixData, blankMix('S-TRIM', a.strim.destCh, `I${newChn}`, 'ADD', a.strim.weight, 0)];
+  } else {
+    mixData = [...mixData, blankMix('S-TRIM', a.strim.destCh, newSrc, 'ADD', a.strim.weight, 0)];
+  }
+
+  return { ...model, mixData, expoData, inputNames };
+}
+
 // ── Wizard generation ─────────────────────────────────────────────────────────
 
 export interface WizardParams {

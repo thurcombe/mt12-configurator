@@ -2,12 +2,13 @@ import { useRef, useState } from 'react';
 import type { Route } from '../App.tsx';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { BUILT_IN_CATEGORIES, type VehicleCategory } from '../data/vehicleTypes.ts';
-import { GaugeIcon } from '../components/shared/GaugeIcon.tsx';
-import { SteeringWheelIcon } from '../components/shared/SteeringWheelIcon.tsx';
+import { Icon } from '../components/shared/Icon.tsx';
+import { faGauge, faArrowsLeftRight, faLock } from '@fortawesome/free-solid-svg-icons';
 import css from './VehicleTypesPage.module.css';
 
 interface Props {
   navigate: (r: Route) => void;
+  from?: Route;
 }
 
 const BUILT_IN_IDS = new Set(BUILT_IN_CATEGORIES.map((c) => c.id));
@@ -25,7 +26,7 @@ function blankCustom(): VehicleCategory {
   };
 }
 
-export function VehicleTypesPage({ navigate }: Props) {
+export function VehicleTypesPage({ navigate, from }: Props) {
   const vehicleCategories = useEditorStore((s) => s.vehicleCategories);
   const vehicleTypeImages = useEditorStore((s) => s.vehicleTypeImages);
   const saveVehicleCategory = useEditorStore((s) => s.saveVehicleCategory);
@@ -104,7 +105,7 @@ export function VehicleTypesPage({ navigate }: Props) {
   return (
     <div className={css.page}>
       <div className={css.topBar}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>← Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(from ?? { page: 'list' })}>← Back</button>
         <span className={css.topBarTitle}>Vehicle Types</span>
         <div style={{ flex: 1 }} />
         <button className="btn btn-primary btn-sm" onClick={startAdd}>+ Add custom type</button>
@@ -280,13 +281,13 @@ function TypeCard({ cat, imageUrl, onUploadImage, imageRef, onRequestUpload, onE
         <div className={css.cardName}>
           <span className={css.cardNameIcon}>{cat.icon}</span>
           {cat.name}
-          {isBuiltIn && <span className={css.builtInBadge}>built-in</span>}
+          {isBuiltIn && <span className={css.builtInBadge}><Icon icon={faLock} size={10} />built-in</span>}
         </div>
         <p className={css.cardDesc}>{cat.description}</p>
         <div className={css.cardMeta}>
-          <span className="badge" title="Typical top speed range for this vehicle type">{cat.speedMin}–{cat.speedMax} mph</span>
-          <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Steering character — how sharply the vehicle responds to steering input"><SteeringWheelIcon size={13} /> {steeringLabel(cat.steeringCharacter)}</span>
-          <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Power delivery — how instantly the motor responds to throttle input"><GaugeIcon size={13} /> {powerLabel(cat.powerDelivery)}</span>
+          <span className="badge" title="Typical top speed range for this vehicle type"><Icon icon={faGauge} size={11} />{cat.speedMin}–{cat.speedMax} mph</span>
+          <span className="badge" title="Steering character — how sharply the vehicle responds to steering input"><Icon icon={faArrowsLeftRight} size={11} />{steeringLabel(cat.steeringCharacter)}</span>
+          <span className="badge" title="Power delivery — how instantly the motor responds to throttle input"><Icon icon={faGauge} size={11} />{powerLabel(cat.powerDelivery)}</span>
         </div>
         <div className={css.cardActions}>
           {onEdit && <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>}

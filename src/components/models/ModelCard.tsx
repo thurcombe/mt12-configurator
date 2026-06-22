@@ -2,6 +2,9 @@ import type { Model } from '../../types/model.ts';
 import { parseSubType, protocolName } from '../../codec/protocols.ts';
 import type { ExpansionConflict } from './expansionConflict.ts';
 import { expansionConflictLabel } from './expansionConflict.ts';
+import { DirtyBadge } from '../shared/DirtyBadge.tsx';
+import { Icon } from '../shared/Icon.tsx';
+import { faSignal, faRuler, faCar, faBolt, faFire, faShield, faTriangleExclamation, faSliders } from '@fortawesome/free-solid-svg-icons';
 import css from './ModelCard.module.css';
 
 interface Props {
@@ -85,27 +88,29 @@ export function ModelCard({ modelKey, model, isDirty, imageUrl, scale, vehicleTy
       </div>
 
       <div className={css.meta}>
-        <span className="badge badge-accent" title="RF protocol / module type">{protocolBadge(model)}</span>
-        {scale && <span className="badge" title="Scale">{scale}</span>}
-        {vehicleTypeName && <span className="badge" title="Vehicle type">{vehicleTypeName}</span>}
-        {power === 'battery' && <span className="badge" title="Power source">🔋 Electric</span>}
-        {power === 'fuel' && <span className="badge" title="Power source">⛽ Fuel</span>}
+        <span className="badge badge-accent" title="RF protocol / module type"><Icon icon={faSignal} size={11} />{protocolBadge(model)}</span>
+        {scale && <span className="badge" title="Scale"><Icon icon={faRuler} size={11} />{scale}</span>}
+        {vehicleTypeName && <span className="badge" title="Vehicle type"><Icon icon={faCar} size={11} />{vehicleTypeName}</span>}
+        {power === 'battery' && <span className="badge" title="Power source"><Icon icon={faBolt} size={11} />Electric</span>}
+        {power === 'fuel' && <span className="badge" title="Power source"><Icon icon={faFire} size={11} />Fuel</span>}
         {kidActive && (
           <span
             className={`badge ${kidStale ? 'badge-warning' : 'badge-green'}`}
             title={kidStale ? 'KidControl settings need review — vehicle properties have changed' : 'KidControl is active on this model'}
           >
-            {kidStale && '⚠ '}KidControl{kidPresetName ? ` · ${kidPresetName}` : ''}
+            <Icon icon={kidStale ? faTriangleExclamation : faShield} size={11} />
+            KidControl{kidPresetName ? ` · ${kidPresetName}` : ''}
           </span>
         )}
         {expansionConflict && (
           <span className="badge badge-warning" title={expansionConflictLabel(expansionConflict)}>
-            ⚠ {[...new Set(expansionConflict.controls.map(c => c.match(/^(FL[12])\d$/) ? c.slice(0, 3) : c))].join(', ')}
+            <Icon icon={faTriangleExclamation} size={11} />
+            {[...new Set(expansionConflict.controls.map(c => c.match(/^(FL[12])\d$/) ? c.slice(0, 3) : c))].join(', ')}
           </span>
         )}
-        {isDirty &&<span className="badge badge-warning" title="This model has unsaved changes">unsaved</span>}
+        {isDirty && <DirtyBadge />}
         {model.mixData?.length > 0 && (
-          <span className="badge" title="Number of mix lines configured">{model.mixData.length} mix{model.mixData.length !== 1 ? 'es' : ''}</span>
+          <span className="badge" title="Number of mix lines configured"><Icon icon={faSliders} size={11} />{model.mixData.length} mix{model.mixData.length !== 1 ? 'es' : ''}</span>
         )}
       </div>
 

@@ -84,6 +84,9 @@
 }
 
 .sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 11px;
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);

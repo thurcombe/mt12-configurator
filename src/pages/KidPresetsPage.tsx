@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import type React from 'react';
 import type { Route } from '../App.tsx';
+import { Icon } from '../components/shared/Icon.tsx';
+import { faLock } from '@fortawesome/free-solid-svg-icons';
 import { useEditorStore } from '../store/useEditorStore.ts';
 import { BUILTIN_KID_PRESETS } from '../data/kidPresets.ts';
 import type { KidPreset } from '../types/kidPreset.ts';
 
 interface Props {
   navigate: (r: Route) => void;
+  from?: Route;
 }
 
 const BUILTIN_IDS = new Set(BUILTIN_KID_PRESETS.map(p => p.id));
@@ -33,7 +36,7 @@ function RestrictionBar({ level }: { level: number }) {
   );
 }
 
-export function KidPresetsPage({ navigate }: Props) {
+export function KidPresetsPage({ navigate, from }: Props) {
   const kidPresets = useEditorStore(s => s.kidPresets);
   const saveUserKidPreset = useEditorStore(s => s.saveUserKidPreset);
   const deleteUserKidPreset = useEditorStore(s => s.deleteUserKidPreset);
@@ -94,7 +97,7 @@ export function KidPresetsPage({ navigate }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>← Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(from ?? { page: 'list' })}>← Back</button>
         <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>Driver Presets</span>
         <div style={{ flex: 1 }} />
         <button className="btn btn-primary btn-sm" onClick={startAdd}>+ New preset</button>
@@ -115,7 +118,7 @@ export function KidPresetsPage({ navigate }: Props) {
                 <div key={preset.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', flex: 1 }}>{preset.name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-hi)', borderRadius: 4, padding: '1px 5px' }}>built-in</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-hi)', borderRadius: 4, padding: '1px 5px' }}><Icon icon={faLock} size={10} />built-in</span>
                   </div>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4, margin: 0 }}>{preset.description}</p>
                   <RestrictionBar level={preset.restrictionLevel} />
