@@ -57,6 +57,8 @@ You can use the app without an SD card. A banner at the top of the model list ex
 
 Append `?demo` to the URL to load a virtual in-memory SD card pre-populated with sample models. Changes are not persisted to disk — use the **Download SD card ↓** button in the demo banner to export the result as a ZIP file.
 
+The demo card is pre-configured with a **dual 3-position switch expansion module** (FL1 + FL2 as 3-pos switches on P3/P4), so all expansion-module features are visible in demo mode without needing physical hardware.
+
 ### Header and status indicators
 
 The header shows the current SD card connection state on the right:
@@ -70,6 +72,18 @@ When demo mode is active, a coloured banner appears above the header with the te
 **Error banner (red)** — appears below the header when a file operation fails. Click **Dismiss** to clear it.
 
 **Warnings banner (yellow)** — appears below the header (below any error) when model files were skipped during load (e.g. unreadable YAML). Each warning names the affected file. Click **Dismiss** to clear all warnings.
+
+### Navigation buttons
+
+The header contains four navigation buttons, left-to-right after the app title:
+
+| Button | Destination |
+|---|---|
+| **Model List** | Returns to the model list from anywhere |
+| **Transmitter Settings** | Global radio settings (RF module, SD card options) |
+| **Presets ▾** | Dropdown: **Vehicle Types** and **Driver Presets** configuration pages |
+
+The active page's button is highlighted with an accent border.
 
 ---
 
@@ -144,15 +158,15 @@ The basic view shows named cards on the left and the **MT12 Controls** diagram o
 Shows the throttle channel (e.g. CH2) and the current **Trigger rate** — the maximum throttle percentage. An optional **Cruise control** sub-card and **Speed limiter** sub-card appear if those features are configured.
 
 - **Cruise control** — holds the current throttle without pressing the trigger. Configure the switch and cruise speed, or click **Remove** to delete it.
-- **Speed limiter** — shows either the knob assignment (variable mode) or the switch/percentage (switch mode). Remove it via Advanced > Mixes.
+- **Speed limiter** — in variable (knob) mode, use the **input source picker** to choose which pot/knob controls the limit; hover the picker to highlight the control on the diagram. In switch mode, shows the switch and fixed percentage. Remove it via Advanced > Mixes.
 
 ### Steering
 
-Shows the steering channel (e.g. CH1) and the current **Steering rate** (maximum servo travel). An optional **Steering trim** sub-card appears if a trim source is configured. Click **Remove** to delete the steering trim.
+Shows the steering channel (e.g. CH1) and the current **Steering rate** (maximum servo travel). An optional **Steering trim** sub-card appears if a trim source is configured. Use the **input source picker** to change which pot or lever feeds the trim, and set the trim amount with the slider. Click **Remove** to delete the steering trim.
 
 ### Gyro gain
 
-If a gyro gain channel is configured, a card shows which knob controls gyro sensitivity and which channel it sends on. Click **Remove** to delete it.
+If a gyro gain channel is configured, a card shows the gain source and which channel it sends on. Use the **input source picker** to change which pot or T-lever controls gyro sensitivity — hover the picker to highlight the selected control on the diagram. Click **Remove** to delete the gyro gain channel.
 
 ### Vehicle details
 
@@ -168,7 +182,7 @@ Displays the current receiver protocol and the **Signal lost** (failsafe) behavi
 
 ### KidControl
 
-Shows whether KidControl is active. If configured, displays the trigger switch, throttle limit, speed ramp, and steering limit settings, along with a **Re-run KidControl wizard** button. If not yet configured, shows a **+ Set up KidControl** button.
+Shows whether KidControl is active. If configured, displays the trigger switch, throttle limit, speed ramp, and steering limit settings, along with a **Re-run KidControl wizard** button. Use the **switch picker** on the trigger switch field to change which physical switch activates KidControl — hover to highlight it on the diagram. If not yet configured, shows a **+ Set up KidControl** button.
 
 See [KidControl Wizard](#5-kidcontrol-wizard) for setup instructions.
 
@@ -195,7 +209,7 @@ Throughout the editor, **any physical-input selector highlights the correspondin
 
 Where a switch or pot is **already assigned elsewhere** in the model (a drive mode, mix, expo, logical switch, special function, or timer), the dropdown option shows a small **"In use: …"** note listing those usages. This helps avoid assigning the same physical control to conflicting functions.
 
-Highlighting is available across every input selector in the app: Basic view cruise control switch, drive modes, mixes, expos, logical switches, special functions, timers, the KidControl wizard trigger switch, and the Transmitter Settings expansion-module rows (P3, P4, FL1, FL2).
+Highlighting is available across every input selector in the app: Basic view cruise control switch, gyro gain source, steering trim source, speed limiter source, KidControl trigger switch, drive modes, mixes, expos, logical switches, special functions, timers, the KidControl wizard trigger switch, and the Transmitter Settings expansion-module rows (P3, P4, FL1, FL2).
 
 ---
 
@@ -432,14 +446,16 @@ Each mode has:
 
 ![Advanced view — Mixes tab](screenshots/20-advanced-04-mixes.png)
 
-Mixes define how physical inputs are processed into the output channels sent to your receiver. Channels are grouped, and each group shows all mix lines with their source, weight, and a human-readable description.
+Mixes define how physical inputs are processed into the output channels sent to your receiver. Only channels that have at least one mix line assigned are displayed.
 
 - **CH1** typically controls steering
 - **CH2** typically controls throttle
 
-### Adding a mix line
+### Adding a channel
 
-Click **＋ Add to CHn** inside a channel group to add a new mix line.
+Use the **+ Add channel…** dropdown in the toolbar to pick a destination channel and create its first mix line. Only channels that don't yet have any mixes are listed.
+
+To add further lines to a channel that already exists, click **+ Add mix line** inside that channel's group.
 
 ### Editing a mix line
 

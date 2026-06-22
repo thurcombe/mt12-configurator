@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import type { Route } from '../../App.tsx';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { AboutModal } from './AboutModal.tsx';
@@ -39,6 +39,19 @@ export function AppShell({ children, route, navigate }: Props) {
 
   const [showAbout, setShowAbout] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
+  const presetsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!presetsOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (presetsRef.current && !presetsRef.current.contains(e.target as Node)) {
+        setPresetsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [presetsOpen]);
 
   const demo = isDemoMode();
   // Auto-connect the virtual SD card when entering demo mode.
@@ -86,7 +99,15 @@ export function AppShell({ children, route, navigate }: Props) {
 
         <div className={css.spacer} />
 
-<button
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => navigate({ page: 'list' })}
+          style={route.page === 'list' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        >
+          Model List
+        </button>
+
+        <button
           className="btn btn-ghost btn-sm"
           onClick={() => navigate({ page: 'radio' })}
           style={route.page === 'radio' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
@@ -94,21 +115,32 @@ export function AppShell({ children, route, navigate }: Props) {
           Transmitter Settings
         </button>
 
-        <button
-          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
-          onClick={() => navigate({ page: 'vehicle-types' })}
-          style={route.page === 'vehicle-types' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        <div
+          ref={presetsRef}
+          className={`${css.dropdown} ${css.headerSecondary} ${presetsOpen ? css.dropdownOpen : ''}`}
         >
-          Vehicle Types
-        </button>
-
-        <button
-          className={`btn btn-ghost btn-sm ${css.headerSecondary}`}
-          onClick={() => navigate({ page: 'kid-presets' })}
-          style={route.page === 'kid-presets' ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
-        >
-          Driver Presets
-        </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setPresetsOpen(o => !o)}
+            style={(route.page === 'vehicle-types' || route.page === 'kid-presets') ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+          >
+            <span className={css.dropdownTrigger}>Presets ▾</span>
+          </button>
+          <div className={css.dropdownMenu}>
+            <button
+              className={`${css.dropdownItem} ${route.page === 'vehicle-types' ? css.dropdownItemActive : ''}`}
+              onClick={() => { setPresetsOpen(false); navigate({ page: 'vehicle-types', from: route.page !== 'vehicle-types' ? route : undefined }); }}
+            >
+              Vehicle Types
+            </button>
+            <button
+              className={`${css.dropdownItem} ${route.page === 'kid-presets' ? css.dropdownItemActive : ''}`}
+              onClick={() => { setPresetsOpen(false); navigate({ page: 'kid-presets', from: route.page !== 'kid-presets' ? route : undefined }); }}
+            >
+              Driver Presets
+            </button>
+          </div>
+        </div>
 
         <button
           className={`btn btn-ghost btn-sm ${css.headerSecondary}`}

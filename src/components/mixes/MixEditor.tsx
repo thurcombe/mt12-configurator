@@ -94,8 +94,7 @@ export function MixEditor({ model, onChange, expansionConflict }: Props) {
   // Show channels that have lines, sorted by channel number.
   const usedChannels = Array.from(byChannel.keys()).sort((a, b) => a - b);
 
-  // Also show all 16 channels so user can add to any.
-  const allChannels = Array.from({ length: 16 }, (_, i) => i);
+  const emptyChannels = Array.from({ length: 16 }, (_, i) => i).filter((ch) => !byChannel.has(ch));
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -151,9 +150,18 @@ export function MixEditor({ model, onChange, expansionConflict }: Props) {
       <div className={css.root}>
         <div className={css.toolbar}>
           <span className={css.hint}>{mixData.length} mix line{mixData.length !== 1 ? 's' : ''}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleAddLine(0)}>
-            + Add to CH1
-          </button>
+          {emptyChannels.length > 0 && (
+            <select
+              className="btn btn-ghost btn-sm"
+              value=""
+              onChange={(e) => { if (e.target.value !== '') handleAddLine(parseInt(e.target.value, 10)); }}
+            >
+              <option value="">+ Add channel…</option>
+              {emptyChannels.map((ch) => (
+                <option key={ch} value={ch}>CH{ch + 1}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
@@ -170,21 +178,6 @@ export function MixEditor({ model, onChange, expansionConflict }: Props) {
                 onAddLine={handleAddLine}
               />
             ))}
-
-            {/* Empty channels — collapsed by default */}
-            {allChannels
-              .filter((ch) => !byChannel.has(ch))
-              .map((ch) => (
-                <ChannelGroup
-                  key={ch}
-                  ch={ch + 1}
-                  lines={[]}
-                  model={model}
-                  defaultOpen={false}
-                  onEdit={(globalIdx) => setEditingIdx(globalIdx)}
-                  onAddLine={handleAddLine}
-                />
-              ))}
           </div>
         </SortableContext>
       </div>
@@ -192,7 +185,7 @@ export function MixEditor({ model, onChange, expansionConflict }: Props) {
       {editingIdx !== null && mixData[editingIdx] && (
         <MixLineModal
           line={mixData[editingIdx]}
-          onSave={(line) => { handleSaveLine(editingIdx, line); setIsNewLine(false); }}
+          onSave={(line) => { handleSaveLine(editingIdx, line); setIsNewLine(false); setEditingIdx(null); }}
           onDelete={() => { handleDeleteLine(editingIdx); setEditingIdx(null); setIsNewLine(false); }}
           onClose={() => {
             if (isNewLine) handleDeleteLine(editingIdx);

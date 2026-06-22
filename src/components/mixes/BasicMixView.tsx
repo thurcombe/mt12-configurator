@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Model } from '../../types/model.ts';
 import { WeightSlider } from '../shared/WeightSlider.tsx';
 import { SwitchPicker } from '../shared/SwitchPicker.tsx';
@@ -21,16 +21,21 @@ import {
   addCruise,
   removeSTrim,
   removeGyroGain,
+  setGyroSource,
+  setSTrimSource,
+  setDRateSource,
+  physicalSrcFor,
   defaultWizardParams,
   generateBasicModel,
   type BasicAnalysis,
   type WizardParams,
 } from './basicPatterns.ts';
 import { buildInputMap, buildSwitchUsageMap } from '../../codec/modelSummary.ts';
-import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { MULTI_PROTOCOLS } from '../../codec/protocols.ts';
 import { getExpansionConflict, refControl, switchPosLabel } from '../models/expansionConflict.ts';
 import { EXPANSION_MODULES } from '../../hardware/mt12.ts';
+import { Icon } from '../shared/Icon.tsx';
+import { faSignal, faTowerBroadcast, faCar, faGear, faGaugeHigh, faArrowsLeftRight, faRotate, faShield, faTriangleExclamation, faCircleCheck, faDiamond, faHashtag } from '@fortawesome/free-solid-svg-icons';
 import css from './BasicMixView.module.css';
 import { ModelImagePicker } from '../models/ModelImagePicker.tsx';
 
@@ -69,26 +74,35 @@ interface Props {
   onChange: (updater: (m: Model) => Model) => void;
   onSwitchToAdvanced?: () => void;
   onWizardActiveChange?: (active: boolean) => void;
+  cancelSignal?: number;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, onWizardActiveChange }: Props) {
+export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, onWizardActiveChange, cancelSignal }: Props) {
   const [wizardActive, setWizardActive] = useState(false);
   const [kidControlActive, setKidControlActive] = useState(false);
   const analysis = useMemo(() => analyseBasicPatterns(model), [model]);
 
   function setWizard(v: boolean) { setWizardActive(v); onWizardActiveChange?.(v); }
+  function setKidControl(v: boolean) { setKidControlActive(v); onWizardActiveChange?.(v); }
+
+  // Respond to parent back-button press: cancel whichever wizard is active.
+  useEffect(() => {
+    if (!cancelSignal) return;
+    if (kidControlActive) { setKidControl(false); return; }
+    if (wizardActive)     { setWizard(false);      return; }
+  }, [cancelSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inline KidControl wizard
   if (kidControlActive) {
     return (
       <div>
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }}
-          onClick={() => setKidControlActive(false)}>
+          onClick={() => setKidControl(false)}>
           ← Back to summary
         </button>
-        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControlActive(false)} modelKey={modelKey} skipActiveCheck />
+        <KidModeWizard model={model} onChange={onChange} onApplied={() => setKidControl(false)} modelKey={modelKey} skipActiveCheck />
       </div>
     );
   }
@@ -105,7 +119,7 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
         initialParams={initialParams}
         onCancel={wizardActive ? () => setWizard(false) : undefined}
         onSwitchToAdvanced={onSwitchToAdvanced}
-        onLaunchKidControl={() => { setWizard(false); setKidControlActive(true); }}
+        onLaunchKidControl={() => { setWizard(false); setKidControl(true); }}
       />
     );
   }
@@ -121,7 +135,7 @@ export function BasicMixView({ model, modelKey, onChange, onSwitchToAdvanced, on
       analysis={analysis}
       onChange={onChange}
       onRunWizard={() => setWizard(true)}
-      onRunKidControl={() => setKidControlActive(true)}
+      onRunKidControl={() => setKidControl(true)}
       onRemoveKidControl={() => onChange((m) => removeKidMode(m))}
     />
   );
@@ -187,6 +201,7 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
   const modelMeta = useEditorStore(s => s.modelMeta[modelKey]);
   const setModelScale = useEditorStore(s => s.setModelScale);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+  const setModelPower = useEditorStore(s => s.setModelPower);
 
   const selectedCat = vehicleCategories.find(c => c.id === (modelMeta?.vehicleType ?? ''));
 
@@ -203,19 +218,19 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
   return (
     <div className={css.root}>
       {analysis.throttle && (
-        <ThrottleCard analysis={analysis} inputMap={inputMap} onChange={onChange} affectedControls={affectedControls} overflowPositions={overflowPositions} moduleLabel={moduleLabel} inUse={inUse} />
+        <ThrottleCard model={model} analysis={analysis} inputMap={inputMap} onChange={onChange} affectedControls={affectedControls} overflowPositions={overflowPositions} moduleLabel={moduleLabel} inUse={inUse} />
       )}
       {analysis.steering && (
-        <SteeringCard analysis={analysis} onChange={onChange} />
+        <SteeringCard analysis={analysis} model={model} onChange={onChange} />
       )}
       {analysis.gyro && (
-        <GyroGainCard analysis={analysis} inputMap={inputMap} onChange={onChange} />
+        <GyroGainCard model={model} analysis={analysis} inputMap={inputMap} onChange={onChange} />
       )}
 
       {/* Vehicle details */}
       <section className={css.card}>
         <div className={css.cardHeader}>
-          <span className={css.cardIcon}>🚗</span>
+          <span className={css.cardIcon}><Icon icon={faCar} size={18} /></span>
           <span className={css.cardTitle}>Vehicle details</span>
         </div>
         <div className={css.fieldRow}>
@@ -254,6 +269,18 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
             {RC_SCALES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
+        <div className={css.fieldRow}>
+          <span className={css.fieldLabel}>Power source</span>
+          <select
+            style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+            value={modelMeta?.power ?? ''}
+            onChange={(e) => setModelPower(modelKey, e.target.value as 'battery' | 'fuel' | '')}
+          >
+            <option value="">Not specified</option>
+            <option value="battery">Battery (electric)</option>
+            <option value="fuel">Fuel (nitro/petrol)</option>
+          </select>
+        </div>
         <ModelImagePicker modelKey={modelKey} hoverScale={1.5} />
       </section>
 
@@ -276,14 +303,14 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
       {/* Setup wizard card */}
       <section className={css.card}>
         <div className={css.cardHeader}>
-          <span className={css.cardIcon}>⚙</span>
+          <span className={css.cardIcon}><Icon icon={faGear} size={18} /></span>
           <span className={css.cardTitle}>Vehicle setup</span>
         </div>
         {analysis.throttle || analysis.steering ? (
           <>
             <p className={css.fieldHint}>Change throttle/steering channels, cruise control, or speed limiter settings.</p>
-            <button className="btn btn-ghost btn-sm" onClick={onRunWizard}>
-              ⚙ Re-run setup wizard
+            <button className="btn btn-ghost btn-sm" onClick={onRunWizard} style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
+              <Icon icon={faGear} size={12} /> Re-run setup wizard
             </button>
           </>
         ) : (
@@ -352,9 +379,9 @@ function RadioLinkCard({ model, onChange }: { model: Model; onChange: (updater: 
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
-        <span className={css.cardIcon}>📡</span>
+        <span className={css.cardIcon}><Icon icon={faTowerBroadcast} size={18} /></span>
         <span className={css.cardTitle}>Radio link</span>
-        {protocol && <span className={css.cardMeta}>{protocol.name}</span>}
+        {protocol && <span className={css.cardMeta}><Icon icon={faSignal} size={11} />{protocol.name}</span>}
       </div>
       <p className={css.fieldHint}>Which receiver is in your vehicle, and what should happen if the signal is lost.</p>
       <div className={css.fieldRow}>
@@ -388,6 +415,7 @@ function RadioLinkCard({ model, onChange }: { model: Model; onChange: (updater: 
 // ── Throttle card ──────────────────────────────────────────────────────────────
 
 interface CardProps {
+  model: Model;
   analysis: BasicAnalysis;
   inputMap: Record<number, string>;
   onChange: (updater: (m: Model) => Model) => void;
@@ -416,6 +444,7 @@ function rampDesc(up: number, down: number): string {
 }
 
 function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl, onRemoveKidControl, affectedControls, overflowPositions, moduleLabel }: { model: Model; modelKey: string; kidActive: boolean; onChange: (updater: (m: Model) => Model) => void; onRunKidControl: () => void; onRemoveKidControl: () => void; affectedControls?: Set<string>; overflowPositions?: Set<string>; moduleLabel?: string }) {
+  const inUse = useMemo(() => buildSwitchUsageMap(model), [model]);
   const fm1 = model.flightModeData?.['1'];
   const triggerSwitch = fm1?.swtch && fm1.swtch !== 'NONE' ? fm1.swtch : null;
   // The trigger switch lives inside this panel rather than in a standalone field,
@@ -480,19 +509,19 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
   return (
     <section className={`${css.card} ${stale || triggerWarnTitle ? css.cardStale : ''}`}>
       <div className={css.cardHeader}>
-        <span className={css.cardIcon}>🔒</span>
+        <span className={css.cardIcon}><Icon icon={faShield} size={18} /></span>
         <span className={css.cardTitle}>KidControl</span>
-        {kidActive && <span className={css.cardMetaGreen}>Active</span>}
+        {kidActive && <span className={css.cardMetaGreen}><Icon icon={faCircleCheck} size={11} />Active</span>}
         {kidActive && modelMeta?.kidSnapshot && (() => {
           const name = kidPresets.find(p => p.id === modelMeta.kidSnapshot!.presetId)?.name;
-          return name ? <span className={css.cardMetaMuted}>{name}</span> : null;
+          return name ? <span className={css.cardMetaMuted}><Icon icon={faDiamond} size={11} />{name}</span> : null;
         })()}
       </div>
       {kidActive ? (
         <>
           {triggerWarnTitle && (
             <div className={css.staleWarning}>
-              <span className={css.staleIcon}>⚠</span>
+              <span className={css.staleIcon}><Icon icon={faTriangleExclamation} size={16} /></span>
               <div className={css.staleText}>
                 <strong>Trigger switch unavailable</strong>
                 <span>{triggerWarnTitle} Change the expansion module back or re-run the KidControl wizard to pick a different switch.</span>
@@ -501,7 +530,7 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
           )}
           {stale && (
             <div className={css.staleWarning}>
-              <span className={css.staleIcon}>⚠</span>
+              <span className={css.staleIcon}><Icon icon={faTriangleExclamation} size={16} /></span>
               <div className={css.staleText}>
                 <strong>Vehicle properties have changed</strong>
                 <span>The vehicle type's steering or power character has been updated since KidControl was set up. The current limits may no longer suit your vehicle.</span>
@@ -532,9 +561,19 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
           {triggerSwitch && (
             <div className={css.fieldRow}>
               <span className={css.fieldLabel}>Trigger switch</span>
-              <span className={css.fieldInfo} style={triggerWarnTitle ? { color:'#f59e0b' } : undefined} title={triggerWarnTitle}>
-                {triggerWarnTitle && '⚠ '}{triggerSwitch}
-              </span>
+              <SwitchPicker
+                value={triggerSwitch}
+                warn={!!triggerWarnTitle}
+                warnTitle={triggerWarnTitle}
+                inUse={inUse}
+                onChange={(v) => onChange((m) => ({
+                  ...m,
+                  flightModeData: {
+                    ...m.flightModeData,
+                    '1': { ...m.flightModeData?.['1']!, swtch: v },
+                  },
+                }))}
+              />
             </div>
           )}
           {thExpo && (
@@ -562,8 +601,8 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl}>
-              ⚙ Re-run KidControl wizard
+            <button className="btn btn-ghost btn-sm" onClick={onRunKidControl} style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
+              <Icon icon={faGear} size={12} /> Re-run KidControl wizard
             </button>
             <button className="btn btn-danger btn-sm" onClick={onRemoveKidControl}>
               Remove
@@ -588,15 +627,15 @@ function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl,
 
 // ── Throttle card ──────────────────────────────────────────────────────────────
 
-function ThrottleCard({ analysis, inputMap, onChange, affectedControls, overflowPositions, moduleLabel, inUse }: CardProps) {
+function ThrottleCard({ model, analysis, onChange, affectedControls, overflowPositions, moduleLabel, inUse }: CardProps) {
   const { throttle, cruise, drate } = analysis;
   if (!throttle) return null;
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
-        <span className={css.cardIcon}>⚡</span>
+        <span className={css.cardIcon}><Icon icon={faGaugeHigh} size={18} /></span>
         <span className={css.cardTitle}>Throttle</span>
-        <span className={css.cardMeta}>CH{throttle.destCh + 1}</span>
+        <span className={css.cardMeta}><Icon icon={faHashtag} size={11} />CH{throttle.destCh + 1}</span>
       </div>
       <p className={css.fieldHint}>Sets how your trigger maps to throttle output. Configure cruise control and speed limiting below.</p>
       <div className={css.fieldRow}>
@@ -610,7 +649,7 @@ function ThrottleCard({ analysis, inputMap, onChange, affectedControls, overflow
           + Add cruise control
         </button>
       )}
-      {drate && <DRateSubCard drate={drate} inputMap={inputMap} affectedControls={affectedControls} overflowPositions={overflowPositions} moduleLabel={moduleLabel} />}
+      {drate && <DRateSubCard drate={drate} affectedControls={affectedControls} overflowPositions={overflowPositions} moduleLabel={moduleLabel} analysis={analysis} model={model} onChange={onChange} />}
     </section>
   );
 }
@@ -631,7 +670,7 @@ function CruiseSubCard({ analysis, onChange, affectedControls, overflowPositions
         <span className={css.fieldLabel}>Switch</span>
         <SwitchPicker value={cruise.setSw} onChange={(v) => onChange((m) => setCruiseSw(m, analysis, v))} warn={!!warnTitle} warnTitle={warnTitle} inUse={inUse} />
       </div>
-      {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b' }}>⚠ {warnTitle}</p>}
+      {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b', display:'flex', alignItems:'baseline', gap:5 }}><Icon icon={faTriangleExclamation} size={12} />{warnTitle}</p>}
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Cruise speed</span>
         <WeightSlider value={cruise.cruiseSpeed} onChange={(v) => onChange((m) => setCruiseSpeed(m, analysis, v))} min={0} max={100} />
@@ -641,7 +680,7 @@ function CruiseSubCard({ analysis, onChange, affectedControls, overflowPositions
   );
 }
 
-function DRateSubCard({ drate, inputMap, affectedControls, overflowPositions, moduleLabel }: { drate: NonNullable<BasicAnalysis['drate']>; inputMap: Record<number, string>; affectedControls?: Set<string>; overflowPositions?: Set<string>; moduleLabel?: string }) {
+function DRateSubCard({ drate, affectedControls, overflowPositions, moduleLabel, analysis, model, onChange }: { drate: NonNullable<BasicAnalysis['drate']>; inputMap?: never; affectedControls?: Set<string>; overflowPositions?: Set<string>; moduleLabel?: string; analysis: BasicAnalysis; model: Model; onChange: CardProps['onChange'] }) {
   if (drate.switchMode) {
     const warnTitle = expansionWarnTitle(drate.switchMode.swtch, affectedControls ?? new Set(), overflowPositions ?? new Set(), moduleLabel ?? '');
     return (
@@ -650,47 +689,103 @@ function DRateSubCard({ drate, inputMap, affectedControls, overflowPositions, mo
         <p className={css.fieldHint}>
           Switch <strong>{drate.switchMode.swtch}</strong> caps throttle at <strong>{drate.switchMode.percent}%</strong> when active.
         </p>
-        {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b' }}>⚠ {warnTitle}</p>}
+        {warnTitle && <p className={css.fieldHint} style={{ color:'#f59e0b', display:'flex', alignItems:'baseline', gap:5 }}><Icon icon={faTriangleExclamation} size={12} />{warnTitle}</p>}
       </div>
     );
   }
-  const knobLabel = inputMap[drate.chn] ?? srcRawLabel(drate.srcRaw);
+
+  const expoData = model.expoData ?? [];
+  const currentSrc = physicalSrcFor(drate.srcRaw, expoData);
+  const strimMix = analysis.strim ? model.mixData[analysis.strim.globalIdx] : null;
+  const strimSrc = strimMix ? physicalSrcFor(strimMix.srcRaw, expoData) : null;
+  const gyroSrc = analysis.gyro ? physicalSrcFor(analysis.gyro.srcRaw, expoData) : null;
+
+  function conflict(v: string) {
+    if (v === strimSrc) return 'steering trim';
+    if (v === gyroSrc) return 'gyro gain';
+    return undefined;
+  }
+
   const [min, max] = drate.range;
+  const drateSrcOptions = [
+    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
+    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
+    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
+    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
+    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
+    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
+    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
+  ];
+
   return (
     <div className={css.subCard}>
       <div className={css.subHeader}><span className={css.subTitle}>Speed limiter</span></div>
       <p className={css.fieldHint}>
-        The <strong>{knobLabel}</strong> knob scales all throttle — fully down stops the vehicle ({min}–{max}%).
+        This knob scales all throttle — fully down stops the vehicle ({min}–{max}%). Hover to highlight on the diagram.
       </p>
+      <div className={css.fieldRow}>
+        <span className={css.fieldLabel}>Limiter source</span>
+        <InputSourcePicker
+          value={currentSrc}
+          options={drateSrcOptions}
+          onChange={(v) => onChange((m) => setDRateSource(m, analysis, v))}
+        />
+      </div>
     </div>
   );
 }
 
 // ── Steering card ──────────────────────────────────────────────────────────────
 
-function SteeringCard({ analysis, onChange }: { analysis: BasicAnalysis; onChange: CardProps['onChange'] }) {
+function SteeringCard({ analysis, model, onChange }: { analysis: BasicAnalysis; model: Model; onChange: CardProps['onChange'] }) {
   const { steering, strim } = analysis;
   if (!steering) return null;
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
-        <span className={css.cardIcon}>↔</span>
+        <span className={css.cardIcon}><Icon icon={faArrowsLeftRight} size={18} /></span>
         <span className={css.cardTitle}>Steering</span>
-        <span className={css.cardMeta}>CH{steering.destCh + 1}</span>
+        <span className={css.cardMeta}><Icon icon={faHashtag} size={11} />CH{steering.destCh + 1}</span>
       </div>
       <p className={css.fieldHint}>Sets how the steering wheel maps to your servo channel, including the centre-point trim offset.</p>
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Steering rate</span>
         <WeightSlider value={steering.weight} onChange={(v) => onChange((m) => setSteeringWeight(m, analysis, v))} min={0} max={100} />
       </div>
-      {strim && <STrimSubCard analysis={analysis} onChange={onChange} />}
+      {strim && <STrimSubCard analysis={analysis} model={model} onChange={onChange} />}
     </section>
   );
 }
 
-function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChange: CardProps['onChange'] }) {
+function STrimSubCard({ analysis, model, onChange }: { analysis: BasicAnalysis; model: Model; onChange: CardProps['onChange'] }) {
   const { strim } = analysis;
   if (!strim) return null;
+
+  const expoData = model.expoData ?? [];
+  const strimMix = model.mixData[strim.globalIdx];
+  const currentSrc = strimMix ? physicalSrcFor(strimMix.srcRaw, expoData) : '';
+
+  const drateSrc = analysis.drate && !analysis.drate.switchMode
+    ? physicalSrcFor(analysis.drate.srcRaw, expoData) : null;
+  const gyroSrc = analysis.gyro
+    ? physicalSrcFor(analysis.gyro.srcRaw, expoData) : null;
+
+  function conflict(v: string) {
+    if (v === drateSrc) return 'speed limiter';
+    if (v === gyroSrc) return 'gyro gain';
+    return undefined;
+  }
+
+  const strimSrcOptions = [
+    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
+    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
+    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
+    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
+    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
+    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
+    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
+  ];
+
   return (
     <div className={css.subCard}>
       <div className={css.subHeader}>
@@ -698,7 +793,15 @@ function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
         <button className="btn btn-ghost btn-sm" style={{ color:'var(--danger)', fontSize:12 }}
           onClick={() => onChange((m) => removeSTrim(m, analysis))}>Remove</button>
       </div>
-      <p className={css.fieldHint}>Adjusts the steering centre point.</p>
+      <p className={css.fieldHint}>Adjusts the steering centre point. Hover to highlight the input on the diagram.</p>
+      <div className={css.fieldRow}>
+        <span className={css.fieldLabel}>Trim source</span>
+        <InputSourcePicker
+          value={currentSrc}
+          options={strimSrcOptions}
+          onChange={(v) => onChange((m) => setSTrimSource(m, analysis, v))}
+        />
+      </div>
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Trim amount</span>
         <WeightSlider value={strim.weight} onChange={(v) => onChange((m) => setSTrimWeight(m, analysis, v))} min={-100} max={100} />
@@ -709,22 +812,56 @@ function STrimSubCard({ analysis, onChange }: { analysis: BasicAnalysis; onChang
 
 // ── Gyro gain card ────────────────────────────────────────────────────────────
 
-function GyroGainCard({ analysis, inputMap, onChange }: CardProps) {
+function GyroGainCard({ model, analysis, onChange }: CardProps) {
   const { gyro } = analysis;
   if (!gyro) return null;
-  const potLabel = inputMap[gyro.chn] ?? (gyro.chn === 2 ? 'P1' : 'P2');
+
+  const expoData = model.expoData ?? [];
+  // Derive the current physical source (what the user actually touches).
+  const currentSrc = gyro.chn >= 0
+    ? (expoData.find(e => e.chn === gyro.chn)?.srcRaw ?? (gyro.chn === 2 ? 'P1' : 'P2'))
+    : gyro.srcRaw;
+
+  // Derive sibling sources for conflict display.
+  const drateSrc = analysis.drate && !analysis.drate.switchMode
+    ? physicalSrcFor(analysis.drate.srcRaw, expoData) : null;
+  const strimMix = analysis.strim ? model.mixData[analysis.strim.globalIdx] : null;
+  const strimSrc = strimMix ? physicalSrcFor(strimMix.srcRaw, expoData) : null;
+
+  function conflict(v: string) {
+    if (v === drateSrc) return 'speed limiter';
+    if (v === strimSrc) return 'steering trim';
+    return undefined;
+  }
+
+  const gyroSrcOptions = [
+    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
+    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
+    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
+    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
+    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
+    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
+    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
+  ];
+
   return (
     <section className={css.card}>
       <div className={css.cardHeader}>
-        <span className={css.cardIcon}>⬡</span>
+        <span className={css.cardIcon}><Icon icon={faRotate} size={18} /></span>
         <span className={css.cardTitle}>Gyro gain</span>
-        <span className={css.cardMeta}>CH{gyro.destCh + 1}</span>
+        <span className={css.cardMeta}><Icon icon={faHashtag} size={11} />CH{gyro.destCh + 1}</span>
         <button className="btn btn-ghost btn-sm" style={{ color:'var(--danger)', fontSize:12, marginLeft:'auto' }}
           onClick={() => onChange((m) => removeGyroGain(m, analysis))}>Remove</button>
       </div>
-      <p className={css.fieldHint}>
-        The <strong>{potLabel}</strong> knob controls gyro sensitivity on CH{gyro.destCh + 1}.
-      </p>
+      <p className={css.fieldHint}>Controls gyro sensitivity on CH{gyro.destCh + 1}. Hover to highlight the input on the diagram.</p>
+      <div className={css.fieldRow}>
+        <span className={css.fieldLabel}>Gain source</span>
+        <InputSourcePicker
+          value={currentSrc}
+          options={gyroSrcOptions}
+          onChange={(v) => onChange((m) => setGyroSource(m, analysis, v))}
+        />
+      </div>
     </section>
   );
 }
@@ -953,8 +1090,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 onChange={(e) => patch({ power: e.target.value as 'battery' | 'fuel' | '' })}
               >
                 <option value="">Not specified</option>
-                <option value="battery">🔋 Battery (electric)</option>
-                <option value="fuel">⛽ Fuel (nitro/petrol)</option>
+                <option value="battery">Battery (electric)</option>
+                <option value="fuel">Fuel (nitro/petrol)</option>
               </select>
             </div>
             <ModelImagePicker modelKey={modelKey} />
@@ -1062,8 +1199,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             </div>
           )}
           {stepConflictWarning.cruise && (
-            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
-              ⚠ {stepConflictWarning.cruise}
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8, display:'flex', alignItems:'baseline', gap:5 }}>
+              <Icon icon={faTriangleExclamation} size={12} />{stepConflictWarning.cruise}
             </p>
           )}
           <div className={css.wizardActions}>
@@ -1137,8 +1274,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
           )}
 
           {stepConflictWarning.drate && (
-            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
-              ⚠ {stepConflictWarning.drate}
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8, display:'flex', alignItems:'baseline', gap:5 }}>
+              <Icon icon={faTriangleExclamation} size={12} />{stepConflictWarning.drate}
             </p>
           )}
           <div className={css.wizardActions}>
@@ -1204,8 +1341,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             </div>
           )}
           {stepConflictWarning.steering && (
-            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
-              ⚠ {stepConflictWarning.steering}
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8, display:'flex', alignItems:'baseline', gap:5 }}>
+              <Icon icon={faTriangleExclamation} size={12} />{stepConflictWarning.steering}
             </p>
           )}
           <div className={css.wizardActions}>
@@ -1264,8 +1401,8 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             </div>
           )}
           {stepConflictWarning.gyro && (
-            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8 }}>
-              ⚠ {stepConflictWarning.gyro}
+            <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:8, display:'flex', alignItems:'baseline', gap:5 }}>
+              <Icon icon={faTriangleExclamation} size={12} />{stepConflictWarning.gyro}
             </p>
           )}
           <div className={css.wizardActions}>

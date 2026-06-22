@@ -6,6 +6,8 @@ import { buildSwitchUsageMap } from '../../codec/modelSummary.ts';
 import { switchLabel } from '../../codec/switches.ts';
 import type { ExpansionConflict } from '../models/expansionConflict.ts';
 import { warnForRef } from '../models/expansionConflict.ts';
+import { Icon } from '../shared/Icon.tsx';
+import { faStar, faToggleOn } from '@fortawesome/free-solid-svg-icons';
 import css from './FlightModeEditor.module.css';
 
 interface Props {
@@ -67,9 +69,9 @@ function FmPanel({ idx, fm, isDefault, onChange, onRemove, initialOpen, inUse, e
       <button className={css.panelHeader} onClick={() => setOpen((o) => !o)}>
         <span className={css.caret}>{open ? '▾' : '▸'}</span>
         <span className={css.panelTitle}>{fmLabel(idx, fm)}</span>
-        {isDefault && <span className="badge" title="This flight mode is always active when no other is triggered">default</span>}
+        {isDefault && <span className="badge" title="This flight mode is always active when no other is triggered"><Icon icon={faStar} size={11} />default</span>}
         {!isDefault && fm.swtch && fm.swtch !== 'NONE' && (
-          <span className="badge badge-accent" title="Switch that activates this flight mode">{switchLabel(fm.swtch)}</span>
+          <span className="badge badge-accent" title="Switch that activates this flight mode"><Icon icon={faToggleOn} size={11} />{switchLabel(fm.swtch)}</span>
         )}
         {(fm.fadeIn || fm.fadeOut) ? (
           <span className={css.fadeHint}>fade {fm.fadeIn * FADE_STEP}s / {fm.fadeOut * FADE_STEP}s</span>

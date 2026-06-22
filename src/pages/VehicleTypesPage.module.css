@@ -136,6 +136,9 @@
 }
 
 .builtInBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);

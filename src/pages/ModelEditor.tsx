@@ -14,11 +14,13 @@ import { LogicalSwEditor } from '../components/logicalsw/LogicalSwEditor.tsx';
 import { SpecialFnEditor } from '../components/specialfn/SpecialFnEditor.tsx';
 import { KidModeWizard } from '../components/kidmode/KidModeWizard.tsx';
 import { BasicMixView } from '../components/mixes/BasicMixView.tsx';
+import { ModelImagePicker } from '../components/models/ModelImagePicker.tsx';
 import { Mt12Diagram } from '../components/radio/Mt12Diagram.tsx';
 import { getExpansionConflict } from '../components/models/expansionConflict.ts';
 import { YamlViewer } from '../components/yaml/YamlViewer.tsx';
 import { isKidModeActive, removeKidMode } from '../components/kidmode/kidGenerator.ts';
 import { MULTI_PROTOCOLS } from '../codec/protocols.ts';
+import { DirtyBadge } from '../components/shared/DirtyBadge.tsx';
 import type { Model } from '../types/model.ts';
 import css from './ModelEditor.module.css';
 
@@ -39,6 +41,7 @@ function VehicleDetailsTab({ model, modelKey, navigate, onChange }: {
   const vehicleCategories = useEditorStore(s => s.vehicleCategories);
   const modelMeta = useEditorStore(s => s.modelMeta[modelKey]);
   const setModelVehicleType = useEditorStore(s => s.setModelVehicleType);
+  const setModelPower = useEditorStore(s => s.setModelPower);
   const clearKidControlSnapshot = useEditorStore(s => s.clearKidControlSnapshot);
 
   const selectedCat = vehicleCategories.find(c => c.id === (modelMeta?.vehicleType ?? ''));
@@ -83,84 +86,105 @@ function VehicleDetailsTab({ model, modelKey, navigate, onChange }: {
   const fieldLabel: React.CSSProperties = { fontSize: 13, color: 'var(--text-muted)', minWidth: 130 };
   const sel: React.CSSProperties = { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)' };
 
+  const sectionStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px' };
+
   return (
-    <div style={{ maxWidth: 560 }}>
-      <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Model</div>
-        <div style={fieldRow}>
-          <span style={fieldLabel}>Name</span>
-          <input
-            type="text"
-            style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:180 }}
-            value={model.header?.name ?? ''}
-            placeholder={modelKey}
-            maxLength={15}
-            onChange={(e) => onChange(m => ({ ...m, header: { ...m.header, name: e.target.value } }))}
-          />
-        </div>
-      </section>
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: 24, alignItems: 'start' }}>
 
-      <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Vehicle type</div>
-        <div style={fieldRow}>
-          <span style={fieldLabel}>Type</span>
-          <select style={sel} value={modelMeta?.vehicleType ?? ''} onChange={e => handleVehicleTypeChange(e.target.value)}>
-            <option value="">Not specified</option>
-            {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-          </select>
-        </div>
-        {selectedCat && (
-          <>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 10 }}>
-              {selectedCat.description} · {selectedCat.speedMin}–{selectedCat.speedMax} mph
-            </p>
-            <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Steering character</div>
-                <div style={{ height: 6, background: 'var(--border)', borderRadius: 3 }}>
-                  <div style={{ height: '100%', width: `${selectedCat.steeringCharacter}%`, background: 'var(--accent)', borderRadius: 3 }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
-                  <span>Stable</span><span>Twitchy</span>
-                </div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Power delivery</div>
-                <div style={{ height: 6, background: 'var(--border)', borderRadius: 3 }}>
-                  <div style={{ height: '100%', width: `${selectedCat.powerDelivery}%`, background: 'var(--accent)', borderRadius: 3 }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
-                  <span>Smooth</span><span>Punchy</span>
-                </div>
-              </div>
+        {/* Left column: Model + Vehicle type */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section style={sectionStyle}>
+            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Model</div>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Name</span>
+              <input
+                type="text"
+                style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', width:180 }}
+                value={model.header?.name ?? ''}
+                placeholder={modelKey}
+                maxLength={15}
+                onChange={(e) => onChange(m => ({ ...m, header: { ...m.header, name: e.target.value } }))}
+              />
             </div>
-            <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => navigate({ page: 'vehicle-types' })}>
-              Edit vehicle types →
-            </button>
-          </>
-        )}
-      </section>
+            <div style={{ marginTop: 12 }}>
+              <ModelImagePicker modelKey={modelKey} hoverScale={1.5} />
+            </div>
+          </section>
 
-      <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px' }}>
-        <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Radio link</div>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>Which receiver is in your vehicle, and what should happen if the signal is lost.</p>
-        <div style={fieldRow}>
-          <span style={fieldLabel}>Receiver protocol</span>
-          <select style={sel} value={protocolId} onChange={e => setProtocol(parseInt(e.target.value))}>
-            {MULTI_PROTOCOLS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            {!MULTI_PROTOCOLS.find(p => p.id === protocolId) && (
-              <option value={protocolId}>{protocol?.name ?? `Protocol ${protocolId}`}</option>
+          <section style={sectionStyle}>
+            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Vehicle type</div>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Type</span>
+              <select style={sel} value={modelMeta?.vehicleType ?? ''} onChange={e => handleVehicleTypeChange(e.target.value)}>
+                <option value="">Not specified</option>
+                {vehicleCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+            </div>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Power source</span>
+              <select style={sel} value={modelMeta?.power ?? ''} onChange={e => setModelPower(modelKey, e.target.value as 'battery' | 'fuel' | '')}>
+                <option value="">Not specified</option>
+                <option value="battery">Battery (electric)</option>
+                <option value="fuel">Fuel (nitro/petrol)</option>
+              </select>
+            </div>
+            {selectedCat && (
+              <>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 10 }}>
+                  {selectedCat.description} · {selectedCat.speedMin}–{selectedCat.speedMax} mph
+                </p>
+                <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Steering character</div>
+                    <div style={{ height: 6, background: 'var(--border)', borderRadius: 3 }}>
+                      <div style={{ height: '100%', width: `${selectedCat.steeringCharacter}%`, background: 'var(--accent)', borderRadius: 3 }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
+                      <span>Stable</span><span>Twitchy</span>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Power delivery</div>
+                    <div style={{ height: 6, background: 'var(--border)', borderRadius: 3 }}>
+                      <div style={{ height: '100%', width: `${selectedCat.powerDelivery}%`, background: 'var(--accent)', borderRadius: 3 }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
+                      <span>Smooth</span><span>Punchy</span>
+                    </div>
+                  </div>
+                </div>
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => navigate({ page: 'vehicle-types', from: { page: 'editor', modelKey } })}>
+                  Edit vehicle types →
+                </button>
+              </>
             )}
-          </select>
+          </section>
         </div>
-        <div style={fieldRow}>
-          <span style={fieldLabel}>Signal lost</span>
-          <select style={sel} value={failsafe} onChange={e => setFailsafe(e.target.value)}>
-            {FAILSAFE_OPTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            {!FAILSAFE_OPTS.find(f => f.value === failsafe) && <option value={failsafe}>{failsafe}</option>}
-          </select>
-        </div>
-      </section>
+
+        {/* Right column: Radio link */}
+        <section style={sectionStyle}>
+          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Radio link</div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>Which receiver is in your vehicle, and what should happen if the signal is lost.</p>
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Receiver protocol</span>
+            <select style={sel} value={protocolId} onChange={e => setProtocol(parseInt(e.target.value))}>
+              {MULTI_PROTOCOLS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {!MULTI_PROTOCOLS.find(p => p.id === protocolId) && (
+                <option value={protocolId}>{protocol?.name ?? `Protocol ${protocolId}`}</option>
+              )}
+            </select>
+          </div>
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Signal lost</span>
+            <select style={sel} value={failsafe} onChange={e => setFailsafe(e.target.value)}>
+              {FAILSAFE_OPTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              {!FAILSAFE_OPTS.find(f => f.value === failsafe) && <option value={failsafe}>{failsafe}</option>}
+            </select>
+          </div>
+        </section>
+
+      </div>
 
       {pendingVehicleType !== null && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
@@ -181,7 +205,7 @@ function VehicleDetailsTab({ model, modelKey, navigate, onChange }: {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -240,6 +264,8 @@ const TAB_DESCRIPTIONS: Record<string, string> = {
 export function ModelEditor({ modelKey, navigate }: Props) {
   const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('basic');
   const [tab, setTab] = useState('vehicle-details');
+  const [subWizardActive, setSubWizardActive] = useState(false);
+  const [cancelSignal, setCancelSignal] = useState(0);
   const [diagramSelected, setDiagramSelected] = useState<string | undefined>(undefined);
   const model = useEditorStore((s) => s.models[modelKey]);
   const isDirty = useEditorStore((s) => s.isDirty(modelKey));
@@ -280,14 +306,14 @@ export function ModelEditor({ modelKey, navigate }: Props) {
       <>
       <div className={css.root}>
         <div className={css.topBar}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
+          <button className="btn btn-ghost btn-sm" onClick={() => subWizardActive ? setCancelSignal(s => s + 1) : navigate({ page: 'list' })}>
             ← Back
           </button>
           {isDirty && (
             <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
           )}
           <span className={css.nameDisplay}>{model.header?.name || modelKey}</span>
-          {isDirty && <span className="badge badge-warning">Unsaved</span>}
+          {isDirty && <DirtyBadge />}
           <div style={{ flex: 1 }} />
           <div className={css.toggleGroup}>
             <button className={css.toggleActive}>Basic</button>
@@ -297,7 +323,14 @@ export function ModelEditor({ modelKey, navigate }: Props) {
 
         <div className={css.body}>
           <div className={css.content}>
-            <BasicMixView model={model} modelKey={modelKey} onChange={handleChange} />
+            <BasicMixView
+              model={model}
+              modelKey={modelKey}
+              onChange={handleChange}
+              onSwitchToAdvanced={switchToAdvanced}
+              onWizardActiveChange={setSubWizardActive}
+              cancelSignal={cancelSignal}
+            />
           </div>
           <div className={`${css.diagramPanel} card-panel`}>
             <div className={css.diagramTitle}>MT12 controls</div>
@@ -322,14 +355,14 @@ export function ModelEditor({ modelKey, navigate }: Props) {
     <>
     <div className={css.root}>
       <div className={css.topBar}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate({ page: 'list' })}>
+        <button className="btn btn-ghost btn-sm" onClick={() => setViewMode('basic')}>
           ← Back
         </button>
         {isDirty && (
           <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
         )}
         <span className={css.nameInput}>{model.header?.name || modelKey}</span>
-        {isDirty && <span className="badge badge-warning">Unsaved</span>}
+        {isDirty && <DirtyBadge />}
         <div style={{ flex: 1 }} />
         <div className={css.toggleGroup}>
           <button className={css.toggle} onClick={() => setViewMode('basic')}>Basic</button>
@@ -355,7 +388,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
           {tab === 'yaml'        && <YamlViewer model={model} modelKey={modelKey} />}
         </div>
 
-        <div className={css.diagramPanel}>
+        <div className={`${css.diagramPanel} card-panel`}>
           <div className={css.diagramTitle}>MT12 controls</div>
           <Mt12Diagram sdRoot={sdRoot} model={model} selected={diagramSelected} onSelect={setDiagramSelected} warningControls={diagramWarnings} />
           {diagramSelected && (

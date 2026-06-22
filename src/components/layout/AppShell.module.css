@@ -46,7 +46,6 @@ body {
   min-height: 52px;
   flex-shrink: 0;
   flex-wrap: wrap;
-  overflow: hidden;
 }
 
 .headerSecondary {
@@ -102,6 +101,63 @@ body {
 .main {
   flex: 1;
   overflow-y: auto;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.dropdownMenu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 160px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdown:focus-within .dropdownMenu,
+.dropdownOpen .dropdownMenu {
+  display: flex;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.dropdownItem:hover {
+  background: var(--surface-hi);
+  color: var(--text);
+}
+
+.dropdownItemActive {
+  color: var(--accent);
+}
+
+.dropdownTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Shared button styles used across components */
@@ -160,6 +216,7 @@ body {
 :global(.badge) {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 11px;

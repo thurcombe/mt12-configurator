@@ -5,6 +5,8 @@ import { srcRawLabel } from '../../codec/srcRaw.ts';
 import { switchLabel } from '../../codec/switches.ts';
 import { describeMix } from './mixProse.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
+import { Icon } from '../shared/Icon.tsx';
+import { faToggleOn, faClock, faGauge } from '@fortawesome/free-solid-svg-icons';
 import css from './MixLine.module.css';
 
 // Physical controls that have a dot on the MT12 diagram
@@ -70,9 +72,9 @@ export function MixLineRow({ line, id, model, channelLines, lineIndex, onEdit }:
           <span className={css.mltpx}>{mltpx}</span>
           <span className={css.weight}>{line.weight > 0 ? '+' : ''}{line.weight}%</span>
           {line.offset !== 0 && <span className={css.offset}>off {line.offset}%</span>}
-          {sw && <span className={css.sw}>{sw}</span>}
-          {hasSpeed && <span className={css.tag}>SPD</span>}
-          {hasDelay && <span className={css.tag}>DLY</span>}
+          {sw && <span className={css.sw}><Icon icon={faToggleOn} size={10} />{sw}</span>}
+          {hasSpeed && <span className={css.tag}><Icon icon={faGauge} size={10} />SPD</span>}
+          {hasDelay && <span className={css.tag}><Icon icon={faClock} size={10} />DLY</span>}
         </div>
         <div className={css.prose}>{prose}</div>
       </button>

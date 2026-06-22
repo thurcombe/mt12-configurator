@@ -124,7 +124,7 @@ const BUILTIN_POSITIONS: Positions = {
   P2: { dx:38.7, dy:26.1, lx:17.2, ly:13.9 },
   SC: { dx:47.3, dy:43.3, lx:47,   ly:53.5 },
   SA: { dx:58.4, dy:45.3, lx:64.1, ly:54.6 },
-  SB: { dx:54.2, dy:31.8, lx:55.4, ly:57.5 },
+  SB: { dx:54.2, dy:31.8, lx:55.4, ly:57.5, lineStyle: 'dashed' },
   TH: { dx:72.1, dy:41.7, lx:82.3, ly:41.6 },
   SD: { dx:11.2, dy:87.6, lx:4.8,  ly:66   },
   T1: { dx:48.5, dy:17.1, lx:39.1, ly:6.2  },
@@ -565,18 +565,6 @@ function AnnotatedDiagram({ imageSrc, controls, builtinPositions, webConfigKey, 
           functionMap={functionMap}
           showFunctions={showFunctions}
         />
-        {diagramLabel && (
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            background: 'rgba(0,0,0,0.72)', color: '#fff',
-            fontSize: 15, fontFamily: 'var(--font)', fontWeight: 700,
-            letterSpacing: '0.02em',
-            padding: '6px 10px', textAlign: 'center', pointerEvents: 'none',
-            borderRadius: '0 0 4px 4px', textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-          }}>
-            {diagramLabel}
-          </div>
-        )}
       </div>
 
       {/* Enlarged modal */}

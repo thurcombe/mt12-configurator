@@ -9,6 +9,7 @@ import { TabBar } from '../components/layout/TabBar.tsx';
 import { BASE_SWITCHES, EXPANSION_MODULES, TRIMS } from '../hardware/mt12.ts';
 import type { ExpansionModuleType } from '../hardware/mt12.ts';
 import { getExpansionConflict, getControlUsages, switchPosLabel } from '../components/models/expansionConflict.ts';
+import { DirtyBadge } from '../components/shared/DirtyBadge.tsx';
 import css from './RadioSettings.module.css';
 
 interface Props {
@@ -545,7 +546,6 @@ export function RadioSettings({ navigate }: Props) {
   }
 
   function handleHover(control: string | null) {
-    setDiagramSelected(control ?? undefined);
     setDiagramHighlight(control);
   }
 
@@ -560,7 +560,7 @@ export function RadioSettings({ navigate }: Props) {
         )}
         <span className={css.title}>Transmitter Settings</span>
         {radio && <span className={css.board}>{radio.board}</span>}
-        {isDirty && <span className="badge badge-warning">Unsaved</span>}
+        {isDirty && <DirtyBadge label="Unsaved" title="Transmitter settings have unsaved changes" />}
         <div style={{ flex: 1 }} />
         {sdRoot && radio && (
           <>
