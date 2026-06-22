@@ -7,7 +7,7 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--panel-radius);
 }
 
 .panelHeader {
@@ -59,7 +59,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: var(--form-label-width) 1fr;
   align-items: center;
   gap: 10px 16px;
   margin-top: 14px;
@@ -72,20 +72,8 @@
 }
 
 .input {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-family: var(--font);
-  width: 100%;
+  composes: form-input from '../../styles/shared.css';
   max-width: 240px;
-}
-
-.input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .sectionTitle {

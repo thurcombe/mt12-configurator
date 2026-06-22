@@ -66,6 +66,59 @@ export function buildSwitchUsageMap(model: Model): Record<string, string[]> {
 
   return map;
 }
+// Remove all assignments of a specific switch position from the model.
+// Used when the user reassigns a switch that is already in use elsewhere.
+export function clearSwitchAssignments(model: Model, sw: string): Model {
+  const cleared = { ...model };
+
+  if (cleared.mixData) {
+    cleared.mixData = cleared.mixData.map(m => m.swtch === sw ? { ...m, swtch: 'NONE' } : m);
+  }
+
+  if (cleared.expoData) {
+    cleared.expoData = cleared.expoData.map(e => e.swtch === sw ? { ...e, swtch: 'NONE' } : e);
+  }
+
+  if (cleared.flightModeData) {
+    const fms: typeof cleared.flightModeData = {};
+    for (const [k, fm] of Object.entries(cleared.flightModeData)) {
+      fms[k] = (parseInt(k) > 0 && fm.swtch === sw) ? { ...fm, swtch: 'NONE' } : fm;
+    }
+    cleared.flightModeData = fms;
+  }
+
+  if (cleared.logicalSw) {
+    const lss: typeof cleared.logicalSw = {};
+    for (const [k, ls] of Object.entries(cleared.logicalSw)) {
+      let updated = { ...ls };
+      if (ls.andsw === sw) updated = { ...updated, andsw: 'NONE' };
+      if (ls.def) {
+        updated = { ...updated, def: ls.def.split(',').map(a => a === sw ? 'NONE' : a).join(',') };
+      }
+      lss[k] = updated;
+    }
+    cleared.logicalSw = lss;
+  }
+
+  if (cleared.customFn) {
+    const fns: typeof cleared.customFn = {};
+    for (const [k, fn] of Object.entries(cleared.customFn)) {
+      fns[k] = (fn as { swtch?: string }).swtch === sw ? { ...fn, swtch: 'NONE' } : fn;
+    }
+    cleared.customFn = fns;
+  }
+
+  if (cleared.timers) {
+    const timers: typeof cleared.timers = {};
+    for (const [k, t] of Object.entries(cleared.timers)) {
+      timers[k] = t.swtch === sw ? { ...t, swtch: 'NONE' } : t;
+    }
+    cleared.timers = timers;
+  }
+
+  return cleared;
+}
+
 import { srcRawLabel } from './srcRaw.ts';
 import { parseSubType, protocolName } from './protocols.ts';
 import { switchLabel } from './switches.ts';

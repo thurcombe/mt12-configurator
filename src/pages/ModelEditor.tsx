@@ -21,6 +21,7 @@ import { YamlViewer } from '../components/yaml/YamlViewer.tsx';
 import { isKidModeActive, removeKidMode } from '../components/kidmode/kidGenerator.ts';
 import { MULTI_PROTOCOLS } from '../codec/protocols.ts';
 import { DirtyBadge } from '../components/shared/DirtyBadge.tsx';
+import { ConfirmModal } from '../components/shared/ConfirmModal.tsx';
 import type { Model } from '../types/model.ts';
 import css from './ModelEditor.module.css';
 
@@ -187,23 +188,18 @@ function VehicleDetailsTab({ model, modelKey, navigate, onChange }: {
       </div>
 
       {pendingVehicleType !== null && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:24, maxWidth:400, width:'90%', boxShadow:'0 8px 32px rgba(0,0,0,0.4)' }}>
-            <p style={{ fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
-              <strong>KidControl will be removed</strong><br/>
-              This model has KidControl configured. Changing the vehicle type will remove the KidControl setup — you can configure it again afterwards.
-            </p>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setPendingVehicleType(null)}>Cancel</button>
-              <button className="btn btn-danger btn-sm" onClick={() => {
-                onChange(m => removeKidMode(m));
-                clearKidControlSnapshot(modelKey);
-                setModelVehicleType(modelKey, pendingVehicleType);
-                setPendingVehicleType(null);
-              }}>Change type &amp; remove KidControl</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="KidControl will be removed"
+          message="This model has KidControl configured. Changing the vehicle type will remove the KidControl setup — you can configure it again afterwards."
+          confirmLabel="Change type &amp; remove KidControl"
+          onCancel={() => setPendingVehicleType(null)}
+          onConfirm={() => {
+            onChange(m => removeKidMode(m));
+            clearKidControlSnapshot(modelKey);
+            setModelVehicleType(modelKey, pendingVehicleType);
+            setPendingVehicleType(null);
+          }}
+        />
       )}
     </>
   );
@@ -361,7 +357,7 @@ export function ModelEditor({ modelKey, navigate }: Props) {
         {isDirty && (
           <button className="btn btn-primary btn-sm" onClick={() => saveModel(modelKey)}>Save</button>
         )}
-        <span className={css.nameInput}>{model.header?.name || modelKey}</span>
+        <span className={css.nameDisplay}>{model.header?.name || modelKey}</span>
         {isDirty && <DirtyBadge />}
         <div style={{ flex: 1 }} />
         <div className={css.toggleGroup}>

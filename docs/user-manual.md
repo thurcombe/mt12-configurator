@@ -207,7 +207,7 @@ Throughout the editor, **any physical-input selector highlights the correspondin
 - **Hovering the closed picker button** — the control currently assigned to that field lights up on the diagram.
 - **Hovering or navigating an open dropdown** — the control for the focused option lights up as you move through the list, so you can visually confirm which control you are about to select. Keyboard navigation (↑ / ↓ arrow keys to move, Enter to select, Escape to close) triggers the same highlighting as mouse hover.
 
-Where a switch or pot is **already assigned elsewhere** in the model (a drive mode, mix, expo, logical switch, special function, or timer), the dropdown option shows a small **"In use: …"** note listing those usages. This helps avoid assigning the same physical control to conflicting functions.
+Where a switch or pot is **already assigned elsewhere** in the model (a drive mode, mix, expo, logical switch, special function, or timer), the dropdown option shows a small **"In use: …"** note in red and the option is **disabled** — you cannot select it here. To move the assignment, go to the control that currently holds it and remove it there first. This prevents silent conflicts where selecting a switch here would invisibly steal it from another control.
 
 Highlighting is available across every input selector in the app: Basic view cruise control switch, gyro gain source, steering trim source, speed limiter source, KidControl trigger switch, drive modes, mixes, expos, logical switches, special functions, timers, the KidControl wizard trigger switch, and the Transmitter Settings expansion-module rows (P3, P4, FL1, FL2).
 
@@ -639,8 +639,17 @@ Configure the **type** and **name** of the four permanently fitted switches:
 
 | Switch | Default type |
 |--------|-------------|
-| SA | 3-position |
-| SB, SC, SD | 2-position |
+| SA | 3-Pos |
+| SB, SC, SD | 2-Pos (latching) |
+
+Switch type options and their meanings:
+
+| Type | Meaning |
+|------|---------|
+| 2-Pos (latching) | A standard toggle switch that stays in position — the most common type. |
+| 3-Pos | A three-position switch (up / centre / down). |
+| Toggle (momentary/push-button) | A spring-return switch that snaps back when released — EdgeTX calls this "toggle". |
+| Multi-position rotary | A rotary selector with multiple detented positions. |
 
 Setting a meaningful name (e.g. "KID" for the switch used for KidControl) causes it to appear on the transmitter screen and in the diagram labels.
 

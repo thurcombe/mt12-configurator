@@ -5,6 +5,8 @@ import { SwitchPicker } from '../shared/SwitchPicker.tsx';
 import { InputSourcePicker } from '../shared/InputSourcePicker.tsx';
 import { KidModeWizard } from '../kidmode/KidModeWizard.tsx';
 import { applyKidMode, removeKidMode } from '../kidmode/kidGenerator.ts';
+import { expoFeel, rampDesc } from '../kidmode/kidFormatters.ts';
+import { ConfirmModal } from '../shared/ConfirmModal.tsx';
 import { calculateKidParams } from '../kidmode/kidCalculator.ts';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { BUILT_IN_CATEGORIES } from '../../data/vehicleTypes.ts';
@@ -27,6 +29,7 @@ import {
   physicalSrcFor,
   defaultWizardParams,
   generateBasicModel,
+  buildSourceOptions,
   type BasicAnalysis,
   type WizardParams,
 } from './basicPatterns.ts';
@@ -324,23 +327,18 @@ function RecognisedView({ model, modelKey, analysis, onChange, onRunWizard, onRu
       </section>
 
       {pendingVehicleType !== null && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:24, maxWidth:400, width:'90%', boxShadow:'0 8px 32px rgba(0,0,0,0.4)' }}>
-            <p style={{ fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
-              <strong>KidControl will be removed</strong><br/>
-              This model has KidControl configured. Changing the vehicle type will remove the KidControl setup — you can configure it again afterwards.
-            </p>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setPendingVehicleType(null)}>Cancel</button>
-              <button className="btn btn-danger btn-sm" onClick={() => {
-                onChange(m => removeKidMode(m));
-                clearKidControlSnapshot(modelKey);
-                setModelVehicleType(modelKey, pendingVehicleType);
-                setPendingVehicleType(null);
-              }}>Change type &amp; remove KidControl</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="KidControl will be removed"
+          message="This model has KidControl configured. Changing the vehicle type will remove the KidControl setup — you can configure it again afterwards."
+          confirmLabel="Change type &amp; remove KidControl"
+          onCancel={() => setPendingVehicleType(null)}
+          onConfirm={() => {
+            onChange(m => removeKidMode(m));
+            clearKidControlSnapshot(modelKey);
+            setModelVehicleType(modelKey, pendingVehicleType);
+            setPendingVehicleType(null);
+          }}
+        />
       )}
     </div>
   );
@@ -427,21 +425,6 @@ interface CardProps {
 
 // ── KidControl card ───────────────────────────────────────────────────────────
 
-function expoFeel(expo: number): string {
-  if (expo <= 5)  return 'direct';
-  if (expo <= 25) return 'slightly softer';
-  if (expo <= 50) return 'noticeably softer';
-  if (expo <= 75) return 'very soft';
-  return 'extremely soft';
-}
-
-function rampDesc(up: number, down: number): string {
-  const u = (up * 0.1).toFixed(1);
-  const d = (down * 0.1).toFixed(1);
-  if (up > 0 && down > 0) return `${u}s to speed up, ${d}s to slow down`;
-  if (up > 0) return `${u}s to speed up`;
-  return `${d}s to slow down`;
-}
 
 function KidControlCard({ model, modelKey, kidActive, onChange, onRunKidControl, onRemoveKidControl, affectedControls, overflowPositions, moduleLabel }: { model: Model; modelKey: string; kidActive: boolean; onChange: (updater: (m: Model) => Model) => void; onRunKidControl: () => void; onRemoveKidControl: () => void; affectedControls?: Set<string>; overflowPositions?: Set<string>; moduleLabel?: string }) {
   const inUse = useMemo(() => buildSwitchUsageMap(model), [model]);
@@ -707,15 +690,9 @@ function DRateSubCard({ drate, affectedControls, overflowPositions, moduleLabel,
   }
 
   const [min, max] = drate.range;
-  const drateSrcOptions = [
-    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
-    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
-    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
-    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
-    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
-    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
-    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
-  ];
+  const drateSrcOptions = buildSourceOptions(
+    { T1: conflict('T1'), T2: conflict('T2'), T3: conflict('T3'), T4: conflict('T4'), T5: conflict('T5'), P1: conflict('P1'), P2: conflict('P2') }
+  );
 
   return (
     <div className={css.subCard}>
@@ -776,15 +753,9 @@ function STrimSubCard({ analysis, model, onChange }: { analysis: BasicAnalysis; 
     return undefined;
   }
 
-  const strimSrcOptions = [
-    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
-    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
-    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
-    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
-    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
-    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
-    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
-  ];
+  const strimSrcOptions = buildSourceOptions(
+    { T1: conflict('T1'), T2: conflict('T2'), T3: conflict('T3'), T4: conflict('T4'), T5: conflict('T5'), P1: conflict('P1'), P2: conflict('P2') }
+  );
 
   return (
     <div className={css.subCard}>
@@ -834,15 +805,9 @@ function GyroGainCard({ model, analysis, onChange }: CardProps) {
     return undefined;
   }
 
-  const gyroSrcOptions = [
-    { value: 'P1', label: 'P1 knob', group: 'Knobs', conflict: conflict('P1') },
-    { value: 'P2', label: 'P2 knob', group: 'Knobs', conflict: conflict('P2') },
-    { value: 'T1', label: 'T1', group: 'Trim levers', conflict: conflict('T1') },
-    { value: 'T2', label: 'T2', group: 'Trim levers', conflict: conflict('T2') },
-    { value: 'T3', label: 'T3', group: 'Trim levers', conflict: conflict('T3') },
-    { value: 'T4', label: 'T4', group: 'Trim levers', conflict: conflict('T4') },
-    { value: 'T5', label: 'T5', group: 'Trim levers', conflict: conflict('T5') },
-  ];
+  const gyroSrcOptions = buildSourceOptions(
+    { T1: conflict('T1'), T2: conflict('T2'), T3: conflict('T3'), T4: conflict('T4'), T5: conflict('T5'), P1: conflict('P1'), P2: conflict('P2') }
+  );
 
   return (
     <section className={css.card}>
@@ -933,6 +898,15 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
     stepConflictWarning.steering = 'Steering trim uses the same knob as speed limiter — proceeding will disable the speed limiter.';
   } else if (strimGyroConflict) {
     stepConflictWarning.steering = 'Steering trim uses the same knob as gyro gain — proceeding will disable gyro gain.';
+  }
+
+  // Build a switch usage map for the wizard from its own params so pickers show "In use by" correctly.
+  const wizardSwitchInUse: Record<string, string[]> = {};
+  if (params.wantCruise && params.cruiseSw && params.cruiseSw !== 'NONE') {
+    wizardSwitchInUse[params.cruiseSw] = ['Cruise control'];
+  }
+  if (params.dRateMode === 'switch' && params.dRateSwitch && params.dRateSwitch !== 'NONE') {
+    wizardSwitchInUse[params.dRateSwitch] = [...(wizardSwitchInUse[params.dRateSwitch] ?? []), 'Speed limiter'];
   }
 
   function nextStep() {
@@ -1185,7 +1159,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <div className={css.wizardConfig}>
               <div className={css.fieldRow}>
                 <span className={css.fieldLabel}>Cruise switch</span>
-                <SwitchPicker value={params.cruiseSw} onChange={(v) => patch({ cruiseSw: v })} />
+                <SwitchPicker value={params.cruiseSw} onChange={(v) => patch({ cruiseSw: v })} inUse={wizardSwitchInUse} />
               </div>
               {params.dRateMode === 'switch' && params.dRateSwitch === params.cruiseSw && (
                 <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
@@ -1240,15 +1214,12 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 <InputSourcePicker
                   value={params.dRatePot}
                   onChange={(v) => patch({ dRatePot: v })}
-                  options={[
-                    { value:'T1', label:'T1', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T1' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T1' ? 'steering trim' : undefined) },
-                    { value:'T2', label:'T2', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T2' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T2' ? 'steering trim' : undefined) },
-                    { value:'T3', label:'T3', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T3' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T3' ? 'steering trim' : undefined) },
-                    { value:'T4', label:'T4', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T4' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T4' ? 'steering trim' : undefined) },
-                    { value:'T5', label:'T5', group:'Trim levers', conflict: (params.wantGyroGain && params.gyroGainPot === 'T5' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'T5' ? 'steering trim' : undefined) },
-                    { value:'P1', label:'P1 knob', group:'Knobs', conflict: (params.wantGyroGain && params.gyroGainPot === 'P1' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'P1' ? 'steering trim' : undefined) },
-                    { value:'P2', label:'P2 knob', group:'Knobs', conflict: (params.wantGyroGain && params.gyroGainPot === 'P2' ? 'gyro gain' : undefined) ?? (params.wantSteering && params.strimSrc === 'P2' ? 'steering trim' : undefined) },
-                  ]}
+                  options={buildSourceOptions(
+                    Object.fromEntries(['T1','T2','T3','T4','T5','P1','P2'].map(v => [v,
+                      (params.wantGyroGain && params.gyroGainPot === v ? 'gyro gain' : undefined)
+                      ?? (params.wantSteering && params.strimSrc === v ? 'steering trim' : undefined)
+                    ]))
+                  )}
                 />
               </div>
             </div>
@@ -1258,7 +1229,7 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
             <div className={css.wizardConfig}>
               <div className={css.fieldRow}>
                 <span className={css.fieldLabel}>Limit switch</span>
-                <SwitchPicker value={params.dRateSwitch} onChange={(v) => patch({ dRateSwitch: v })} />
+                <SwitchPicker value={params.dRateSwitch} onChange={(v) => patch({ dRateSwitch: v })} inUse={wizardSwitchInUse} />
               </div>
               {params.wantCruise && params.cruiseSw === params.dRateSwitch && (
                 <p className={css.fieldHint} style={{ color:'var(--danger)', marginTop:4 }}>
@@ -1319,23 +1290,13 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 <InputSourcePicker
                   value={params.strimSrc}
                   onChange={(v) => patch({ strimSrc: v })}
-                  options={[
-                    { value:'T1', label:'T1', group:'Trim levers' },
-                    { value:'T2', label:'T2', group:'Trim levers' },
-                    { value:'T3', label:'T3', group:'Trim levers' },
-                    { value:'T4', label:'T4', group:'Trim levers' },
-                    { value:'T5', label:'T5', group:'Trim levers' },
-                    { value:'P1', label:'P1 knob', group:'Knobs',
-                      conflict: params.dRateMode === 'pot' && params.dRatePot === 'P1' && params.wantGyroGain && params.gyroGainPot === 'P1' ? 'speed limiter + gyro gain'
-                               : params.dRateMode === 'pot' && params.dRatePot === 'P1' ? 'speed limiter'
-                               : params.wantGyroGain && params.gyroGainPot === 'P1' ? 'gyro gain'
-                               : undefined },
-                    { value:'P2', label:'P2 knob', group:'Knobs',
-                      conflict: params.dRateMode === 'pot' && params.dRatePot === 'P2' && params.wantGyroGain && params.gyroGainPot === 'P2' ? 'speed limiter + gyro gain'
-                               : params.dRateMode === 'pot' && params.dRatePot === 'P2' ? 'speed limiter'
-                               : params.wantGyroGain && params.gyroGainPot === 'P2' ? 'gyro gain'
-                               : undefined },
-                  ]}
+                  options={buildSourceOptions(
+                    Object.fromEntries(['P1','P2'].map(v => {
+                      const isDrate = params.dRateMode === 'pot' && params.dRatePot === v;
+                      const isGyro = params.wantGyroGain && params.gyroGainPot === v;
+                      return [v, isDrate && isGyro ? 'speed limiter + gyro gain' : isDrate ? 'speed limiter' : isGyro ? 'gyro gain' : undefined];
+                    }))
+                  )}
                 />
               </div>
             </div>
@@ -1387,15 +1348,12 @@ function SetupWizard({ modelKey, onChange, initialParams, onCancel, onSwitchToAd
                 <InputSourcePicker
                   value={params.gyroGainPot}
                   onChange={(v) => patch({ gyroGainPot: v })}
-                  options={[
-                    { value:'T1', label:'T1', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T1' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T1' ? 'steering trim' : undefined) },
-                    { value:'T2', label:'T2', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T2' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T2' ? 'steering trim' : undefined) },
-                    { value:'T3', label:'T3', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T3' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T3' ? 'steering trim' : undefined) },
-                    { value:'T4', label:'T4', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T4' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T4' ? 'steering trim' : undefined) },
-                    { value:'T5', label:'T5', group:'Trim levers', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'T5' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'T5' ? 'steering trim' : undefined) },
-                    { value:'P1', label:'P1 knob', group:'Knobs', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'P1' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'P1' ? 'steering trim' : undefined) },
-                    { value:'P2', label:'P2 knob', group:'Knobs', conflict: (params.dRateMode === 'pot' && params.dRatePot === 'P2' ? 'speed limiter' : undefined) ?? (params.wantSteering && params.strimSrc === 'P2' ? 'steering trim' : undefined) },
-                  ]}
+                  options={buildSourceOptions(
+                    Object.fromEntries(['T1','T2','T3','T4','T5','P1','P2'].map(v => [v,
+                      (params.dRateMode === 'pot' && params.dRatePot === v ? 'speed limiter' : undefined)
+                      ?? (params.wantSteering && params.strimSrc === v ? 'steering trim' : undefined)
+                    ]))
+                  )}
                 />
               </div>
             </div>

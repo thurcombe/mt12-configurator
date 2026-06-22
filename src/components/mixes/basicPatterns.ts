@@ -666,3 +666,19 @@ export function generateBasicModel(p: WizardParams): GeneratedConfig {
 
   return { mixData, expoData, logicalSw, inputNames, moduleData };
 }
+
+// ── Source picker helpers ──────────────────────────────────────────────────────
+
+export const BASE_SOURCE_OPTIONS = [
+  { value: 'T1', label: 'T1',      group: 'Trim levers' },
+  { value: 'T2', label: 'T2',      group: 'Trim levers' },
+  { value: 'T3', label: 'T3',      group: 'Trim levers' },
+  { value: 'T4', label: 'T4',      group: 'Trim levers' },
+  { value: 'T5', label: 'T5',      group: 'Trim levers' },
+  { value: 'P1', label: 'P1 knob', group: 'Knobs'       },
+  { value: 'P2', label: 'P2 knob', group: 'Knobs'       },
+] as const;
+
+export function buildSourceOptions(conflicts: Partial<Record<string, string>>) {
+  return BASE_SOURCE_OPTIONS.map(o => ({ ...o, conflict: conflicts[o.value] }));
+}

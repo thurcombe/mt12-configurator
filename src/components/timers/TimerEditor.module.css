@@ -7,7 +7,7 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--panel-radius);
   overflow: hidden;
 }
 
@@ -28,7 +28,7 @@
   background: var(--hover, rgba(255,255,255,0.04));
 }
 
-.chevron {
+.caret {
   font-size: 11px;
   color: var(--text-muted);
   flex-shrink: 0;
@@ -52,7 +52,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: var(--form-label-width) 1fr;
   align-items: center;
   gap: 10px 16px;
   padding: 4px 20px 16px;
@@ -66,21 +66,8 @@
 
 .select,
 .input {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-family: var(--font);
-  width: 100%;
+  composes: form-input from '../../styles/shared.css';
   max-width: 280px;
-}
-
-.select:focus,
-.input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .checkLabel {

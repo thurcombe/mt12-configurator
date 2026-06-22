@@ -25,7 +25,6 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
   const setHighlight = useEditorStore(s => s.setDiagramHighlight);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close on outside click.
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
@@ -35,14 +34,11 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  // Stop highlighting when dropdown closes.
   useEffect(() => {
     if (!open) setHighlight(null);
   }, [open, setHighlight]);
 
   const selected = options.find(o => o.value === value);
-
-  // Group options.
   const groups = Array.from(new Set(options.map(o => o.group)));
 
   return (
@@ -68,7 +64,7 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
         <div style={{
           position:'absolute', top:'calc(100% + 2px)', left:0, zIndex:200,
           background:'var(--surface)', border:'1px solid var(--border)', borderRadius:4,
-          boxShadow:'0 4px 12px rgba(0,0,0,0.4)', minWidth:'100%', overflow:'hidden',
+          boxShadow:'0 4px 12px rgba(0,0,0,0.4)', minWidth:'100%', maxHeight:'var(--picker-max-height)', overflowY:'auto',
         }}>
           {groups.map((group, gi) => (
             <div key={group}>
@@ -79,24 +75,29 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
               )}
               {options.filter(o => o.group === group).map(opt => {
                 const isSelected = opt.value === value;
+                const isDisabled = !!(opt.conflict && !isSelected);
                 return (
                   <div
                     key={opt.value}
-                    onMouseEnter={() => setHighlight(opt.value)}
+                    onMouseEnter={() => !isDisabled && setHighlight(opt.value)}
                     onMouseLeave={() => setHighlight(null)}
-                    onClick={() => { onChange(opt.value); setOpen(false); setHighlight(null); }}
-                    style={{
-                      padding:'5px 10px', cursor:'pointer', fontFamily:'var(--font)',
-                      background: isSelected ? 'var(--accent)' : undefined,
-                      color: isSelected ? '#fff' : 'var(--text)',
+                    onClick={() => {
+                      if (isDisabled) return;
+                      onChange(opt.value); setOpen(false); setHighlight(null);
                     }}
-                    onMouseOver={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-hover, rgba(255,255,255,0.06))'; }}
+                    style={{
+                      padding:'5px 10px', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily:'var(--font)',
+                      background: isSelected ? 'var(--accent)' : undefined,
+                      color: isSelected ? '#fff' : isDisabled ? 'var(--text-muted)' : 'var(--text)',
+                      opacity: isDisabled ? 0.6 : 1,
+                    }}
+                    onMouseOver={(e) => { if (!isSelected && !isDisabled) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-hover, rgba(255,255,255,0.06))'; }}
                     onMouseOut={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = ''; }}
                   >
                     <div style={{ fontSize:13 }}>{opt.label}</div>
                     {opt.conflict && (
-                      <div style={{ fontSize:11, color: isSelected ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)' }}>
-                        Already used by {opt.conflict}
+                      <div style={{ fontSize:11, color: isSelected ? 'rgba(255,255,255,0.75)' : '#ef4444' }}>
+                        In use by: {opt.conflict}
                       </div>
                     )}
                   </div>
@@ -109,6 +110,7 @@ export function InputSourcePicker({ value, options, placeholder = 'â€” select â€
           ))}
         </div>
       )}
+
     </div>
   );
 }

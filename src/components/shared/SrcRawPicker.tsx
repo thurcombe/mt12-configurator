@@ -158,7 +158,7 @@ export function SrcRawPicker({ value, onChange, id, style, warn, warnTitle }: Pr
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           background: 'var(--bg)', color: 'var(--text)',
           border: warn ? '1px solid #f59e0b' : '1px solid var(--border)', borderRadius: 4,
-          padding: '3px 6px', fontSize: 13, fontFamily: 'var(--font)', cursor: 'pointer',
+          padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)', cursor: 'pointer',
         }}
       >
         <span>{displayLabel}</span>

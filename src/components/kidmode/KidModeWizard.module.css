@@ -309,7 +309,7 @@
 
 .activeRow {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: var(--form-label-width) 1fr;
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
