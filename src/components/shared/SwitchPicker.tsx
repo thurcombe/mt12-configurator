@@ -5,20 +5,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { switchLabel } from '../../codec/switches.ts';
+import { faCaretUp, faMinus, faCaretDown } from '@fortawesome/free-solid-svg-icons';
+import { Icon } from './Icon.tsx';
 
 const POS_LABEL: Record<number, string> = { 0: '↑', 1: '—', 2: '↓' };
+const POS_ICON = { 0: faCaretUp, 1: faMinus, 2: faCaretDown } as const;
+const POS_TEXT: Record<number, string> = { 0: 'Up', 1: 'Centre', 2: 'Down' };
 
 interface SwitchOption {
   value: string;
   label: string;
   group: string;
   control: string | null;
+  pos: number | null;
 }
 
 export function buildOptions(switches: { key: string; name: string; type: string }[]): SwitchOption[] {
   const opts: SwitchOption[] = [
-    { value: 'NONE', label: 'None',       group: '',    control: null },
-    { value: 'ON',   label: 'Always ON',  group: '',    control: null },
+    { value: 'NONE', label: 'None',       group: '',    control: null, pos: null },
+    { value: 'ON',   label: 'Always ON',  group: '',    control: null, pos: null },
   ];
   for (const s of switches) {
     const is3pos = s.type.toUpperCase() === '3POS';
@@ -31,6 +36,7 @@ export function buildOptions(switches: { key: string; name: string; type: string
         label: `${displayLabel} ${POS_LABEL[p] ?? p}`,
         group: displayLabel,
         control: s.key,
+        pos: p,
       });
     }
   }
@@ -76,7 +82,7 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
     if (!open) setHighlight(null);
   }, [open, setHighlight]);
 
-  const selected = options.find(o => o.value === value) ?? (value ? { value, label: switchLabel(value), group: '', control: switchToControl(value) } : null);
+  const selected = options.find(o => o.value === value) ?? (value ? { value, label: switchLabel(value), group: '', control: switchToControl(value), pos: null } : null);
 
   return (
     <div ref={ref} id={id} style={{ position: 'relative', display: 'inline-block', minWidth: 160, ...style }}>
@@ -93,7 +99,14 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
           padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)', cursor: 'pointer',
         }}
       >
-        <span>{warn && <span style={{ color: '#f59e0b', marginRight: 4 }}>⚠</span>}{selected ? selected.label : '— select —'}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {warn && <span style={{ color: '#f59e0b' }}>⚠</span>}
+          {selected
+            ? selected.pos !== null
+              ? <><span>{selected.group}</span><Icon icon={POS_ICON[selected.pos as 0 | 1 | 2]} size={14} /></>
+              : selected.label
+            : '— select —'}
+        </span>
         <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
       </button>
 
@@ -135,7 +148,12 @@ export function SwitchPicker({ value, onChange, id, style, warn, warnTitle, inUs
                       onMouseOver={(e) => { if (!isSelected && !isDisabled) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-hover, rgba(255,255,255,0.06))'; }}
                       onMouseOut={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = ''; }}
                     >
-                      {opt.label}
+                      {opt.pos !== null ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Icon icon={POS_ICON[opt.pos as 0 | 1 | 2]} size={16} />
+                          <span>{POS_TEXT[opt.pos]}</span>
+                        </div>
+                      ) : opt.label}
                       {usages?.length ? (
                         <div style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.7)' : '#ef4444', marginTop: 1 }}>
                           In use by: {usages.join(', ')}
