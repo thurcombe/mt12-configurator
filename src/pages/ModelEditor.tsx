@@ -85,7 +85,7 @@ function VehicleDetailsTab({ model, modelKey, navigate, onChange }: {
 
   const fieldRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 };
   const fieldLabel: React.CSSProperties = { fontSize: 13, color: 'var(--text-muted)', minWidth: 130 };
-  const sel: React.CSSProperties = { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)' };
+  const sel: React.CSSProperties = { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 8px', fontSize: 13, fontFamily: 'var(--font)', flex: 1 };
 
   const sectionStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px' };
 

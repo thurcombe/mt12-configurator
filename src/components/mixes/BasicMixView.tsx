@@ -385,7 +385,7 @@ function RadioLinkCard({ model, onChange }: { model: Model; onChange: (updater: 
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Receiver protocol</span>
         <select
-          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', flex:1 }}
           value={protocolId}
           onChange={(e) => setProtocol(parseInt(e.target.value))}
         >
@@ -398,7 +398,7 @@ function RadioLinkCard({ model, onChange }: { model: Model; onChange: (updater: 
       <div className={css.fieldRow}>
         <span className={css.fieldLabel}>Signal lost</span>
         <select
-          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)' }}
+          style={{ background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:4, padding:'4px 8px', fontSize:13, fontFamily:'var(--font)', flex:1 }}
           value={failsafe}
           onChange={(e) => setFailsafe(e.target.value)}
         >
