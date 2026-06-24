@@ -92,15 +92,14 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
       - name: Deploy to production
-        env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          install -m 600 /dev/null /tmp/deploy_key
-          echo "$SSH_KEY" > /tmp/deploy_key
-          ssh -i /tmp/deploy_key \
-            -o StrictHostKeyChecking=no \
+          ssh -o StrictHostKeyChecking=no \
             -o BatchMode=yes \
             deployer@pzserver.micasa.systems \
             "${{ github.ref_name }}"
-          rm -f /tmp/deploy_key
