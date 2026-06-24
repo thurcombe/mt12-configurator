@@ -63,7 +63,7 @@
   margin-bottom: 14px;
 }
 
-@media (max-width: 900px) {
+@container (max-width: 860px) {
   .root {
     columns: 1;
   }
