@@ -102,4 +102,4 @@ jobs:
           ssh -o StrictHostKeyChecking=no \
             -o BatchMode=yes \
             deployer@pzserver.micasa.systems \
-            "${{ github.ref_name }}"
+            "${GITHUB_REF_NAME#v}"
